@@ -8,10 +8,12 @@ if root_dir not in sys.path:
 import parglare as Parglare
 
 class Grammar:
-    def __init__(self, grammar, keywords):
+    def __init__(self, grammar, keywords, recognizers=None, debug=False):
         assert isinstance(grammar, str)
         self.grammar = grammar
         self.keywords = keywords
+        self.recognizers = recognizers
+        self.debug = debug
 
     def get_action(self,inp):
         raise Exception("override this")
@@ -21,8 +23,11 @@ class Grammar:
         return result
 
     def compile(self, code):
-        g = Parglare.Grammar.from_string(self.grammar)
-        parser = Parglare.Parser(g, debug=False, actions={})
+        if self.recognizers is not None:
+            g = Parglare.Grammar.from_string(self.grammar, recognizers=self.recognizers, debug=self.debug)
+        else:
+            g = Parglare.Grammar.from_string(self.grammar)
+        parser = Parglare.Parser(g, debug=self.debug, actions={})
         result = parser.parse(code)
         return result
 
