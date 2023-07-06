@@ -19,9 +19,9 @@ GetThmsRequest:
 GetDfnsRequest:
     GetDfns End;
 RunTacticRequest:
-    RunTactic StpRequests;
+    RunTactic StpRequests End;
 StpRequests:
-  Stp String End
+  Stp String 
 | Stp String StpRequests;
 
 terminals
@@ -143,8 +143,7 @@ if __name__ == "__main__":
 Please run the tactics below.
 [RUN TACTIC] [STP] reflexivity.
 [STP]reflexivity.
-rewrite <- plus_n_O.
-[END]"""
+rewrite <- plus_n_O.[END]"""
     )
     print(result)
     result = grammar.compile(
