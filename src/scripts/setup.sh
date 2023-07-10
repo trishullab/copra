@@ -15,6 +15,7 @@ opam pin -y add menhir 20190626
 echo "Installing SerAPI (for interacting with Coq from Python)..."
 opam install -y coq-serapi
 echo "Installing Dpdgraph (for generating dependency graphs)..."
+opam repo add coq-released https://coq.inria.fr/opam/released
 opam install -y coq-dpdgraph
 # Python dependencies
 echo "Installing Python dependencies..."

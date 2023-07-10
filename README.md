@@ -13,3 +13,8 @@ sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.
 3. Create a `Miniconda` environment and activate it.
 
 4. Change to the root working directory, and run the setup script i.e. `./src/scripts/setup.sh` fromt the root directory.
+
+5. Add the following to your `.bashrc` file:
+```
+export PATH="/home/<username>/.opam/default/bin:$PATH"
+```
