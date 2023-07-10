@@ -31,7 +31,7 @@ class ProofExecutorCallback(object):
         self.logger = logger
         pass
 
-    def _get_proof_executor(self):
+    def get_proof_executor(self):
         search_exec = CoqExecutor(self.project_folder, self.file_path, use_hammer=self.use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)
         search_exec.run_to_finish() # run to finish to get the full context
         coq_context_helper = CoqContextHelper(search_exec, self.search_depthm, logger=self.logger)

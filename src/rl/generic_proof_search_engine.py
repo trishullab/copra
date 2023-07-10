@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -11,88 +12,11 @@ import time
 import os
 import copy
 import math
+from src.rl.proof_search_result import ProofSearchResult
+from src.rl.proof_tree import ProofTree
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
 from src.tools.training_data_format import TrainingDataFormat
-from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
-
-@dataclass_json
-@dataclass
-class ProofSearchResult(object):
-    proof_file: typing.Optional[str]
-    proof_found: bool
-    lemma_name: str
-    proof_steps: typing.List[TrainingDataFormat]
-    proof_time_in_secs: float
-    inferences_taken: int
-    possible_failed_paths: int
-    num_of_backtracks: int
-    is_timeout: bool
-    is_inference_exhausted: bool
-    longest_success_path: int
-
-    def __str__(self) -> str:
-        try:
-            lines = [line for step in self.proof_steps for line in step.proof_steps]
-            proof_metadata = f"""
-ProofFile: {self.proof_file}
-LemmaName: {self.lemma_name}
-SearchResult: {'[FAILED]' if not self.proof_found else '[SUCCESS]'}
-IsInferenceExhausted: {self.is_inference_exhausted}
-IsTimeout: {self.is_timeout}
-LongestSuccessPath: {self.longest_success_path} 
-StepsUsed: {self.inferences_taken}
-SearchTimeInSecs: {self.proof_time_in_secs}
-NumberOfBacktracks: {self.num_of_backtracks}
-PossibleFailedPaths: {self.possible_failed_paths}
---------------------
-"""
-            all_proof_steps = "\n    ".join(lines[:-1]) if len(lines) > 1 else ""
-            last_line = (lines[-1] if lines[-1] == "Qed." else f"    {lines[-1]}\n") if len(lines) > 0 else ""
-            return f"""{self.lemma_name}
-Proof.
-    {all_proof_steps}
-{last_line}
-{proof_metadata}
-"""
-        except Exception:
-            return f"------- UNABLE_TO_PRINT_INCOMPLETE_PROOF ----------"
-
-@dataclass_json
-@dataclass
-class ProofTree(object):
-    tactics: typing.List[typing.Tuple[int, TrainingDataFormat]] = field(default_factory=list)
-
-    def __len__(self):
-        return len(self.tactics)
-    
-    def __getitem__(self, index):
-        return self.tactics[index]
-
-    def try_add_tactic(self, line_num, tactic: TrainingDataFormat, force_add: bool = False):
-        # Make sure that the tactic is not more hard than any of the previous tactics
-        if not force_add:
-            for _, prev_tactic in self.tactics:
-                if tactic >= prev_tactic: # New tactic should be easier than all the previous tactics
-                    return False
-        self.tactics.append((line_num, tactic))
-        return True
-    
-    def try_remove_last_tactic(self):
-        if len(self.tactics) > 0:
-            line_num, tactic = self.tactics.pop()
-            return line_num, tactic
-        return None, None
-    
-    def _convert_to_str(self, tactic: TrainingDataFormat) -> typing.Tuple[str, list, list]:
-        # sort the goals
-        goal_set = set([goal.goal for goal in tactic.start_goals])
-        hyp_set = set([hyp for goal in tactic.start_goals for hyp in goal.hypotheses])
-        goals = sorted(goal_set)
-        hyps = sorted(hyp_set)
-        goal_str = "\n".join(goals)
-        return goal_str, goals, hyps
 
 class TacticGenerationEngineParams(object):
     def get_tactic_generation_engine(self, logger: logging.Logger = None):
@@ -414,7 +338,7 @@ class Prover(object):
         proof_depth = proof_depth if proof_depth is not None else self.proof_depth
         proof_timeouts_in_secs = proof_timeouts_in_secs if proof_timeouts_in_secs is not None else self.proof_timeouts_in_secs
         proof_exec_callback = ProofExecutorCallback(project_folder, file_path, context_type=self.context_type)
-        proof_search_engine = ProofSearchEngine(k=self.k, proof_depth=proof_depth, generic_tactic_engine=self.tactic_engine, proof_executor_callback=proof_exec_callback._get_proof_executor, timeout_in_secs=proof_timeouts_in_secs, disable_bactracking=self.disable_backtracking, logger=self.logger, max_inferences_allowed=max_inferences_allowed)
+        proof_search_engine = ProofSearchEngine(k=self.k, proof_depth=proof_depth, generic_tactic_engine=self.tactic_engine, proof_executor_callback=proof_exec_callback.get_proof_executor, timeout_in_secs=proof_timeouts_in_secs, disable_bactracking=self.disable_backtracking, logger=self.logger, max_inferences_allowed=max_inferences_allowed)
         all_proofs = proof_search_engine.prove_all()
         return all_proofs
 
