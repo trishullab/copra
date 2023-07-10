@@ -413,5 +413,6 @@ if __name__ == "__main__":
     logging.basicConfig(filename='coq_executor.log', filemode='w', level=logging.INFO)
     # with CoqStdInOutExecutor() as coq_exec:
     #     coq_exec.run_in_loop()
-    with CoqCustomFileExec("data/custom_group_theory/SimpleAlgebra.v") as coq_exec:
+    os.chdir(root_dir)
+    with CoqCustomFileExec("data/test/SimpleAlgebra.v") as coq_exec:
         coq_exec.run_in_loop()
