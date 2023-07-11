@@ -25,3 +25,4 @@ soundfile
 editdistance
 rank_bm25
 parglare
+openai==0.27.8
