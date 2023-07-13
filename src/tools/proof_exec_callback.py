@@ -17,7 +17,7 @@ class ProofExecutorCallback(object):
                 use_hammer: bool = False,
                 timeout_in_secs: int = 60,
                 use_human_readable_proof_context: bool = True,
-                suppress_error_log: bool = False,
+                suppress_error_log: bool = True,
                 search_depth: int = 0,
                 logger: logging.Logger = None):
         self.project_folder = project_folder
@@ -33,6 +33,5 @@ class ProofExecutorCallback(object):
 
     def get_proof_executor(self):
         search_exec = CoqExecutor(self.project_folder, self.file_path, use_hammer=self.use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)
-        search_exec.run_to_finish() # run to finish to get the full context
-        coq_context_helper = CoqContextHelper(search_exec, self.search_depthm, logger=self.logger)
-        return DynamicProofExecutor(coq_context_helper, self.project_folder, self.file_path, context_type=self.context_type, use_hammer=self.use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)
+        coq_context_helper = CoqContextHelper(search_exec, self.search_depth, logger=self.logger)
+        return DynamicProofExecutor(coq_context_helper, self.project_folder, self.file_path, context_type=self.context_type, use_hammer=self.use_hammer, timeout_in_seconds=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)

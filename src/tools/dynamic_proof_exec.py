@@ -55,6 +55,7 @@ class DynamicProofExecutor(CoqExecutor):
     class RunState(object):
         def __init__(self):
             self.tatics_ran = []
+            self.last_exception : typing.Optional[str] = None
     class ContextType(enum.Enum):
         NoContext = 0
         LocalContext = 1
@@ -72,6 +73,14 @@ class DynamicProofExecutor(CoqExecutor):
         self.coq_context_helper = coq_context_helper
         super().__init__(project_root=project_folder, proof_step_iter=self.tactic_switch_iterator, use_hammer=use_hammer, timeout_in_sec=timeout_in_seconds, use_human_readable_proof_context=use_human_readable_proof_context, suppress_error_log=suppress_error_log)
 
+    def __enter__(self):
+        self.coq_context_helper.__enter__()
+        return super().__enter__()
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.coq_context_helper.__exit__(exc_type, exc_val, exc_tb)
+        super().__exit__(exc_type, exc_val, exc_tb)
+
     def set_logger(self, logger: logging.Logger):
         self.logger = logger
         pass
@@ -81,25 +90,26 @@ class DynamicProofExecutor(CoqExecutor):
             return []
         return self.coq_context_helper.get_current_goals(self)
 
-    def get_current_proof_state_as_training_data(self) -> TrainingDataFormat:
+    def get_current_proof_state_as_training_data(self, context_type = None) -> TrainingDataFormat:
         # get the current goal
+        context_type = self.context_type if context_type is None else context_type
         current_goals = self.get_current_goal()
         training_data_format = TrainingDataFormat(start_goals=current_goals)
-        if self.context_type == DynamicProofExecutor.ContextType.NoContext:
+        if context_type == DynamicProofExecutor.ContextType.NoContext:
             # do nothing
             for goal in training_data_format.start_goals:
                 goal.possible_useful_theorems_external = []
                 goal.possible_useful_theorems_local = []
             pass
-        elif self.context_type == DynamicProofExecutor.ContextType.LocalContext:
+        elif context_type == DynamicProofExecutor.ContextType.LocalContext:
             self.coq_context_helper.set_local_thms_dfns(training_data_format, self, self.logger)
             for goal in training_data_format.start_goals:
                 goal.possible_useful_theorems_external = []
-        elif self.context_type == DynamicProofExecutor.ContextType.BestContext:
+        elif context_type == DynamicProofExecutor.ContextType.BestContext:
             self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
             self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
         else:
-            raise NotImplementedError(f"Context type {self.context_type} is not implemented")
+            raise NotImplementedError(f"Context type {context_type} is not implemented")
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:
@@ -126,12 +136,18 @@ class DynamicProofExecutor(CoqExecutor):
             try:
                 self.run_next()
                 self.run_state.tatics_ran.append(tactic)
-            except Exception:
+            except Exception as e:
                 self.line_num -= 1
                 tactic_failed = True
+                self.run_state.last_exception = str(e)
                 #self.coq.cancel_failed()
                 break
         return start_line_num, not tactic_failed
+    
+    def get_last_exception(self) -> typing.Optional[str]:
+        last_exception = self.run_state.last_exception
+        self.run_state.last_exception = None
+        return last_exception
 
     def cancel_tactic_till_line(self, tactic_line_num: int) -> bool:
         assert tactic_line_num <= self.line_num, "tactic_line_num must be <= self.line_num"

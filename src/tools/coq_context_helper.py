@@ -8,7 +8,7 @@ if root_dir not in sys.path:
 import logging
 import typing
 from src.tools.coq_executor import CoqExecutor
-from src.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat, TrainingDataCollection
+from src.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 
 class CoqContextHelper(object):
@@ -19,8 +19,16 @@ class CoqContextHelper(object):
         self.search_executor = search_executor
         self.depth = depth if depth is not None else -1
         self.logger = logger if logger is not None else logging.getLogger(__name__)
+    
+    def __enter__(self):
+        self.search_executor.__enter__()
+        self.search_executor.run_to_finish()
         search_exec_local_lemmas_discovered_so_far = [lemma.split(':')[0].strip() if ':' in lemma else lemma.split()[0].strip() for lemma in self.search_executor.coq.local_lemmas]
         self.search_exec_local_lemmas_discovered_so_far = set([l for l in search_exec_local_lemmas_discovered_so_far if len(l) > 0])
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.search_executor.__exit__(exc_type, exc_value, traceback)
 
     def _get_local_lemmas_discovered_so_far_set(self, coq_executor: CoqExecutor):
         local_lemmas_discovered_so_far = [lemma.split(':')[0].strip() if ':' in lemma else lemma.split()[0].strip() for lemma in coq_executor.coq.local_lemmas[:-1]]
@@ -297,48 +305,3 @@ class CoqContextHelper(object):
                 useful_local_theorems.append((defn, defn_val, CoqContextHelper.max_relevance_score))
         for goal in training_data_point.start_goals:
             goal.possible_useful_theorems_local = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_local_theorems if score <= CoqContextHelper.max_relevance_score]
-
-if __name__ == "__main__":
-    import os
-    project_dir = "data/custom_group_theory/theories"
-    file_name = "data/custom_group_theory/theories/grpthm.v"
-    coq_exec = CoqExecutor(project_dir, file_name)
-    training_data_points = TrainingDataCollection()
-    inference_data_points = TrainingDataCollection()
-    with CoqExecutor(project_dir, file_name, use_human_readable_proof_context=True) as search_exec:
-        with CoqExecutor(project_dir, file_name, use_human_readable_proof_context=True) as coq_exec:
-            search_exec.run_to_finish()
-            coq_context_helper = CoqContextHelper(search_exec, depth=0)
-            # execute coq_exec line by line
-            while not coq_exec.execution_complete:
-                ran_success, lemma_name = coq_exec.run_till_next_lemma()
-                if ran_success:
-                    ran_next = True
-                    prev_goals : typing.List[Goal] = []
-                    while ran_next and coq_exec.is_in_proof_mode():
-                        ran_next = coq_exec.run_next()
-                        if coq_exec.is_in_proof_mode():
-                            training_data_point = TrainingDataFormat()
-                            training_data_point.start_goals = [Goal(goal.hypotheses, goal.goal) for goal in prev_goals]
-                            training_data_point.end_goals = coq_context_helper.get_current_goals(coq_exec)
-                            inference_data_point = TrainingDataFormat()
-                            inference_data_point.start_goals = [Goal(goal.hypotheses, goal.goal) for goal in prev_goals]
-                            inference_data_point.end_goals = training_data_point.end_goals
-                            prev_goals = training_data_point.end_goals
-                            coq_context_helper.set_relevant_defns_in_training_data_point(training_data_point, coq_exec)
-                            coq_context_helper.set_useful_defns_theorems_for_training_data_generation(coq_exec.current_stmt, training_data_point, coq_exec)
-                            training_data_point.proof_steps = [coq_exec.current_stmt]
-                            training_data_points.merge(training_data_point)
-                            coq_context_helper.set_all_type_matched_query_result(inference_data_point, coq_exec)
-                            inference_data_points.merge(inference_data_point)
-                            inference_data_point.proof_steps = [coq_exec.current_stmt]
-    
-    output_path = "data/generated_coq_full_context_dump_very_small_test/"
-    os.makedirs(output_path, exist_ok=True)
-    training_data_full_serialized = training_data_points.to_json()
-    with open(os.path.join(output_path, "training_data_full.json"), "w") as f:
-        f.write(training_data_full_serialized)
-    inference_data_collection = TrainingDataCollection(inference_data_points)
-    inference_data_full_serialized = inference_data_points.to_json()
-    with open(os.path.join(output_path, "inference_data_full.json"), "w") as f:
-        f.write(inference_data_full_serialized)

@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import typing
 from abc import ABC, abstractmethod
 
-class State(ABC):
+class State(object):
     def __init__(self):
         pass
 
@@ -69,11 +69,6 @@ class Env(ABC):
     @property
     @abstractmethod
     def state(self):
-        pass
-
-    @property
-    @abstractmethod
-    def history(self) -> typing.List[typing.Tuple[State, Action, float, bool, dict]]:
         pass
 
     @property
