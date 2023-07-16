@@ -8,10 +8,14 @@ if root_dir not in sys.path:
 import typing
 
 class CoqLineByLineReader:
-    def __init__(self, file_name: str):
+    def __init__(self, file_name: str = None, file_content: str = None):
+        assert file_name is not None or file_content is not None, "Either file_name or file_content must be provided"
+        assert file_name is None or file_content is None, "Only one of file_name or file_content must be provided"
         self.file_name : str = file_name
-        with open(file_name, 'r') as fd:
-            self.file_content : str = fd.read()
+        self.file_content : str = file_content
+        if self.file_name is not None:
+            with open(file_name, 'r') as fd:
+                self.file_content : str = fd.read()
         self.remove_comments()
     
     def remove_comments(self):
@@ -123,6 +127,8 @@ class CoqLineByLineReader:
                 # instruction start doesn't change
             else:
                 raise Exception("This case is not possible")
+        if instr_start < len(all_code):
+            yield all_code[instr_start:].strip()
 
 class CoqStepByStepStdInReader:
     def __init__(self):
@@ -140,16 +146,23 @@ class CoqStepByStepStdInReader:
 
 if __name__ == "__main__":
 #    file_name = "data/custom_group_theory/theories/grpthm.v"
-    file_name = "data/proverbot9001/CompCert/common/Memtype.v"
-    if len(sys.argv) == 2:
-        file_name = sys.argv[1]
-    print(file_name)
-    print("=========================")
-    if not os.path.exists(file_name):
-        print(f"File {file_name} does not exist")
-        exit(1)
-    coq_reader = CoqLineByLineReader(file_name)
+    # file_name = "data/proverbot9001/CompCert/common/Memtype.v"
+    # if len(sys.argv) == 2:
+    #     file_name = sys.argv[1]
+    # print(file_name)
+    # print("=========================")
+    # if not os.path.exists(file_name):
+    #     print(f"File {file_name} does not exist")
+    #     exit(1)
+    # coq_reader = CoqLineByLineReader(file_name)
+    # assert coq_reader.file_content is not None
+    # # assert "(*" not in coq_reader.file_content and "*)" not in coq_reader.file_content
+    # for idx, instruction in enumerate(coq_reader.instruction_step_generator()):
+    #     print(f"[{idx}]: {instruction}")
+    file_content = """
+{reflexivity. }
+"""
+    coq_reader = CoqLineByLineReader(file_content=file_content)
     assert coq_reader.file_content is not None
-    # assert "(*" not in coq_reader.file_content and "*)" not in coq_reader.file_content
     for idx, instruction in enumerate(coq_reader.instruction_step_generator()):
         print(f"[{idx}]: {instruction}")

@@ -106,7 +106,7 @@ class ProofEnv(Env):
         history_idx = len(self._history)
         state_before = self.state
         self._history.append((state_before, action, None, 0.0, False, info))
-        if action.action_type == ProofAction.Type.RUN_TACTIC:
+        if action.action_type == ProofAction.ActionType.RUN_TACTIC:
             self._run_tactic(history_idx)
         pass
         return self._history[-1][2], self._history[-1][3], self._history[-1][4], self._history[-1][5].to_dict()
@@ -125,7 +125,7 @@ class ProofEnv(Env):
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
         assert isinstance(action, ProofAction)
         assert isinstance(state, ProofState)
-        assert action.action_type == ProofAction.Type.RUN_TACTIC, "Action must be of type RUN_TACTIC"
+        assert action.action_type == ProofAction.ActionType.RUN_TACTIC, "Action must be of type RUN_TACTIC"
         tactics = action.kwargs["tactics"]
         assert isinstance(tactics, list)
         assert len(tactics) > 0
@@ -150,7 +150,7 @@ class ProofEnv(Env):
                 # self.logger.info(f"Got a cycle. Taking a step back.")
             else:
                 proof_progressed = True
-                self.current_proof_depth += len(tactics)
+                self.current_proof_depth += 1
         else:
             proof_progressed = False
         if not proof_progressed:
@@ -220,7 +220,7 @@ if __name__ == "__main__":
         print(f"Starting state: \n{env.state.serialize()}")
         inp = input("Enter a tactic: ")
         while inp != "exit" and not done:
-            action = ProofAction(ProofAction.Type.RUN_TACTIC, tactics=[inp])
+            action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=[inp])
             state, reward, done, info = env.step(action)
             print(f"Reward: {reward}")
             print(f"Info: \n{info}")
