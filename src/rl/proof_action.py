@@ -16,6 +16,7 @@ class ProofAction(Action):
         GET_DFNS = 2
         RUN_TACTIC = 3
         BACKTRACK = 4
+        EXIT = 5
 
     def __init__(self, action_type: ActionType, **kwargs):
         assert isinstance(action_type, ProofAction.ActionType), f"action_type must be of type ProofAction.Type, not {type(action_type)}"

@@ -90,26 +90,25 @@ class DynamicProofExecutor(CoqExecutor):
             return []
         return self.coq_context_helper.get_current_goals(self)
 
-    def get_current_proof_state_as_training_data(self, context_type = None) -> TrainingDataFormat:
+    def get_current_proof_state_as_training_data(self) -> TrainingDataFormat:
         # get the current goal
-        context_type = self.context_type if context_type is None else context_type
         current_goals = self.get_current_goal()
         training_data_format = TrainingDataFormat(start_goals=current_goals)
-        if context_type == DynamicProofExecutor.ContextType.NoContext:
-            # do nothing
-            for goal in training_data_format.start_goals:
-                goal.possible_useful_theorems_external = []
-                goal.possible_useful_theorems_local = []
-            pass
-        elif context_type == DynamicProofExecutor.ContextType.LocalContext:
-            self.coq_context_helper.set_local_thms_dfns(training_data_format, self, self.logger)
-            for goal in training_data_format.start_goals:
-                goal.possible_useful_theorems_external = []
-        elif context_type == DynamicProofExecutor.ContextType.BestContext:
-            self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
-            self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
-        else:
-            raise NotImplementedError(f"Context type {context_type} is not implemented")
+        return training_data_format
+    
+    def get_all_relevant_thms(self) -> TrainingDataFormat:
+        training_data_format = self.get_current_proof_state_as_training_data()
+        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        return training_data_format
+    
+    def get_all_relevant_thms_within_local_context(self) -> TrainingDataFormat:
+        training_data_format = self.get_current_proof_state_as_training_data()
+        self.coq_context_helper.set_local_thms_dfns(training_data_format, self, self.logger)
+        return training_data_format
+    
+    def get_all_relevant_defns(self) -> TrainingDataFormat:
+        training_data_format = self.get_current_proof_state_as_training_data()
+        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:

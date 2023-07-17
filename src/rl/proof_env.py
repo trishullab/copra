@@ -45,7 +45,7 @@ class ProofEnv(Env):
         assert isinstance(dynamic_proof_executor_callback, ProofExecutorCallback)
         assert isinstance(lemma_name, str)
         self.dynamic_proof_executor_callback = dynamic_proof_executor_callback
-        self._dynamic_proof_executor = None
+        self._dynamic_proof_executor : DynamicProofExecutor = None
         self._loaded = False
         self._history : typing.List[typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]] = []
         self._name = name
@@ -74,7 +74,7 @@ class ProofEnv(Env):
     @property
     def state(self):
         assert self._loaded, "Env not loaded, call reset() first"
-        current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data(DynamicProofExecutor.ContextType.NoContext)
+        current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         state = ProofState(current_goals)
         return state
@@ -108,7 +108,12 @@ class ProofEnv(Env):
         self._history.append((state_before, action, None, 0.0, False, info))
         if action.action_type == ProofAction.ActionType.RUN_TACTIC:
             self._run_tactic(history_idx)
-        pass
+        elif action.action_type == ProofAction.ActionType.GET_DFNS:
+            self._get_dfns(history_idx)
+        elif action.action_type == ProofAction.ActionType.GET_THMS:
+            self._get_thms(history_idx)
+        else:
+            raise NotImplementedError(f"Action type {action.action_type} not implemented")
         return self._history[-1][2], self._history[-1][3], self._history[-1][4], self._history[-1][5].to_dict()
     
     def checkpoint(self):
@@ -121,6 +126,7 @@ class ProofEnv(Env):
         return super().render()
 
     def _run_tactic(self, history_idx: int = None):
+        assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
         assert isinstance(action, ProofAction)
@@ -187,6 +193,38 @@ class ProofEnv(Env):
         self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
         pass
 
+    def _get_thms(self, history_idx: int = None):
+        assert self._loaded, "Env not loaded, call reset() first"
+        history_idx = len(self._history) - 1 if history_idx is None else history_idx
+        state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
+        assert isinstance(action, ProofAction)
+        assert isinstance(state, ProofState)
+        assert action.action_type == ProofAction.ActionType.GET_THMS, "Action must be of type GET_THMS"
+        relevant_thms = self._dynamic_proof_executor.get_all_relevant_thms()
+        current_proof_state = ProofState(relevant_thms)
+        reward = 0.0
+        done = self.done
+        env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
+        env_info.error_message = None
+        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
+        pass
+
+    def _get_dfns(self, history_idx: int = None):
+        assert self._loaded, "Env not loaded, call reset() first"
+        history_idx = len(self._history) - 1 if history_idx is None else history_idx
+        state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
+        assert isinstance(action, ProofAction)
+        assert isinstance(state, ProofState)
+        assert action.action_type == ProofAction.ActionType.GET_DFNS, "Action must be of type GET_DEFNS"
+        relevant_defns = self._dynamic_proof_executor.get_all_relevant_defns()
+        current_proof_state = ProofState(relevant_defns)
+        reward = 0.0
+        done = self.done
+        env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
+        env_info.error_message = None
+        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
+        pass
+
     def _foward_to_lemma_proof(self):
         assert self._loaded, "Env not loaded, call reset() first"
         lemma_found = False
@@ -215,16 +253,34 @@ if __name__ == "__main__":
         project_folder=".",
         file_path="data/test/SimpleAlgebra.v"
     )
+    supported_actions = [x.name for x in ProofAction.ActionType]
+
+    def scan_action():
+        inp_action_type = input(f"Enter an action type from {supported_actions}: ")
+        action_type = ProofAction.ActionType[inp_action_type]
+        if action_type == ProofAction.ActionType.RUN_TACTIC:
+            inp = input("Enter tactic(s) (';' separated): ")
+            inp = inp.split(';')
+            return ProofAction(action_type, tactics=inp)
+        elif action_type == ProofAction.ActionType.GET_THMS:
+            return ProofAction(action_type)
+        elif action_type == ProofAction.ActionType.GET_DFNS:
+            return ProofAction(action_type)
+        elif action_type == ProofAction.ActionType.EXIT:
+            return ProofAction(action_type)
+        else:
+            raise Exception(f"Invalid action type {action_type}")
+    
+
     with ProofEnv("test", proof_exec_callback, 'algb_add_comm', max_proof_depth=10) as env:
         done = env.done
         print(f"Starting state: \n{env.state.serialize()}")
-        inp = input("Enter a tactic: ")
-        while inp != "exit" and not done:
-            action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=[inp])
+        action = scan_action()
+        while action.action_type != ProofAction.ActionType.EXIT and not done:
             state, reward, done, info = env.step(action)
             print(f"Reward: {reward}")
             print(f"Info: \n{info}")
             print(f"State: \n{state.serialize()}")
             if not done:
-                inp = input("Enter a tactic: ")
+                action = scan_action()
         pass
