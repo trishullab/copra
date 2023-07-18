@@ -57,6 +57,10 @@ class GptAccess(object):
             logprobs=logprobs
             # best_of=n
         )
+        usagae = response.usage
+        self.usage["prompt_tokens"] += usagae.prompt_tokens
+        self.usage["completion_tokens"] += usagae.completion_tokens
+        self.usage["total_tokens"] += usagae.total_tokens        
         resp = [(obj.text, sum(obj.logprobs.token_logprobs)) for obj in response.choices]
         resp.sort(key=lambda x: x[1], reverse=True)
         return resp

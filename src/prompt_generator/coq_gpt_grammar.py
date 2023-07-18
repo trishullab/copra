@@ -69,30 +69,30 @@ RunTacticResponse:
 GetThmsResponses:
   GetThmsResult ThmsResponses End;
 ThmsResponses:
-  Thms int ThmList
-| Thms int ThmList ThmsResponses;
+  Thms int ThmList {left, 2}
+| Thms int ThmList ThmsResponses {left, 1};
 ThmList:
-  Thm String
-| Thm String ThmList;
+  Thm String {left, 2}
+| Thm String ThmList {left, 1};
 GetDfnsResponses:
   GetDfnsResult DfnsResponses End;
 DfnsResponses:
-  Dfns int DfnList
-| Dfns int DfnList DfnsResponses;
+  Dfns int DfnList {left, 2}
+| Dfns int DfnList DfnsResponses {left, 1};
 DfnList:
-  Dfn String
-| Dfn String DfnList;
+  Dfn String {left, 2}
+| Dfn String DfnList {left, 1};
 GoalsResponse:
   Goals GoalResponses Stps;
 GoalResponses:
-  GoalResponse
-| GoalResponse GoalResponses;
+  GoalResponse {left, 2}
+| GoalResponse GoalResponses {left, 1};
 GoalResponse:
-  Goal int String Hyps int
-|  Goal int String Hyps int HypResponses;
+  Goal int String Hyps int {left, 2}
+|  Goal int String Hyps int HypResponses {left, 1};
 HypResponses:
-  HypResponse
-| HypResponse HypResponses;
+  HypResponse {left, 2}
+| HypResponse HypResponses {left, 1};
 HypResponse:
   Hyp String;
 

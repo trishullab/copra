@@ -22,20 +22,22 @@ class Grammar:
         # Do nothing
         return result
 
-    def compile(self, code):
+    def _get_parser(self, actions={}):
         if self.recognizers is not None:
             g = Parglare.Grammar.from_string(self.grammar, recognizers=self.recognizers, debug=self.debug)
         else:
             g = Parglare.Grammar.from_string(self.grammar)
-        parser = Parglare.Parser(g, debug=self.debug, actions={})
+        parser = Parglare.Parser(g, debug=self.debug, actions=actions)
+        return parser
+
+    def compile(self, code):
+        parser = self._get_parser()
         result = parser.parse(code)
         return result
 
-
     def run(self, code, inp):
-        g = Parglare.Grammar.from_string(self.grammar)
         actions = self.get_action(inp)
-        parser = Parglare.Parser(g, debug=False, actions=actions)
+        parser = self._get_parser(actions)
         result = parser.parse(code)
         return self.interpret_result(result)
     
