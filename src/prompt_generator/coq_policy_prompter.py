@@ -7,16 +7,14 @@ if root_dir not in sys.path:
 
 import typing
 from src.rl.abstraction import Action, Env
-from abc import ABC, abstractmethod
+from src.prompt_generator.prompter import PolicyPrompter
 
-class PolicyPrompter(ABC):
+class CoqPolicyPrompter(PolicyPrompter):
     def __init__(self):
         pass
 
-    @abstractmethod
     def generate_prompt(self, env: Env) -> str:
         pass
 
-    @abstractmethod
     def parse_response(self, response: str) -> typing.Tuple[Action, float]:
         pass
