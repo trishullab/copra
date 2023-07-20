@@ -13,7 +13,7 @@ from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from enum import Enum
 
@@ -31,6 +31,7 @@ class ProgressState:
 class ProofEnvInfo(object):
     progress: str = ProgressState.STARTING
     error_message: typing.Optional[str] = None
+    info_messages: typing.List[str] = field(default_factory=list)
     pass
 
 class ProofEnvReRankStrategy(Enum):

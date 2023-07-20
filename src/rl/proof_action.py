@@ -44,6 +44,28 @@ class ProofAction(Action):
     @property
     def name(self):
         return f"{self.action_type.name} | {self.kwargs}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, ProofAction):
+            return False
+        if self.action_type != other.action_type:
+            return False
+        if self.action_type == ProofAction.ActionType.RUN_TACTIC:
+            tactics = self.kwargs['tactics']
+            other_tactics = other.kwargs['tactics']
+            if len(tactics) != len(other_tactics):
+                return False
+            for i in range(len(tactics)):
+                if tactics[i] != other_tactics[i]:
+                    return False
+        return True
+    
+    def __hash__(self):
+        if self.action_type != ProofAction.ActionType.RUN_TACTIC:
+            return hash(self.action_type)
+        else:
+            tactics = self.kwargs['tactics']
+            return hash((self.action_type, tuple(tactics)))
 
     def __call__(self):
         pass

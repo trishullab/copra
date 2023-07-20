@@ -45,16 +45,24 @@ class Action(ABC):
     def serialize(self) -> str:
         pass
 
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+    @abstractmethod
+    def __hash__(self):
+        pass
+
 class QFunction(ABC):
     def __init__(self):
         pass
 
     @abstractmethod
-    def __call__(self, state: State, action: Action) -> typing.Tuple[float, dict]:
+    def __call__(self, state: State, action: Action) -> typing.Tuple[float, typing.Any]:
         pass
 
     @abstractmethod
-    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: dict):
+    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: typing.Any):
         pass
 
     @abstractmethod

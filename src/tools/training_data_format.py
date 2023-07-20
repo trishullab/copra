@@ -295,6 +295,11 @@ class TrainingDataFormat(object):
     def __gt__(self, __o: object) -> bool:
         return self != __o and self >= __o
 
+    def __hash__(self) -> int:
+        goal_set = list(set([goal.goal for goal in self.start_goals]))
+        goal_set.sort()
+        return hash(tuple(goal_set))
+
     def have_same_proof_steps(self, __o: object) -> bool:
         if not isinstance(__o, TrainingDataFormat):
             raise TypeError(f"Cannot compare TrainingDataFormat with {type(__o)}")
