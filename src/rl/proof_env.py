@@ -12,8 +12,10 @@ from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
+from enum import Enum
 
 
 class ProgressState:
@@ -31,7 +33,8 @@ class ProofEnvInfo(object):
     error_message: typing.Optional[str] = None
     pass
 
-
+class ProofEnvReRankStrategy(Enum):
+    BM25 = 1
 
 class ProofEnv(Env):
     max_depth_penalty = -0.1
@@ -41,6 +44,7 @@ class ProofEnv(Env):
         name: str, 
         dynamic_proof_executor_callback: ProofExecutorCallback,
         lemma_name: str,
+        retrieval_strategy: ProofEnvReRankStrategy = ProofEnvReRankStrategy.BM25,
         max_proof_depth: int = 10):
         assert isinstance(dynamic_proof_executor_callback, ProofExecutorCallback)
         assert isinstance(lemma_name, str)
@@ -56,6 +60,9 @@ class ProofEnv(Env):
         self._possible_failure_paths = 0
         self._success_path_length = 0
         self._num_cycles = 0
+        self.retrieve_strategy = retrieval_strategy
+        if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
+            self._re_ranker = CoqBm25ReRanker()
         pass
 
     def __enter__(self):
@@ -85,6 +92,11 @@ class ProofEnv(Env):
         needs_qed = self._dynamic_proof_executor.needs_qed()
         return needs_qed
 
+    @property
+    def history(self) -> typing.List[typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]]:
+        assert self._loaded, "Env not loaded, call reset() first"
+        return self._history
+
     def reset(self):
         self.current_proof_depth = 0
         if self._dynamic_proof_executor is not None:
@@ -96,12 +108,12 @@ class ProofEnv(Env):
         self._foward_to_lemma_proof()
         pass
 
-    def step(self, action: Action) -> typing.Tuple[State, float, bool, dict]:
+    def step(self, action: Action) -> typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]:
         assert self._loaded, "Env not loaded, call reset() first"
         info = ProofEnvInfo(progress=ProgressState.STARTING)
         if self.done:
             info.progress = ProgressState.DONE
-            return self.state, 0.0, True, info.to_dict()
+            return self.state, 0.0, True, info
         assert isinstance(action, ProofAction), f"action must be of type ProofAction, not {type(action)}"
         history_idx = len(self._history)
         state_before = self.state
@@ -114,7 +126,7 @@ class ProofEnv(Env):
             self._get_thms(history_idx)
         else:
             raise NotImplementedError(f"Action type {action.action_type} not implemented")
-        return self._history[-1][2], self._history[-1][3], self._history[-1][4], self._history[-1][5].to_dict()
+        return self._history[-1][0], self._history[-1][1], self._history[-1][2], self._history[-1][3], self._history[-1][4], self._history[-1][5]
     
     def checkpoint(self):
         return super().checkpoint()
@@ -201,6 +213,26 @@ class ProofEnv(Env):
         assert isinstance(state, ProofState)
         assert action.action_type == ProofAction.ActionType.GET_THMS, "Action must be of type GET_THMS"
         relevant_thms = self._dynamic_proof_executor.get_all_relevant_thms()
+        for goal in relevant_thms.start_goals:
+            query = goal.goal
+            local_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
+            global_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
+            local_scores = self._re_ranker.rerank(query, local_responses)
+            global_scores = self._re_ranker.rerank(query, global_responses)
+            local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
+            global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
+            local_idx.sort(key=lambda x: x[1], reverse=True)
+            global_idx.sort(key=lambda x: x[1], reverse=True)
+            local_responses = [goal.possible_useful_theorems_local[idx] for idx, _ in local_idx]
+            global_responses = [goal.possible_useful_theorems_external[idx] for idx, _ in global_idx]
+            sum_local_scores = sum([score for _, score in local_idx]) + 1e-6
+            sum_global_scores = sum([score for _, score in global_idx]) + 1e-6
+            for i in range(len(local_responses)):
+                local_responses[i].score = local_idx[i][1]/sum_local_scores
+            for i in range(len(global_responses)):
+                global_responses[i].score = global_idx[i][1]/sum_global_scores
+            goal.possible_useful_theorems_local = local_responses
+            goal.possible_useful_theorems_external = global_responses
         current_proof_state = ProofState(relevant_thms)
         reward = 0.0
         done = self.done
@@ -217,6 +249,17 @@ class ProofEnv(Env):
         assert isinstance(state, ProofState)
         assert action.action_type == ProofAction.ActionType.GET_DFNS, "Action must be of type GET_DEFNS"
         relevant_defns = self._dynamic_proof_executor.get_all_relevant_defns()
+        for goal in relevant_defns.start_goals:
+            query = goal.goal
+            responses = [str(relevant_defns.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.relevant_defns]
+            response_scores = self._re_ranker.rerank(query, responses)
+            relevant_defns_idx = [(idx, score) for idx, score in enumerate(response_scores)]
+            relevant_defns_idx.sort(key=lambda x: x[1], reverse=True)
+            relevant_defns_reranked = [goal.relevant_defns[idx] for idx, _ in relevant_defns_idx]
+            sum_scores = sum([score for _, score in relevant_defns_idx]) + 1e-6
+            for i in range(len(relevant_defns_reranked)):
+                relevant_defns_reranked[i].score = relevant_defns_idx[i][1]/sum_scores
+            goal.relevant_defns = relevant_defns_reranked
         current_proof_state = ProofState(relevant_defns)
         reward = 0.0
         done = self.done
@@ -277,7 +320,7 @@ if __name__ == "__main__":
         print(f"Starting state: \n{env.state.serialize()}")
         action = scan_action()
         while action.action_type != ProofAction.ActionType.EXIT and not done:
-            state, reward, done, info = env.step(action)
+            state, _, _, reward, done, info = env.step(action)
             print(f"Reward: {reward}")
             print(f"Info: \n{info}")
             print(f"State: \n{state.serialize()}")

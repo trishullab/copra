@@ -45,20 +45,28 @@ class Action(ABC):
     def serialize(self) -> str:
         pass
 
-class Env(ABC):
+class QFunction(ABC):
     def __init__(self):
         pass
 
     @abstractmethod
-    def reset(self):
+    def __call__(self, state: State, action: Action) -> typing.Tuple[float, dict]:
         pass
 
     @abstractmethod
-    def step(self, action: Action) -> typing.Tuple[State, float, bool, dict]:
+    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: dict):
         pass
 
     @abstractmethod
-    def render(self):
+    def checkpoint(self):
+        pass
+
+    @abstractmethod
+    def clone(self):
+        pass
+
+class Env(ABC):
+    def __init__(self):
         pass
 
     @property
@@ -76,6 +84,23 @@ class Env(ABC):
     def done(self) -> bool:
         pass
 
+    @property
+    @abstractmethod
+    def history(self) -> typing.List[typing.Tuple[State, Action, State, float, bool, typing.Any]]:
+        pass
+
+    @abstractmethod
+    def reset(self):
+        pass
+
+    @abstractmethod
+    def step(self, action: Action) -> typing.Tuple[State, Action, State, float, bool, typing.Any]:
+        pass
+
+    @abstractmethod
+    def render(self):
+        pass
+
     @abstractmethod
     def checkpoint(self):
         pass
@@ -88,12 +113,17 @@ class Policy(ABC):
     def __init__(self):
         pass
 
+    @property
     @abstractmethod
-    def __call__(self, state: typing.Any) -> Action:
+    def q_function(self) -> QFunction:
         pass
 
     @abstractmethod
-    def update(self, state: typing.Any, action: Action, reward: float, next_state: typing.Any, done: bool):
+    def __call__(self, env: Env) -> Action:
+        pass
+
+    @abstractmethod
+    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: dict):
         pass
 
     @abstractmethod

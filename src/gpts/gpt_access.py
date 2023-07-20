@@ -138,5 +138,5 @@ if __name__ == "__main__":
             "content": "This late pivot means we don't have time to boil the ocean for the client deliverable.",
         }
     ]
-    print(openai_access.complete_chat(messages, max_tokens=15, n=5, temperature=0.8))
+    print(openai_access.complete_chat(messages, max_tokens=15, n=2, temperature=0.8))
     pass
