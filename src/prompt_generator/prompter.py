@@ -6,7 +6,6 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 import typing
-from src.rl.abstraction import Action, Env, Policy
 from abc import ABC, abstractmethod
 
 class PolicyPrompter(ABC):
@@ -14,9 +13,9 @@ class PolicyPrompter(ABC):
         pass
 
     @abstractmethod
-    def generate_prompt(self, env: Env) -> str:
+    def run_prompt(self, requests: typing.Any) -> typing.Any:
         pass
 
     @abstractmethod
-    def parse_response(self, response: str) -> typing.Tuple[Action, float]:
+    def parse_response(self, response: str) -> typing.Any:
         pass

@@ -6,6 +6,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import copy
 import typing
+import logging
 from src.rl.proof_tree import ProofTree
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
@@ -46,13 +47,14 @@ class ProofEnv(Env):
         dynamic_proof_executor_callback: ProofExecutorCallback,
         lemma_name: str,
         retrieval_strategy: ProofEnvReRankStrategy = ProofEnvReRankStrategy.BM25,
-        max_proof_depth: int = 10):
+        max_proof_depth: int = 10,
+        logger : logging.Logger = None):
         assert isinstance(dynamic_proof_executor_callback, ProofExecutorCallback)
         assert isinstance(lemma_name, str)
         self.dynamic_proof_executor_callback = dynamic_proof_executor_callback
         self._dynamic_proof_executor : DynamicProofExecutor = None
         self._loaded = False
-        self._history : typing.List[typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]] = []
+        self._history : typing.List[typing.Tuple[ProofState, ProofAction, ProofState, float, bool, ProofEnvInfo]] = []
         self._name = name
         self.max_proof_depth = max_proof_depth
         self.lemma_name = lemma_name
@@ -64,7 +66,9 @@ class ProofEnv(Env):
         self.retrieve_strategy = retrieval_strategy
         if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
             self._re_ranker = CoqBm25ReRanker()
-        pass
+        else:
+            raise NotImplementedError(f"Retrieval strategy {self.retrieve_strategy} not implemented")
+        self.logger = logger if logger is not None else logging.getLogger(__name__)
 
     def __enter__(self):
         self.reset()
@@ -94,7 +98,7 @@ class ProofEnv(Env):
         return needs_qed
 
     @property
-    def history(self) -> typing.List[typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]]:
+    def history(self) -> typing.List[typing.Tuple[ProofState, ProofAction, ProofState, float, bool, ProofEnvInfo]]:
         assert self._loaded, "Env not loaded, call reset() first"
         return self._history
 
@@ -136,14 +140,26 @@ class ProofEnv(Env):
         return super().clone()
     
     def render(self):
-        return super().render()
+        s1, a, s2, r, d, info = self._history[-1]
+        self.logger.info("-"*50)
+        s1_goals = [f"[{idx}]: {goal.goal}" for idx, goal in enumerate(s1.training_data_format.start_goals)]
+        s1_goal = '\n'.join(s1_goals)
+        self.logger.info(f"Proof State (before action):\n {s1_goal}")
+        s2_goals = [f"[{idx}]: {goal.goal}" for idx, goal in enumerate(s2.training_data_format.start_goals)]
+        action = a.serialize()
+        self.logger.info(f"Action:\n {action}")
+        s2_goal = '\n'.join(s2_goals)
+        self.logger.info(f"Proof State (after action):\n {s2_goal}")
+        self.logger.info(f"Reward:\n {r}")
+        self.logger.info(f"Done:\n {d}")
+        self.logger.info(f"Info:\n {info.to_json()}")
+        self.logger.info("-"*50)
+        pass
 
     def _run_tactic(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
-        assert isinstance(action, ProofAction)
-        assert isinstance(state, ProofState)
         assert action.action_type == ProofAction.ActionType.RUN_TACTIC, "Action must be of type RUN_TACTIC"
         tactics = action.kwargs["tactics"]
         assert isinstance(tactics, list)
@@ -210,8 +226,6 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
-        assert isinstance(action, ProofAction)
-        assert isinstance(state, ProofState)
         assert action.action_type == ProofAction.ActionType.GET_THMS, "Action must be of type GET_THMS"
         relevant_thms = self._dynamic_proof_executor.get_all_relevant_thms()
         for goal in relevant_thms.start_goals:
@@ -246,8 +260,6 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
-        assert isinstance(action, ProofAction)
-        assert isinstance(state, ProofState)
         assert action.action_type == ProofAction.ActionType.GET_DFNS, "Action must be of type GET_DEFNS"
         relevant_defns = self._dynamic_proof_executor.get_all_relevant_defns()
         for goal in relevant_defns.start_goals:

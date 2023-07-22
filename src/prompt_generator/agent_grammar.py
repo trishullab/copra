@@ -2,12 +2,15 @@
 
 import sys
 
+
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
 import typing
 from src.prompt_generator.interpreter import Grammar
+from src.tools.training_data_format import TrainingDataFormat
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
@@ -104,6 +107,21 @@ String:;
         result = self.run(message, None)
         return result
 
+
+class CoqGptResponseActions(object):
+    GLS = "[GLS]"
+    RUN_TACTIC_RESULT = "[RUN TACTIC RESULT]"
+    GET_THMS_RESULT = "[GET THMS RESULT]"
+    GET_DFNS_RESULT = "[GET DFNS RESULT]"
+
+@dataclass_json
+@dataclass
+class CoqGptResponse(object):
+    action : str = CoqGptResponseActions.GLS
+    success: bool = True
+    message: str = ""
+    training_data_format: typing.Optional[TrainingDataFormat] = None
+
 class CoqGPTResponseGrammar(Grammar):
     grammar = """
 Prog:
@@ -184,6 +202,51 @@ String:;
             'String': CoqGPTResponseGrammar.before_keyword
         }
         super(CoqGPTResponseGrammar, self).__init__(CoqGPTResponseGrammar.grammar, CoqGPTResponseGrammar.keywords, recognizers=recognizers)
+    
+    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse) -> typing.List[str]:
+        texts = []
+        if coq_gpt_response.action == CoqGptResponseActions.GLS:
+            lines = ["Goals to prove:"]
+            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
+                lines.append(f"[GL] {i+1}")
+                lines.append(str(goal.goal))
+                lines.append(f"[HYPS] {i + 1}")
+                for hyp in goal.hypotheses:
+                    lines.append(f"[HYP] {hyp}")
+            gls_args = '\n'.join(lines)
+            texts = [f"{CoqGptResponseActions.GLS}\n{gls_args}\n[END]"]
+        elif coq_gpt_response.action == CoqGptResponseActions.RUN_TACTIC_RESULT:
+            if coq_gpt_response.success:
+                text = f"{CoqGptResponseActions.RUN_TACTIC_RESULT}[SUCCESS]\n[END]"
+            else:
+                text = f"{CoqGptResponseActions.RUN_TACTIC_RESULT}[ERROR]\n{coq_gpt_response.message}\n[END]"
+            texts = [text] + self.format_as_per_grammar(CoqGptResponse(
+                action = CoqGptResponseActions.GLS, 
+                training_data_format = coq_gpt_response.training_data_format))
+        elif coq_gpt_response.action == CoqGptResponseActions.GET_THMS_RESULT:
+            lines = []
+            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
+                thms = goal.possible_useful_theorems_local + goal.possible_useful_theorems_external
+                thms = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[thm.lemma_idx]) for thm in thms]
+                lines.append(f"[THMS] {i+1}")
+                lines.extend([f"[THM] {thm}" for thm in thms])
+            get_thms_args = '\n'.join(lines)
+            texts = [f"{CoqGptResponseActions.GET_THMS_RESULT}\n{get_thms_args}\n[END]"]
+        elif coq_gpt_response.action == CoqGptResponseActions.GET_DFNS_RESULT:
+            lines = []
+            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
+                dfns = goal.relevant_defns
+                dfns = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[dfn.lemma_idx]) for dfn in dfns]
+                lines.append(f"[DFNS] {i+1}")
+                lines.extend([f"[DFN] {dfn}" for dfn in dfns])
+            get_dfns_args = '\n'.join(lines)
+            text = [f"{CoqGptResponseActions.GET_DFNS_RESULT}\n{get_dfns_args}\n[END]"]
+        else:
+            raise Exception(f"Invalid action {coq_gpt_response.action}")
+        for text in texts:
+            # verify that the text is valid as per grammar by compiling it
+            self.compile(text)
+        return texts
 
 
 
@@ -273,7 +336,7 @@ String:;
         with open(file_path) as f:
             main_content = f.read()
         return {
-            'role': 'system',
+            'role': role,
             'content': main_content
         }
 

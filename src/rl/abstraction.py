@@ -121,17 +121,12 @@ class Policy(ABC):
     def __init__(self):
         pass
 
-    @property
-    @abstractmethod
-    def q_function(self) -> QFunction:
-        pass
-
     @abstractmethod
     def __call__(self, env: Env) -> Action:
         pass
 
     @abstractmethod
-    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: dict):
+    def update(self, state: State, action: Action, next_state: State, reward: float, done: bool, info: typing.Any):
         pass
 
     @abstractmethod
@@ -151,11 +146,6 @@ class Agent(ABC):
     def name(self) -> str:
         pass
 
-    @property
-    @abstractmethod
-    def policy(self) -> Policy:
-        pass
-
     @abstractmethod
     def checkpoint(self):
         pass
@@ -165,5 +155,5 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def run(self, env: Env, episodes: int, render: bool):
+    def run(self, env: Env, episodes: int, max_steps_per_episode: int, render: bool):
         pass
