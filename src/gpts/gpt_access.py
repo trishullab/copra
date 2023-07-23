@@ -104,7 +104,8 @@ class GptAccess(object):
         self.usage["prompt_tokens"] += usage.prompt_tokens
         self.usage["completion_tokens"] += usage.completion_tokens
         self.usage["total_tokens"] += usage.total_tokens
-        return [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices], usage
+        stop_token = stop[0] if len(stop) > 0 else "\n"
+        return [{"role": choice.message.role, "content": (choice.message.content + "\n" + stop_token) if choice.finish_reason == 'stop' else choice.message.content} for choice in response.choices], usage
     
     def num_tokens_from_messages(self, messages, model=None):
         # Model name is like "gpt-3.5-turbo-0613"

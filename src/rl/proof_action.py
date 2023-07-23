@@ -71,4 +71,9 @@ class ProofAction(Action):
         pass
 
     def serialize(self) -> str:
-        return self.to_json()
+        return f"""
+{{
+    'action_type': '{self.action_type.name}',
+    'kwargs': {self.kwargs}
+}}
+"""
