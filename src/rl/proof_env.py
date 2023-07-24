@@ -193,8 +193,8 @@ class ProofEnv(Env):
             assert len(self._p_tree) == self.current_proof_depth, "proof_tree must have the same length as current_depth"
             # cancel anything which might got executed
             if self._dynamic_proof_executor.cancel_tactic_till_line(tactic_line_num): # This becomes relevant when we have a cycle
-                assert cycle_detected, "cycle_detected must be true if cancel_tactic_till_line returns true"
-                self._num_cycles += 1
+                if cycle_detected:
+                    self._num_cycles += 1
         assert (proof_progressed and not cycle_detected) or (not proof_progressed and cycle_detected) or (not proof_progressed and not cycle_detected), "proof_progressed and cycle_detected cannot be true at the same time"
         reward = 0.0
         depth_ratio = self.current_proof_depth/self.max_proof_depth

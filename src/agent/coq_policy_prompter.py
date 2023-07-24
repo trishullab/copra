@@ -134,7 +134,8 @@ class CoqGptPolicyPrompter(PolicyPrompter):
         total = len(message_contents)
         for idx, message in enumerate(message_contents):
             try:
-                coq_gpt_request = self.coq_gpt_request_grammar.get_openai_request(message)
+                coq_gpt_request, parsed_message = self.coq_gpt_request_grammar.get_openai_request(message)
+                open_ai_message = self.agent_grammar.get_openai_main_message_from_string(parsed_message, "assistant")
             except Exception as e:
                 error_message = f"Invalid response:\n {str(e)}"
                 raise InvalidActionException(error_message)
@@ -147,7 +148,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
             else:
                 raise Exception(f"Invalid action {coq_gpt_request.action}")
-            actions.append((responses[idx], action, probability))
+            actions.append((open_ai_message, action, probability))
         return actions
 
 if __name__ == "__main__":

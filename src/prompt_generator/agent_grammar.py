@@ -52,6 +52,8 @@ String:;
 """
     keywords = ["[STP]", "[END]", "[RUN TACTIC]", "[GET THMS]", "[GET DFNS]"]
 
+    end = "[END]"
+
     def before_keyword(text, pos):
         last = pos
         while last < len(text):
@@ -82,7 +84,9 @@ String:;
             context.args.reverse()
         elif nonTerminal == "StpRequests":
             assert len(nodes) >= 2
-            context.args.append(str(nodes[1]))
+            str_node = str(nodes[1])
+            if len(str_node) > 0:
+                context.args.append(str_node)
         else:
             raise Exception(f"Unknown non-terminal {nonTerminal}")
         return context
@@ -103,9 +107,31 @@ String:;
         assert isinstance(result, CoqGptRequest), f"Result must be a CoqGptRequest. Got {type(result)}"
         return result
 
-    def get_openai_request(self, message) -> CoqGptRequest:
+    def get_openai_request(self, message: str) -> typing.Tuple[CoqGptRequest, str]:
+        if not message.endswith(CoqGPTRequestGrammar.end):
+            idx = len(message)
+            exceptions = []
+            # trim any unwanted keywords at the end
+            idx = message.rfind('[')
+            close_idx = message.rfind(']', idx, len(message))
+            if close_idx < 0:
+                message = message[:idx]
+            else:
+                idx = len(message)
+            while idx >= 0:
+                try:
+                    parsable_message = message[:idx] + f"\n{CoqGPTRequestGrammar.end}"
+                    self.compile(parsable_message)
+                    break
+                except Exception as e:
+                    exceptions.append(e)
+                    idx = message.rfind('[', 0, idx)
+            if idx >= 0:
+               message = parsable_message
+            else:
+                raise exceptions[0]
         result = self.run(message, None)
-        return result
+        return (result, message)
 
 
 class CoqGptResponseActions(object):
@@ -134,8 +160,8 @@ Prog:
 | String Prog
 | Prog String Prog;
 ErrorResponse:
-  Error ErrorString End
-| Error String End;
+  Error ErrorString End {left, 2}
+| Error String End {left, 1};
 RunTacticResponse:
   RunTacticResult Success End
 | RunTacticResult Error String End;

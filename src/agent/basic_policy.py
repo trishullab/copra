@@ -6,7 +6,7 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from src.rl.proof_env import ProofEnv
+from src.rl.proof_env import ProgressState, ProofEnv
 from src.prompt_generator.agent_grammar import CoqGptResponse, CoqGptResponseActions
 from src.agent.coq_policy_prompter import CoqGptPolicyPrompter, InvalidActionException
 from src.rl.abstraction import Policy, Action, State
@@ -21,11 +21,17 @@ class BasicPolicy(Policy):
 
     def __call__(self, env: ProofEnv) -> Action:
         if len(env._history) > 0:
-            _, action, s2, _, _, _ = env._history[-1]
+            _, action, s2, _, _, proof_info = env._history[-1]
             tdf = s2.training_data_format
             if action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
-                training_data_format = tdf)
+                if proof_info.progress == ProgressState.RUNNING or proof_info.progress == ProgressState.DONE or proof_info.progress == ProgressState.STARTING:
+                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
+                    training_data_format = tdf)
+                elif proof_info.progress == ProgressState.FAILED:
+                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
+                    success=False, message=proof_info.error_message)
+                else:
+                    raise Exception(f"Invalid proof_info.progress: {proof_info.progress}")
             elif action.action_type == ProofAction.ActionType.GET_DFNS:
                 for goal in tdf.start_goals:
                     goal.relevant_defns = goal.relevant_defns[:self.k]
