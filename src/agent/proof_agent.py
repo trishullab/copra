@@ -39,7 +39,7 @@ class ProofAgent(Agent):
             state = next_state
             steps += 1
             total_reward += reward
-        pass
+        env.dump_proof()
 
     def run(self, env: ProofEnv, episodes: int, max_steps_per_episode: int, render: bool):
         while episodes > 0:
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     log_path = ".log/proof_agent-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))
     policy_prompter = CoqGptPolicyPrompter(
         main_sys_prompt_path="data/prompts/system/coq-proof-agent-role.md",
-        example_conv_prompt_path="data/prompts/conversation/coq-proof-agent-example.md",
+        example_conv_prompt_path="data/prompts/conversation/coq-proof-agent-example-long-conv.md",
         max_tokens_per_action=25)
     basic_policy = BasicPolicy(policy_prompter, 3)
     agent = ProofAgent("basic_proof_agent", basic_policy)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         project_folder=".",
         file_path="data/test/SimpleAlgebra.v"
     )
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
+    logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger("basic_proof_env")
     with ProofEnv("basic_proof_env", proof_exec_callback, 'algb_add_comm', max_proof_depth=10, logger=logger) as env:
         agent.run(env, 1, 50, True)

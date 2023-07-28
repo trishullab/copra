@@ -10,7 +10,7 @@ At any point in time, you can request the following:
     2.1 `[GET DFNS]`: This gives the relevant definitions used in each goal. For example, `[GET DFNS][END]`.
     2.2. `[GET THMS]`: This gives the relevant theorems/lemmas which are similar to the goal and might help in rewriting or simplifying the goal. For example, `[GET THMS][END]`
  
- **Make sure to end all your responses with the keyword `[END]`.**
+ **Make sure to end all your responses with the keyword `[END]`. If possible, try to generate only one tactic at a time.**
 
 
  At any point in time, you will receive the following response as per your request:

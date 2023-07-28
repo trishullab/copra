@@ -33,11 +33,11 @@ class ProofState(State):
     
     def __ge__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
-        self.training_data_format >= __o.training_data_format
+        return self.training_data_format >= __o.training_data_format
 
     def __le__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
-        self.training_data_format <= __o.training_data_format
+        return self.training_data_format <= __o.training_data_format
     
     def __lt__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)

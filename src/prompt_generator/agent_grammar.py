@@ -84,7 +84,7 @@ String:;
             context.args.reverse()
         elif nonTerminal == "StpRequests":
             assert len(nodes) >= 2
-            str_node = str(nodes[1])
+            str_node = str(nodes[1]).strip()
             if len(str_node) > 0:
                 context.args.append(str_node)
         else:
@@ -106,31 +106,63 @@ String:;
     def interpret_result(self, result):
         assert isinstance(result, CoqGptRequest), f"Result must be a CoqGptRequest. Got {type(result)}"
         return result
+    
+    def generate_message_from_gpt_request(self, coq_gpt_request: CoqGptRequest) -> str:
+        if coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
+            args = '\n[STP]'.join(coq_gpt_request.args)
+            return f"{CoqGptRequestActions.RUN_TACTIC}[STP]{args}\n{CoqGPTRequestGrammar.end}"
+        elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
+            return f"{CoqGptRequestActions.GET_THMS}\n{CoqGPTRequestGrammar.end}"
+        elif coq_gpt_request.action == CoqGptRequestActions.GET_DFNS:
+            return f"{CoqGptRequestActions.GET_DFNS}\n{CoqGPTRequestGrammar.end}"
+        else:
+            raise Exception(f"Invalid action {coq_gpt_request.action}")
 
-    def get_openai_request(self, message: str) -> typing.Tuple[CoqGptRequest, str]:
-        if not message.endswith(CoqGPTRequestGrammar.end):
+    def get_openai_request(self, message_response: str) -> typing.Tuple[CoqGptRequest, str]:
+        message, finish_reason = message_response
+        if finish_reason != "stop":            
+            # do a greedy correction to ensure that the message is parsable
             idx = len(message)
             exceptions = []
-            # trim any unwanted keywords at the end
-            idx = message.rfind('[')
-            close_idx = message.rfind(']', idx, len(message))
-            if close_idx < 0:
-                message = message[:idx]
+            message_seems_fixable = True
+            try:
+                # trim any unwanted keywords at the end
+                idx = message.rfind('[')
+                if idx < 0:
+                    raise Exception("No opening bracket found, message is not parsable")
+                close_idx = message.rfind(']', idx, len(message))
+                if close_idx < 0:
+                    message = message[:idx]
+                else:
+                    idx = len(message)
+            except Exception:
+                message_seems_fixable = False
+                pass
+            if message_seems_fixable:    
+                attempt = 0
+                while idx >= 0:
+                    try:
+                        parsable_message = message[:idx] + f"\n{CoqGPTRequestGrammar.end}"
+                        self.compile(parsable_message)
+                        break
+                    except Exception as e:
+                        exceptions.append(e)
+                        idx = message.rfind('[', 0, idx)
+                    attempt += 1
+                if idx >= 0:
+                    message = parsable_message
+                else:
+                    raise exceptions[0]
+                result : CoqGptRequest = self.run(message, None)
+                if result.action == CoqGptRequestActions.RUN_TACTIC and len(result.args) > 1:
+                    result.args = result.args[:-1] # remove the last tactic as it can be incomplete
             else:
-                idx = len(message)
-            while idx >= 0:
-                try:
-                    parsable_message = message[:idx] + f"\n{CoqGPTRequestGrammar.end}"
-                    self.compile(parsable_message)
-                    break
-                except Exception as e:
-                    exceptions.append(e)
-                    idx = message.rfind('[', 0, idx)
-            if idx >= 0:
-               message = parsable_message
-            else:
-                raise exceptions[0]
-        result = self.run(message, None)
+                message += CoqGPTRequestGrammar.end
+                result : CoqGptRequest = self.run(message, None)
+        else:
+            message += CoqGPTRequestGrammar.end
+            result : CoqGptRequest = self.run(message, None)            
+        message = self.generate_message_from_gpt_request(result)
         return (result, message)
 
 
@@ -160,8 +192,7 @@ Prog:
 | String Prog
 | Prog String Prog;
 ErrorResponse:
-  Error ErrorString End {left, 2}
-| Error String End {left, 1};
+  Error ErrorString End {left, 2};
 RunTacticResponse:
   RunTacticResult Success End
 | RunTacticResult Error String End;
@@ -293,7 +324,7 @@ ErrorString:;
         else:
             raise Exception(f"Invalid action {coq_gpt_response.action}")
         # verify that the text is valid as per grammar by compiling it
-        self.compile(text)
+        # self.compile(text)
         return text
 
 
@@ -393,7 +424,7 @@ String:;
 
     def parse_openai_messages(self, messages: list, role: str = "assistant"):
         assert isinstance(messages, list), f"Messages must be a list. Got {type(messages)}"
-        result = [message["content"] for message in messages if message['role'] == role]
+        result = [(message["content"], message["finish_reason"]) for message in messages if message['role'] == role]
         return result
 
 if __name__ == "__main__":

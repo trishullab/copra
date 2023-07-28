@@ -7,7 +7,8 @@ if root_dir not in sys.path:
 import copy
 import typing
 import logging
-from src.rl.proof_tree import ProofTree
+import time
+from src.rl.proof_tree import ProofSearchResult, ProofTree
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
@@ -95,7 +96,8 @@ class ProofEnv(Env):
     def done(self) -> bool:
         assert self._loaded, "Env not loaded, call reset() first"
         needs_qed = self._dynamic_proof_executor.needs_qed()
-        return needs_qed
+        not_in_proof_mode = not self._dynamic_proof_executor.is_in_proof_mode()
+        return needs_qed or not_in_proof_mode
 
     @property
     def history(self) -> typing.List[typing.Tuple[ProofState, ProofAction, ProofState, float, bool, ProofEnvInfo]]:
@@ -111,6 +113,8 @@ class ProofEnv(Env):
         self._history.clear()
         self._loaded = True
         self._foward_to_lemma_proof()
+        self.goal_start_time = time.time()
+        self.inferences_used = 0
         pass
 
     def step(self, action: Action) -> typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]:
@@ -131,6 +135,7 @@ class ProofEnv(Env):
             self._get_thms(history_idx)
         else:
             raise NotImplementedError(f"Action type {action.action_type} not implemented")
+        self.inferences_used += 1
         return self._history[-1][0], self._history[-1][1], self._history[-1][2], self._history[-1][3], self._history[-1][4], self._history[-1][5]
     
     def checkpoint(self):
@@ -142,10 +147,10 @@ class ProofEnv(Env):
     def render(self):
         s1, a, s2, r, d, info = self._history[-1]
         self.logger.info("-"*50)
-        s1_goals = [f"[{idx}]: {goal.goal}" for idx, goal in enumerate(s1.training_data_format.start_goals)]
+        s1_goals = [f"Goal [{idx}]: {goal.goal} \n Hyps [{idx}]: {goal.hypotheses} \n------------------\n" for idx, goal in enumerate(s1.training_data_format.start_goals)]
         s1_goal = '\n'.join(s1_goals)
         self.logger.info(f"Proof State (before action):\n {s1_goal}")
-        s2_goals = [f"[{idx}]: {goal.goal}" for idx, goal in enumerate(s2.training_data_format.start_goals)]
+        s2_goals = [f"Goal [{idx}]: {goal.goal} \n Hyps [{idx}]: {goal.hypotheses} \n-------------------\n" for idx, goal in enumerate(s2.training_data_format.start_goals)]
         action = a.serialize()
         self.logger.info(f"Action:\n {action}")
         s2_goal = '\n'.join(s2_goals)
@@ -156,15 +161,42 @@ class ProofEnv(Env):
         self.logger.info("-"*50)
         pass
 
+    def dump_proof(self):
+        assert self._loaded, "Env not loaded, call reset() first"
+        self.goal_end_time = time.time()
+        self.time_taken = self.goal_end_time - self.goal_start_time
+        self.proof_search_res = ProofSearchResult(
+            self._dynamic_proof_executor.main_file, 
+            not self._dynamic_proof_executor.is_in_proof_mode(), 
+            self.lemma_name, 
+            [tactic.training_data_format for _, tactic in self._p_tree], 
+            self.time_taken, 
+            self.inferences_used, 
+            possible_failed_paths=-1, 
+            num_of_backtracks=-1, 
+            is_timeout=False, 
+            is_inference_exhausted=False, 
+            longest_success_path=-1)
+        self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
+
     def _run_tactic(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
-        state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
+        state, action, _, reward, done, env_info = self._history[history_idx]
+        was_done_before = done
         assert action.action_type == ProofAction.ActionType.RUN_TACTIC, "Action must be of type RUN_TACTIC"
         tactics = action.kwargs["tactics"]
         assert isinstance(tactics, list)
         assert len(tactics) > 0
         assert all([isinstance(tactic, str) for tactic in tactics])
+        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, reward, done, env_info)
+        self._history[history_idx] = (state, action, next_state, reward, done, env_info)
+        if not was_done_before and done:
+            next_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=["Qed."])
+            self._history.append((next_state, next_action, None, 0.0, True, info))
+            self._run_tactic(history_idx + 1)
+    
+    def _run_tactics(self, tactics: typing.List[str], state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo):
         tactic_line_num, ran_successfully = self._dynamic_proof_executor.run_tactics(tactics)
         cycle_detected = False
         proof_progressed = False
@@ -219,8 +251,7 @@ class ProofEnv(Env):
             env_info.progress = ProgressState.FAILED
             env_info.error_message = self._dynamic_proof_executor.get_last_exception()
             current_proof_state = state
-        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
-        pass
+        return (state, current_proof_state, reward, done, env_info)
 
     def _get_thms(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
