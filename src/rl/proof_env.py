@@ -179,7 +179,7 @@ class ProofEnv(Env):
             longest_success_path=-1)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
 
-    def _run_tactic(self, history_idx: int = None):
+    def _run_tactic(self, history_idx: int = None, ignore_cycle: bool = False):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, _, reward, done, env_info = self._history[history_idx]
@@ -189,14 +189,21 @@ class ProofEnv(Env):
         assert isinstance(tactics, list)
         assert len(tactics) > 0
         assert all([isinstance(tactic, str) for tactic in tactics])
-        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, reward, done, env_info)
+        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, reward, done, env_info, ignore_cycle)
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
         if not was_done_before and done:
             next_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=["Qed."])
-            self._history.append((next_state, next_action, None, 0.0, True, info))
-            self._run_tactic(history_idx + 1)
+            self._history.append((next_state, next_action, None, 0.0, True, env_info))
+            self._run_tactic(history_idx + 1, ignore_cycle=True)
+            next_state = self._history[-1][2]
+            env_info = self._history[-1][5]
+            # Change the history of the previous state
+            self._history.pop() # remove the last state
+            action.kwargs["tactics"].append("Qed.")
+            self._history[history_idx] = (state, action, next_state, reward, done, env_info)
     
-    def _run_tactics(self, tactics: typing.List[str], state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo):
+    def _run_tactics(self, tactics: typing.List[str], state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo, ignore_cycle: bool = False):
+        env_info = copy.deepcopy(env_info)
         tactic_line_num, ran_successfully = self._dynamic_proof_executor.run_tactics(tactics)
         cycle_detected = False
         proof_progressed = False
@@ -206,18 +213,22 @@ class ProofEnv(Env):
             current_proof_state = self.state
             # add the proof step to the proof tree
             # Check if the current proof state is less harder than the previous proof state
-            if current_proof_state >= previous_proof_state:
-                # This is a cycle. Take a step back
-                next_step_add = False
+            if not ignore_cycle:
+                if current_proof_state >= previous_proof_state:
+                    # This is a cycle. Take a step back
+                    next_step_add = False
+                else:
+                    next_step_add = self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state)
+                if not next_step_add:
+                    proof_progressed = False
+                    cycle_detected = True
+                    # self.logger.info(f"Got a cycle. Taking a step back.")
+                else:
+                    proof_progressed = True
+                    self.current_proof_depth += 1
             else:
-                next_step_add = self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state)
-            if not next_step_add:
-                proof_progressed = False
-                cycle_detected = True
-                # self.logger.info(f"Got a cycle. Taking a step back.")
-            else:
+                next_step_add = self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True)
                 proof_progressed = True
-                self.current_proof_depth += 1
         else:
             proof_progressed = False
         if not proof_progressed:
