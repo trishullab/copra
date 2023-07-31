@@ -99,14 +99,11 @@ class CoqGptPolicyPrompter(PolicyPrompter):
         self._message_history_token_count.append(message_token_count)
         self._history_token_count += message_token_count
 
-    def run_prompt(self, request: CoqGptResponse) -> list:
-        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request)
-        prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
-        prompt_messages = [prompt_message]
-        prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
+    def _constrain_tokens_in_history(self, prompt_message, prompt_token_count: int, max_tokens_per_action: int) -> list:
         total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
         history_idx = 0
-        max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - self._max_tokens_per_action)
+        max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
+        assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
         while total_token_count >= max_token_per_prompt:
             self.logger.warning(f"Tokens exceeded removing history at index {history_idx}")
             self._history_token_count -= self._message_history_token_count[history_idx]
@@ -118,6 +115,9 @@ class CoqGptPolicyPrompter(PolicyPrompter):
         self._message_history_token_count.append(prompt_token_count)
         self._history_token_count += prompt_token_count
         messages = self.system_messages + self._message_history
+        return messages, total_token_count
+    
+    def _throttle_if_needed(self, total_token_count: int):
         has_hit_rate_limit = self._rate_limiter.check(total_token_count)
         was_throttled = False
         while not has_hit_rate_limit:
@@ -132,25 +132,48 @@ class CoqGptPolicyPrompter(PolicyPrompter):
             self.logger.info("Rate limit was hit. So the request was throttled.")
             self._rate_limiter.reset()
             self.logger.info("Rate limit reset now.")
+
+
+    def run_prompt(self, request: CoqGptResponse) -> list:
+        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request)
+        prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
+        prompt_messages = [prompt_message]
+        prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
+        messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, self._max_tokens_per_action)
         success = False
         retries = 10
         time_to_sleep = 60
         exp_factor = 1.25
+        tokens_factor = 1.25
+        tokens_to_generate = self._max_tokens_per_action
+        upper_bound = 10 * self._max_tokens_per_action
+        responses = None
         while not success and retries > 0:
             try:
+                self._throttle_if_needed(total_token_count)
                 self.logger.info(f"Requesting {total_token_count} tokens.")
                 request_start_time = time.time()
                 responses, usage = self._gpt_access.complete_chat(
                     messages,
                     n=self.num_sequences,
                     temperature=self.temperature,
-                    max_tokens=self._max_tokens_per_action,
+                    max_tokens=tokens_to_generate,
                     stop=["[END]"])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
                 self.logger.info(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
-                success = True
+                reason = usage["reason"]
+                self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
+                success = reason != "length"
+                if not success:
+                    tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
+                    self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
+                    self.logger.info(f"Incomplete Response messages: \n{responses}")
+                    messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
+                else:
+                    self.logger.info(f"Got a valid response. Reason: \n{reason}")
+                    self.logger.info(f"Response messages: \n{responses}")
             except InvalidRequestError as e:
                 self.logger.info("Got an invalid request error. Not retrying.")
                 self.logger.exception(e)
@@ -163,9 +186,9 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 usage = {}
                 time_to_sleep *= exp_factor # Exponential backoff
             retries -= 1
-        if not success:
+        if not success and responses == None:
+            # Don't throw an error even with an incomplete response, because the parsing can still make it work.
             raise Exception(f"Failed to get valid response after {retries} tries")
-        self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
         return responses
 
     def parse_response(self, responses: list) -> typing.List[typing.Tuple[typing.Any, ProofAction, float]]:

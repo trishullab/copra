@@ -194,6 +194,7 @@ class TrainingDataFormat(object):
     """
     proof_id : Optional[str] = None # The id of the proof which helps locating the proof in the original file.
     all_useful_defns_theorems : List[LemmaReferences] = field(default_factory=list) # The list of all useful definitions.
+    goal_description: Optional[str] = None # The description of the goal.
     start_goals: List[Goal] = field(default_factory=list) # The goal to start with.
     end_goals: List[Goal] = field(default_factory=list) # The goal to end with.
     proof_steps: List[str] = field(default_factory=list) # The list of proof steps to get from the start goal to the end goal.

@@ -109,7 +109,13 @@ class GptAccess(object):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
             return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-        return return_responses, usage
+        usage_dict = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+            "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        }
+        return return_responses, usage_dict
     
     def num_tokens_from_messages(self, messages, model=None):
         # Model name is like "gpt-3.5-turbo-0613"

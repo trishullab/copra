@@ -23,38 +23,30 @@ Unable to unify "a" with "a + 0".
 
 
 `example_assistant`
-[RUN TACTIC][STP]simpl.
+[RUN TACTIC][STP]intros a. simpl. reflexivity.
 [END]
 
 
 `example_user`
-[RUN TACTIC RESULT][ERROR]Goal didn't simplify. It is same as one of the previous goals attempted for simplification[END]
-
-
-`example_assistant`
-[RUN TACTIC][STP]rewrite Nat.add_0_r.
-[END]
-
-
-`example_user`
-[RUN TACTIC RESULT][ERROR]Error: Found no subterm matching "?M1050 + 0" in the current goal.
-[END]
-
-
-`example_assistant`
-[RUN TACTIC][STP]intros a. reflexivity.
-[END]
-
-`example_user`
-[RUN TACTIC RESULT][ERROR]Error: In environment
+[RUN TACTIC RESULT][ERROR]In environment
 a : nat
-Unable to unify "a" with "a + 0".
-[END]
+Unable to unify "a" with
+ "a + 0".[END]
+
 
 `example_assistant`
-[RUN TACTIC][STP]induction a as [| a' IH].
+[RUN TACTIC][STP]rewrite Nat.add_0_r. reflexivity.
 [END]
 
+
+`example_user`
+[RUN TACTIC RESULT][ERROR]The reference Nat.add_0_r was not found in the current environment.
+[END]
+
+
+`example_assistant`
+[RUN TACTIC][STP]intros a. induction a as [| n IHn].
+[END]
 
 `example_user`
 [RUN TACTIC RESULT][SUCCESS]
@@ -65,15 +57,17 @@ Goals to prove:
 [GL] 1
 0 + 0 = 0
 [HYPS] 1
+
 [GL] 2
-S a' + 0 = S a'
+S n + 0 = S n
 [HYPS] 2
 
 [STPS]
 
 `example_assistant`
-[RUN TACTIC][STP]reflexivity.
+[RUN TACTIC][STP]- reflexivity.
 [END]
+
 
 `example_user`
 [RUN TACTIC RESULT][SUCCESS]
@@ -81,42 +75,26 @@ S a' + 0 = S a'
 
 Goals to prove:
 [GLS]
-[GL] 1
-S a' + 0 = S a'
-[HYPS] 1
-a': nat
-IH: a' + 0 = a'
-
-[STPS]
+[DESCRIPTION]
+There are unfocussed goals.
+[END]
 
 `example_assistant`
-[RUN TACTIC][STP]rewrite IH. reflexivity.
+[RUN TACTIC][STP]- simpl. rewrite <- IHn. reflexivity.
 [END]
 
 `example_user`
-[RUN TACTIC RESULT][ERROR]Error: Found no subterm matching "a' + 0" in the current goal.
+[RUN TACTIC RESULT][ERROR]Error: In environment
+n : nat
+IHn : n + 0 = n
+Unable to unify "S (n + 0)"
+with "S (n + 0 + 0)".
 [END]
 
 `example_assistant`
-[RUN TACTIC][STP]simpl.[END]
-
-`example_user`
-[RUN TACTIC RESULT][SUCCESS]
+[RUN TACTIC][STP]- simpl. rewrite IHn. reflexivity.
 [END]
 
-Goals to prove:
-[GLS]
-[GL] 1
-S (a' + 0) = S a'
-[HYPS] 1
-a': nat
-IH: a' + 0 = a'
-
-[STPS]
-
-`example_assistant`
-[RUN TACTIC][STP]f_equal. apply IH.
-[END]
 
 `example_user`
 [RUN TACTIC RESULT][SUCCESS]
@@ -124,11 +102,22 @@ IH: a' + 0 = a'
 
 Goals to prove:
 [GLS]
-
-[STPS]
+[DESCRIPTION]
+Proof finished.
+[END]
 
 `example_assistant`
 [RUN TACTIC][STP]Qed.
+[END]
+
+`example_user`
+[RUN TACTIC RESULT][SUCCESS]
+[END]
+
+Goals to prove:
+[GLS]
+[DESCRIPTION]
+Not in proof mode.
 [END]
 
 `conv end`

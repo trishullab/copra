@@ -192,7 +192,8 @@ Prog:
 | String Prog
 | Prog String Prog;
 ErrorResponse:
-  Error ErrorString End {left, 2};
+  Error ErrorString End {left, 2}
+| Error String End {left, 1};
 RunTacticResponse:
   RunTacticResult Success End
 | RunTacticResult Error String End;
@@ -215,7 +216,8 @@ DfnList:
 | Dfn String DfnList {left, 1}
 | EMPTY;
 GoalsResponse:
-  Goals GoalResponses Stps;
+  Goals Description String End
+| Goals GoalResponses Stps;
 GoalResponses:
   GoalResponse {left, 2}
 | GoalResponse GoalResponses {left, 1}
@@ -246,13 +248,14 @@ Thm: "[THM]";
 Error: "[ERROR]";
 Success: "[SUCCESS]";
 End: "[END]";
+Description: "[DESCRIPTION]";
 RunTacticResult: "[RUN TACTIC RESULT]";
 GetThmsResult: "[GET THMS RESULT]";
 GetDfnsResult: "[GET DFNS RESULT]";
 String:;
 ErrorString:;
 """
-    keywords = ["[GLS]", "[GL]", "[HYPS]", "[HYP]", "[STPS]", "[STP]", "[DFNS]", "[DFN]", "[THMS]", "[THM]", "[ERROR]", "[SUCCESS]", "[END]", "[RUN TACTIC RESULT]", "[GET THMS RESULT]", "[GET DFNS RESULT]"]
+    keywords = ["[GLS]", "[GL]", "[HYPS]", "[HYP]", "[STPS]", "[STP]", "[DFNS]", "[DFN]", "[THMS]", "[THM]", "[ERROR]", "[SUCCESS]", "[END]", "[RUN TACTIC RESULT]", "[GET THMS RESULT]", "[GET DFNS RESULT]", "[DESCRIPTION]"]
 
     def before_keyword(text, pos):
         last = pos
@@ -286,15 +289,20 @@ ErrorString:;
         if coq_gpt_response.action == CoqGptResponseActions.ERROR:
             text = f"{CoqGptResponseActions.ERROR}\n{coq_gpt_response.message}\n[END]"
         elif coq_gpt_response.action == CoqGptResponseActions.GLS:
-            lines = []
-            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
-                lines.append(f"[GL] {i+1}")
-                lines.append(str(goal.goal))
-                lines.append(f"[HYPS] {i + 1}")
-                for hyp in goal.hypotheses:
-                    lines.append(f"[HYP] {hyp}")
-            gls_args = '\n'.join(lines)
-            text = f"New Goals to prove:\n{CoqGptResponseActions.GLS}\n{gls_args}\n[STPS]"
+            assert coq_gpt_response.training_data_format is not None
+            if coq_gpt_response.training_data_format.goal_description is not None:
+                assert len(coq_gpt_response.training_data_format.start_goals) == 0
+                text = f"{CoqGptResponseActions.GLS}[DESCRIPTION]\n{coq_gpt_response.training_data_format.goal_description}\n[END]"
+            else:
+                lines = []
+                for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
+                    lines.append(f"[GL] {i+1}")
+                    lines.append(str(goal.goal))
+                    lines.append(f"[HYPS] {i + 1}")
+                    for hyp in goal.hypotheses:
+                        lines.append(f"[HYP] {hyp}")
+                gls_args = '\n'.join(lines)
+                text = f"New Goals to prove:\n{CoqGptResponseActions.GLS}\n{gls_args}\n[STPS]"
         elif coq_gpt_response.action == CoqGptResponseActions.RUN_TACTIC_RESULT:
             if coq_gpt_response.success:
                 text = f"{CoqGptResponseActions.RUN_TACTIC_RESULT}[SUCCESS]\n[END]\n"
@@ -553,6 +561,14 @@ Unable to unify "n" with "n + 0".
     result = grammar.compile("""
 [ERROR]
 Unable to parse the expression.
+[END]
+""")
+    print(result)
+
+    result = grammar.compile("""
+[GLS]
+[DESCRIPTION]
+Not in proof mode.
 [END]
 """)
     print(result)

@@ -101,9 +101,9 @@ class CoqContextHelper(object):
                 changed_goals[goal.goal] -= 1
         return changed_goals_idx
 
-    def get_current_goals(self, coq_executor: CoqExecutor) -> List[Goal]:
+    def get_focussed_goals(self, coq_executor: CoqExecutor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
-        return [Goal(hypotheses=obligation.hypotheses, goal=obligation.goal) for obligation in coq_executor.coq.proof_context.all_goals]
+        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in coq_executor.coq.proof_context.fg_goals]
 
     def get_local_lemmas(self, coq_executor: CoqExecutor, logger: logging.Logger = None) -> List[typing.Tuple[str, str]]:
         # Since LOCAL retrieval is not intelligent enough to filter out the useless lemmas, we will not filter out the useless lemmas here, and let the model learn it

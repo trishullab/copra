@@ -56,6 +56,9 @@ class DynamicProofExecutor(CoqExecutor):
         def __init__(self):
             self.tatics_ran = []
             self.last_exception : typing.Optional[str] = None
+    UnfocussedGoalsDescription = "There are unfocussed goals."
+    ProofFinishedDescription = "Proof finished."
+    NotInProofModeDescription = "Not in proof mode."
     class ContextType(enum.Enum):
         NoContext = 0
         LocalContext = 1
@@ -85,15 +88,25 @@ class DynamicProofExecutor(CoqExecutor):
         self.logger = logger
         pass
 
-    def get_current_goal(self) -> typing.List[Goal]:
+    def get_focussed_goals(self) -> typing.List[Goal]:
         if not self.is_in_proof_mode():
             return []
-        return self.coq_context_helper.get_current_goals(self)
+        return self.coq_context_helper.get_focussed_goals(self)
 
     def get_current_proof_state_as_training_data(self) -> TrainingDataFormat:
         # get the current goal
-        current_goals = self.get_current_goal()
+        current_goals = self.get_focussed_goals()
         training_data_format = TrainingDataFormat(start_goals=current_goals)
+        if self.needs_cut_close():
+            assert len(current_goals) == 0, "There should be no goals when needs_cut_close is True"
+            training_data_format.goal_description = DynamicProofExecutor.UnfocussedGoalsDescription
+        elif not self.is_in_proof_mode():
+            assert len(current_goals) == 0, "There should be no goals when not in proof mode"
+            training_data_format.goal_description = DynamicProofExecutor.NotInProofModeDescription
+        elif self.needs_qed():
+            assert len(current_goals) == 0, "There should be no goals when needs_qed is True"
+            training_data_format.goal_description = DynamicProofExecutor.ProofFinishedDescription
+        assert training_data_format.goal_description is not None or len(current_goals) > 0, "The goal description must be set if there are no goals"
         return training_data_format
     
     def get_all_relevant_thms(self) -> TrainingDataFormat:

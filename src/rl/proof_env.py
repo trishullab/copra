@@ -95,9 +95,10 @@ class ProofEnv(Env):
     @property
     def done(self) -> bool:
         assert self._loaded, "Env not loaded, call reset() first"
-        needs_qed = self._dynamic_proof_executor.needs_qed()
+        # needs_qed = self._dynamic_proof_executor.needs_qed()
         not_in_proof_mode = not self._dynamic_proof_executor.is_in_proof_mode()
-        return needs_qed or not_in_proof_mode
+        # return needs_qed or not_in_proof_mode
+        return not_in_proof_mode
 
     @property
     def history(self) -> typing.List[typing.Tuple[ProofState, ProofAction, ProofState, float, bool, ProofEnvInfo]]:
@@ -183,24 +184,29 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, _, reward, done, env_info = self._history[history_idx]
-        was_done_before = done
+        # was_done_before = done
         assert action.action_type == ProofAction.ActionType.RUN_TACTIC, "Action must be of type RUN_TACTIC"
         tactics = action.kwargs["tactics"]
         assert isinstance(tactics, list)
         assert len(tactics) > 0
         assert all([isinstance(tactic, str) for tactic in tactics])
+        # Remove unnecessary spaces, newlines, and tabs
+        tactics = [tactic.strip() for tactic in tactics]
+        # Check if the last tactic is Qed
+        # if tactics[-1] == "Qed.":
+        #     ignore_cycle = True
         state, next_state, reward, done, env_info = self._run_tactics(tactics, state, reward, done, env_info, ignore_cycle)
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
-        if not was_done_before and done:
-            next_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=["Qed."])
-            self._history.append((next_state, next_action, None, 0.0, True, env_info))
-            self._run_tactic(history_idx + 1, ignore_cycle=True)
-            next_state = self._history[-1][2]
-            env_info = self._history[-1][5]
-            # Change the history of the previous state
-            self._history.pop() # remove the last state
-            action.kwargs["tactics"].append("Qed.")
-            self._history[history_idx] = (state, action, next_state, reward, done, env_info)
+        # if not was_done_before and done:
+        #     next_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=["Qed."])
+        #     self._history.append((next_state, next_action, None, 0.0, True, env_info))
+        #     self._run_tactic(history_idx + 1, ignore_cycle=True)
+        #     next_state = self._history[-1][2]
+        #     env_info = self._history[-1][5]
+        #     # Change the history of the previous state
+        #     self._history.pop() # remove the last state
+        #     action.kwargs["tactics"].append("Qed.")
+        #     self._history[history_idx] = (state, action, next_state, reward, done, env_info)
     
     def _run_tactics(self, tactics: typing.List[str], state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo, ignore_cycle: bool = False):
         env_info = copy.deepcopy(env_info)
@@ -212,8 +218,12 @@ class ProofEnv(Env):
             previous_proof_state.training_data_format.proof_steps = copy.deepcopy(tactics)
             current_proof_state = self.state
             # add the proof step to the proof tree
-            # Check if the current proof state is less harder than the previous proof state
+            ignore_cycle = ignore_cycle or \
+                (len(current_proof_state.training_data_format.start_goals) == 0 and \
+                 current_proof_state.training_data_format.goal_description is not None)
+            # ignore the cycle if the current proof state is the final state or the goal is already proved or there are unfocused subgoals
             if not ignore_cycle:
+                # Check if the current proof state is less harder than the previous proof state
                 if current_proof_state >= previous_proof_state:
                     # This is a cycle. Take a step back
                     next_step_add = False

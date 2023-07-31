@@ -57,18 +57,34 @@ if __name__ == "__main__":
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
     log_path = ".log/proof_agent-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))
+    proof_file = "data/test/SimpleAlgebra.v"
+    theorem_name = "algb_add_comm"
+    main_prompt = "data/prompts/system/coq-proof-agent-role.md"
+    conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv.md"
+    max_tokens_per_action = 25
+    max_theorems_in_prompt = 3
+    gpt_model_name = "gpt-4"
     policy_prompter = CoqGptPolicyPrompter(
-        main_sys_prompt_path="data/prompts/system/coq-proof-agent-role.md",
-        example_conv_prompt_path="data/prompts/conversation/coq-proof-agent-example-long-conv.md",
-        max_tokens_per_action=25)
-    basic_policy = BasicPolicy(policy_prompter, 3)
+        main_sys_prompt_path=main_prompt,
+        example_conv_prompt_path=conv_prompt,
+        max_tokens_per_action=max_tokens_per_action,
+        gpt_model_name=gpt_model_name)
+    basic_policy = BasicPolicy(policy_prompter, max_theorems_in_prompt)
     agent = ProofAgent("basic_proof_agent", basic_policy)
     proof_exec_callback = ProofExecutorCallback(
         project_folder=".",
-        file_path="data/test/SimpleAlgebra.v"
+        file_path=proof_file
     )
     logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger("basic_proof_env")
-    with ProofEnv("basic_proof_env", proof_exec_callback, 'algb_add_comm', max_proof_depth=10, logger=logger) as env:
+    logger.info("Starting proof agent with " + 
+                f"\nfile = {proof_file}," + 
+                f"\ntheorem = {theorem_name}" +
+                f"\nmain_prompt = {main_prompt}" +
+                f"\nconv_prompt = {conv_prompt}" +
+                f"\nmax_tokens_per_action = {max_tokens_per_action}" +
+                f"\nmax_theorems_in_prompt = {max_theorems_in_prompt}" +
+                f"\ngpt_model_name = {gpt_model_name}")
+    with ProofEnv("basic_proof_env", proof_exec_callback, theorem_name, max_proof_depth=20, logger=logger) as env:
         agent.run(env, 1, 50, True)
     pass
