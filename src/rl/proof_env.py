@@ -239,6 +239,7 @@ class ProofEnv(Env):
             else:
                 next_step_add = self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True)
                 proof_progressed = True
+                self.current_proof_depth += 1
         else:
             proof_progressed = False
         if not proof_progressed:

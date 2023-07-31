@@ -57,8 +57,10 @@ if __name__ == "__main__":
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
     log_path = ".log/proof_agent-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))
-    proof_file = "data/test/SimpleAlgebra.v"
-    theorem_name = "algb_add_comm"
+    # proof_file = "data/test/SimpleAlgebra.v"
+    proof_file = "data/test/SimpleNaturalProofs.v"
+    # theorem_name = "algb_add_comm"
+    theorem_name = "mul_comm"
     main_prompt = "data/prompts/system/coq-proof-agent-role.md"
     conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv.md"
     max_tokens_per_action = 25
