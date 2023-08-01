@@ -5,7 +5,7 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from tools.training_data_format import TrainingDataFormat
+from src.tools.training_data_format import TrainingDataFormat
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 

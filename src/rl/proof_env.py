@@ -169,7 +169,7 @@ class ProofEnv(Env):
         self.proof_search_res = ProofSearchResult(
             self._dynamic_proof_executor.main_file, 
             not self._dynamic_proof_executor.is_in_proof_mode(), 
-            self.lemma_name, 
+            self._lemma_name_with_stmt, 
             [tactic.training_data_format for _, tactic in self._p_tree], 
             self.time_taken, 
             self.inferences_used, 
@@ -337,6 +337,7 @@ class ProofEnv(Env):
     def _foward_to_lemma_proof(self):
         assert self._loaded, "Env not loaded, call reset() first"
         lemma_found = False
+        self._lemma_name_with_stmt = None
         while not self._dynamic_proof_executor.execution_complete and not lemma_found:
             assert not self._dynamic_proof_executor.is_in_proof_mode(), "executor must not be in proof mode"
             _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
@@ -351,6 +352,7 @@ class ProofEnv(Env):
 
         if not lemma_found:
             raise Exception(f"Could not find lemma {self.lemma_name}")
+        self._lemma_name_with_stmt = lemma_name_with_stmt
         pass
 
 

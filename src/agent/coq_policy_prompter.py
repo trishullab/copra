@@ -162,7 +162,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
-                self.logger.info(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
+                self.logger.debug(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
                 reason = usage["reason"]
                 self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
                 success = reason != "length"
@@ -172,8 +172,8 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
                 else:
-                    self.logger.info(f"Got a valid response. Reason: \n{reason}")
-                    self.logger.info(f"Response messages: \n{responses}")
+                    self.logger.debug(f"Got a valid response. Reason: \n{reason}")
+                    self.logger.debug(f"Response messages: \n{responses}")
             except InvalidRequestError as e:
                 self.logger.info("Got an invalid request error. Not retrying.")
                 self.logger.exception(e)

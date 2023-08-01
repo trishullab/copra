@@ -31,7 +31,7 @@ class ProofExecutorCallback(object):
         self.logger = logger
         pass
 
-    def get_proof_executor(self):
+    def get_proof_executor(self) -> DynamicProofExecutor:
         search_exec = CoqExecutor(self.project_folder, self.file_path, use_hammer=self.use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)
         coq_context_helper = CoqContextHelper(search_exec, self.search_depth, logger=self.logger)
         return DynamicProofExecutor(coq_context_helper, self.project_folder, self.file_path, context_type=self.context_type, use_hammer=self.use_hammer, timeout_in_seconds=self.timeout_in_secs, suppress_error_log=self.suppress_error_log)
