@@ -28,7 +28,7 @@ class State(object):
     def serialize(self) -> str:
         pass
 
-class Action(ABC):
+class Action(object):
     def __init__(self):
         pass
 

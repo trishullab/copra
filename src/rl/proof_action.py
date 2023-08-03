@@ -5,22 +5,30 @@ import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
+import typing
 from src.tools.coq_parse_utils import CoqLineByLineReader
 from src.rl.abstraction import Action
 from enum import Enum
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
 
-
+@dataclass_json
+@dataclass
 class ProofAction(Action):
     class ActionType(Enum):
-        GET_THMS = 1
-        GET_DFNS = 2
-        RUN_TACTIC = 3
-        BACKTRACK = 4
-        EXIT = 5
+        GET_THMS = 'GET_THMS'
+        GET_DFNS = 'GET_DFNS'
+        RUN_TACTIC = 'RUN_TACTIC'
+        BACKTRACK = 'BACKTRACK'
+        EXIT = 'EXIT'
 
+    action_type: ActionType
+    kwargs: typing.Optional[dict] = field(default_factory=dict)
     def __init__(self, action_type: ActionType, **kwargs):
         assert isinstance(action_type, ProofAction.ActionType), f"action_type must be of type ProofAction.Type, not {type(action_type)}"
         self.action_type = action_type
+        if kwargs is not None and isinstance(kwargs, dict) and len(kwargs) == 1 and "kwargs" in kwargs:
+            kwargs = kwargs["kwargs"] # TODO: this is a hack to get around the fact that dataclasses_json doesn't support having parameterized fields in the constructor
         self.kwargs = kwargs
         if self.action_type == ProofAction.ActionType.RUN_TACTIC:
             assert "tactics" in self.kwargs, f"kwargs must contain a 'tactic' key for action_type {self.action_type}"
@@ -71,9 +79,10 @@ class ProofAction(Action):
         pass
 
     def serialize(self) -> str:
-        return f"""
-{{
-    'action_type': '{self.action_type.name}',
-    'kwargs': {self.kwargs}
-}}
-"""
+        return self.to_json()
+
+if __name__ == "__main__":
+    action = ProofAction(action_type=ProofAction.ActionType.RUN_TACTIC, tactics=["intros.", "reflexivity."])
+    print(action.serialize())
+    action1 = ProofAction.schema().loads(action.serialize())
+    assert action == action1
