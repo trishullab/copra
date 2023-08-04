@@ -112,6 +112,7 @@ class ProofEnv(Env):
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
         self._dynamic_proof_executor.__enter__()
         self._history.clear()
+        self._p_tree = ProofTree()
         self._loaded = True
         self._foward_to_lemma_proof()
         self.goal_start_time = time.time()
@@ -158,7 +159,7 @@ class ProofEnv(Env):
                 "\n".join([str(s1.training_data_format.all_useful_defns_theorems[thm.lemma_idx]) 
             for thm in (goal.possible_useful_theorems_local[:visibility] + goal.possible_useful_theorems_external[:visibility])])
         for goal in s1.training_data_format.start_goals]
-        s1_goals = [f"Goal [{idx}]: {goal.goal} \n Hyps [{idx}]: {goal.hypotheses} \n Dfns [{idx}] {s1_relevant_dfns[idx]} \n Thms {s1_possible_thms[idx]} \n------------------\n" for idx, goal in enumerate(s1.training_data_format.start_goals)]
+        s1_goals = [f"Goal [{idx}]:\n {goal.goal} \n Hyps [{idx}]:\n {goal.hypotheses} \n Dfns [{idx}]:\n {s1_relevant_dfns[idx]} \n Thms [{idx}]:\n {s1_possible_thms[idx]} \n------------------\n" for idx, goal in enumerate(s1.training_data_format.start_goals)]
         s1_goal = '\n'.join(s1_goals)
         self.logger.info(f"Proof State (before action):\n {s1_goal}")
         s2_relevant_dfns = [
@@ -168,7 +169,7 @@ class ProofEnv(Env):
                 "\n".join([str(s2.training_data_format.all_useful_defns_theorems[thm.lemma_idx]) 
             for thm in (goal.possible_useful_theorems_local[:visibility] + goal.possible_useful_theorems_external[:visibility])])
         for goal in s2.training_data_format.start_goals]
-        s2_goals = [f"Goal [{idx}]: {goal.goal} \n Hyps [{idx}]: {goal.hypotheses} \n Dfns [{idx}]: {s2_relevant_dfns[idx]} \n Thms [{idx}]: {s2_possible_thms[idx]} \n-------------------\n" for idx, goal in enumerate(s2.training_data_format.start_goals)]
+        s2_goals = [f"Goal [{idx}]:\n {goal.goal} \n Hyps [{idx}]: {goal.hypotheses} \n Dfns [{idx}]:\n {s2_relevant_dfns[idx]} \n Thms [{idx}]:\n {s2_possible_thms[idx]} \n-------------------\n" for idx, goal in enumerate(s2.training_data_format.start_goals)]
         action = a.serialize()
         self.logger.info(f"Action:\n {action}")
         s2_goal = '\n'.join(s2_goals)
@@ -320,16 +321,27 @@ class ProofEnv(Env):
         last_tactic_line, last_tactic = self._p_tree.try_remove_last_tactic()
         assert (last_tactic is not None and last_tactic_line is not None) or (last_tactic is None and last_tactic_line is None), "last tactic and last tactic line must be either both None or both not None"
         if last_tactic is not None and last_tactic_line is not None:
-            self._dynamic_proof_executor.cancel_tactic_till_line(last_tactic_line)
+            try:
+                self._dynamic_proof_executor.cancel_tactic_till_line(last_tactic_line)
+            except Exception as e:
+                history = self._history # History helps us to restore the state
+                self.logger.error("Exception occured while backtracking: {}".format(e))
+                self.reset() # To ensure that everything is fine
+                # Run all tactics in the history
+                self._history = history
+                run_tactic_idx = []
+                for i in range(history_idx):
+                    _, action, _, _, _, _ = history[i]
+                    if action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                        run_tactic_idx.append(i)
+                for i in run_tactic_idx[:-1]:
+                    self._run_tactic(i) # Run all tactics except the last one which is being backtracked
             if self._dynamic_proof_executor.is_in_proof_mode():
                 env_info.progress = ProgressState.RUNNING
                 env_info.error_message = "Backtracked successfully"
                 reward = 0.0
             else:
-                self.reset() # To ensure that everything is fine
-                env_info.progress = ProgressState.RUNNING
-                env_info.error_message = "Backtracked all the way to the beginning of the proof"
-                reward = -1.0
+                raise Exception("This should never happen as reset() should always take back the environment to a valid proof state in which the proof mode is on")
         else:
             reward = -1.0
             env_info.progress = ProgressState.FAILED
@@ -387,11 +399,10 @@ if __name__ == "__main__":
             return ProofAction(action_type)
         else:
             raise Exception(f"Invalid action type {action_type}")
-    
-
-    with ProofEnv("test", proof_exec_callback, 'algb_add_comm', max_proof_depth=10) as env:
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logger = logging.getLogger(__name__)
+    with ProofEnv("test", proof_exec_callback, 'algb_add_comm', max_proof_depth=10, logger=logger) as env:
         done = env.done
-        print(f"Starting state: \n{env.state.serialize()}")
         action = scan_action()
         while action.action_type != ProofAction.ActionType.EXIT and not done:
             state, _, _, reward, done, info = env.step(action)
