@@ -106,7 +106,7 @@ class QTree(object):
     
     @staticmethod
     def deserialize(data: str) -> 'QTree':
-        qtree_nodes : typing.List[QTree] = QTreeNode.schema().loads(data, many=True)
+        qtree_nodes : typing.List[QTreeNode] = QTreeNode.schema().loads(data, many=True)
         qtree = QTree()
         for qtree_node in qtree_nodes:
             for action, next_state, qinfo in zip(qtree_node.actions, qtree_node.next_state, qtree_node.qinfo):
