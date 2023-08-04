@@ -13,6 +13,12 @@ class GptGuidedDfsPolicy(Policy):
         pass
 
     def __call__(self, env: ProofEnv) -> ProofAction:
+        # Call tree search to generate a tree action
+        # If tree action is to generate summary prompt
+            # Call the policy prompter
+            # Parse action from the GPT to ProofAction
+        # Else
+            # Convert tree action to ProofAction
         pass
 
     def update(self, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
