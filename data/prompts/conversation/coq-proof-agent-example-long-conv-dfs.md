@@ -1,6 +1,6 @@
 `conv start`
 
-`example_user1`
+`example_user`
 Goals to prove:
 [GOALS]
 [GOAL] 1
@@ -10,12 +10,12 @@ forall a : nat, a + 0 = a
 [END]
 
 
-`example_assistant1`
+`example_assistant`
 [RUN TACTIC][STEP]reflexivity.
 [END]
 
 
-`example_user2`
+`example_user`
 Goals to prove:
 [GOALS]
 [GOAL] 1
@@ -34,13 +34,13 @@ Unable to unify "a" with "a + 0".
 
 
 
-`example_assistant2`
+`example_assistant`
 [RUN TACTIC]
 [STEP]intros a.
 [END]
 
 
-`example_user3`
+`example_user`
 Goals to prove:
 [GOALS]
 [GOAL] 1
@@ -53,12 +53,12 @@ a + 0 = a
 [END]
 
 
-`example_assistant3`
+`example_assistant`
 [RUN TACTIC][STEP]rewrite Nat.add_0_r. reflexivity.
 [END]
 
 
-`example_user4`
+`example_user`
 Goals to prove:
 [GOALS]
 [GOAL] 1
@@ -76,11 +76,11 @@ a + 0 = a
 [END]
 
 
-`example_assistant4`
+`example_assistant`
 [RUN TACTIC][STEP]induction a as [| n IHn].
 [END]
 
-`example_user5`
+`example_user`
 Goals to prove:
 [GOALS]
 [GOAL] 1
@@ -97,11 +97,11 @@ S n + 0 = S n
 
 [END]
 
-`example_assistant5`
+`example_assistant`
 [RUN TACTIC][STEP] - reflexivity.
 [END]
 
-`example_user6`
+`example_user`
 Goals to prove:
 [GOALS]
 [DESCRIPTION] There are unfocussed goals.
@@ -118,10 +118,10 @@ S n + 0 = S n
 [END]
 
 
-`example_assistant6`
+`example_assistant`
 [GET THEOREMS][END]
 
-`example_user7`
+`example_user`
 Goals to prove:
 [GOALS]
 [DESCRIPTION] There are unfocussed goals.
@@ -142,11 +142,11 @@ S n + 0 = S n
 [STEP] - reflexivity.
 [END]
 
-`example_assistant7`
+`example_assistant`
 [RUN TACTIC][STEP]- rewrite plus_n_O. reflexivity.
 [END]
 
-`example_user8`
+`example_user`
 Goals to prove:
 [GOALS]
 [DESCRIPTION] Proof finished.
@@ -158,7 +158,7 @@ Goals to prove:
 [STEP] - rewrite plus_n_O. reflexivity.
 [END]
 
-`example_assistant8`
+`example_assistant`
 [RUN TACTIC][STEP]Qed.
 [END]
 
