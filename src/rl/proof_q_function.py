@@ -8,12 +8,12 @@ import typing
 import math
 from src.rl.abstraction import QFunction, State, Action
 from src.rl.proof_env import ProofEnvInfo
-from src.rl.q_tree import QTree
+from src.rl.q_tree import QGraph
 
 class ProofQFunction(QFunction):
     def __init__(self):
         super().__init__()
-        self.q_tree = QTree()
+        self.q_tree = QGraph()
 
     def __call__(self, state: State, action: Action) -> typing.Tuple[float, ProofEnvInfo]:
         if self.q_tree.state_in_tree(state):

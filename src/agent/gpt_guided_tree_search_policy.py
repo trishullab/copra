@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
 import sys
-import uuid
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
+import uuid
 import typing
 import os
+import math
 from enum import Enum
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from abc import ABC, abstractmethod
-from src.rl.q_tree import QTree, QInfo, QTreeNode
+from src.rl.q_tree import QGraph, QInfo, QTreeNode
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
 
@@ -22,13 +23,40 @@ class TreeSearchActionType(Enum):
     FAILED_ACTION_SUMMARY_PROMPT = 'FAILED_ACTION_SUMMARY_PROMPT'
     # State is harder than previous state(s)
     HARDER_STATE_SUMMARY_PROMPT = 'HARDER_STATE_SUMMARY_PROMPT'
+    # The action to generate a cyclic state summary prompt
+    CYCLIC_STATE_SUMMARY_PROMPT = 'CYCLIC_STATE_SUMMARY_PROMPT'
     # The action to backtrack to the previous state
     BACKTRACK = 'BACKTRACK'
+    # The action to stop the search
+    STOP = 'STOP'
+
+@dataclass_json
+@dataclass
+class PromptSummary:
+    actions_to_avoid: typing.List[ProofAction]
+    state: ProofState
+    pass
+
+class TreeSearchAction:
+    def __init__(self, 
+        action_type: TreeSearchActionType, 
+        **kwargs):
+        self.action_type = action_type
+        self.kwargs = kwargs
+
+class StateType(Enum):
+    # The state is Undiscovered
+    UNDISCOVERED = 'UNDISCOVERED'
+    # The state is Discovered
+    DISCOVERED = 'DISCOVERED'
+    # The state is Backtracked
+    BACKTRACKED = 'BACKTRACKED'
 
 @dataclass_json
 @dataclass
 class ProofQInfo(QInfo):
     proof_env_info: ProofEnvInfo
+    state_type: StateType
     def serialize(self) -> str:
         return self.to_json()
     
@@ -52,7 +80,7 @@ class ProofQTreeNode(QTreeNode):
         return ProofQTreeNode.schema().loads(data)
 
 
-class ProofQTree(QTree):
+class ProofQTree(QGraph):
     def serialize(self) -> str:
         # Conver to ProofQTreeNodes
         qtree_nodes = []
@@ -60,7 +88,9 @@ class ProofQTree(QTree):
             actions = []
             next_states = []
             qinfos = []
-            for action, (qinfo, next_state) in edges.items():
+            for action, state_info in edges.items():
+                qinfo = state_info.qinfo
+                next_state = state_info.next_state
                 actions.append(action)
                 next_states.append(next_state)
                 qinfos.append(qinfo)
@@ -78,7 +108,11 @@ class ProofQTree(QTree):
 
 class TreeSearchAlgorithm(ABC):
     @abstractmethod
-    def __call__(self, tree: ProofQTree, state: ProofState) -> TreeSearchActionType:
+    def __call__(self, tree: ProofQTree, state: ProofState) -> TreeSearchAction:
+        pass
+
+    @abstractmethod
+    def update_new_node(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         pass
 
     @abstractmethod
@@ -87,7 +121,7 @@ class TreeSearchAlgorithm(ABC):
 
 class GptPolicyPrompter(ABC):
     @abstractmethod
-    def __call__(self, tree: ProofQTree, tree_search_action_type: TreeSearchActionType) -> ProofAction:
+    def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
         pass
 
 class GptGuidedTreeSearchPolicy(Policy):
@@ -131,22 +165,29 @@ class GptGuidedTreeSearchPolicy(Policy):
     
     def checkpoint(self):
         checkpoint_path = os.path.join(self.checkpoint_dir, self.checkpoint_filename)
-        with open(checkpoint_path, 'w') as f:
-            f.write(self._proof_q_tree.serialize())
+        self._checkpoint_in_file(checkpoint_path)
 
     def __call__(self, state: ProofState) -> ProofAction:
-        tree_search_action : TreeSearchAlgorithm = self._tree_search_algorithm(self._proof_q_tree, state)
-        if tree_search_action == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT or\
-            tree_search_action == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT or\
-            tree_search_action == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
-            action = self._policy_prompter(self._proof_q_tree, tree_search_action)
-        else:
+        tree_search_action : TreeSearchAction = self._tree_search_algorithm(self._proof_q_tree, state)
+        if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT \
+        or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \
+        or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
+            action = self._policy_prompter(tree_search_action)
+        elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             action = ProofAction(ProofAction.ActionType.BACKTRACK)
+        elif tree_search_action.action_type == TreeSearchActionType.STOP:
+            action = ProofAction(ProofAction.ActionType.EXIT)
+        else:
+            raise Exception(f"Unknown tree search action {tree_search_action}")
         return action
 
     def update(self, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
+        qval = -math.inf
+        proof_q_info = ProofQInfo(reward, done, qval, info)
+        self._proof_q_tree.add(state, action, next_state, proof_q_info)
+        self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
         qval = self._tree_search_algorithm.estimate_q_value(self._proof_q_tree, state, action, next_state, reward, done, info)
-        self._proof_q_tree.add(state, action, next_state, ProofQInfo(reward, done, qval, info))
+        self._proof_q_tree.update_qinfo(state, action, next_state, proof_q_info)
 
     def clone(self) -> 'GptGuidedTreeSearchPolicy':
         guid = str(uuid.uuid4())

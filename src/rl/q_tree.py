@@ -8,7 +8,7 @@ import typing
 import copy
 from collections import deque
 from src.rl.abstraction import State, Action
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
 @dataclass_json
@@ -17,6 +17,9 @@ class QInfo(object):
     reward: float
     done: bool
     qval: float
+    has_loop: bool = False
+    has_self_loop: bool = False
+    distance_from_root: int = -1
 
     def serialize(self) -> str:
         return self.to_json()
@@ -39,13 +42,21 @@ class QTreeNode(object):
     @staticmethod
     def deserialize(data: str) -> 'QTreeNode':
         return QTreeNode.schema().loads(data)
-    
-class QTree(object):
+
+class QTreeStateInfo(object):
+    def __init__(self, state: State, qinfo: QInfo):
+        self.state = state
+        self.qinfo = qinfo
+
+class QGraph(object):
+    """
+    This is a directed graph and not a tree. However, this graph has a root and all nodes are reachable from the root.
+    """
     def __init__(self):
-        self.root: typing.Optional[QInfo] = None
+        self.root: typing.Optional[QTreeStateInfo] = None
         self.nodes : typing.Set[State] = dict()
-        self.parents : typing.Dict[State, typing.Dict[Action, typing.Tuple[QInfo, State]]] = dict()
-        self.edges : typing.Dict[State, typing.Dict[Action, typing.Tuple[QInfo, State]]] = dict()
+        self.parents : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
+        self.edges : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
     
     def state_in_tree(self, state: State) -> bool:
         return state in self.nodes
@@ -60,23 +71,76 @@ class QTree(object):
         if len(self.nodes) == 0:
             assert len(self.parents) == 0 and len(self.edges) == 0, f"parents should be empty"
             # add root node
-            self.root = prev_state_copy
+            self.root = QTreeStateInfo(state=prev_state_copy, qinfo=None)
             self.nodes.add(prev_state_copy)
             self.nodes.add(next_state_copy)
+            qinfo_copy.distance_from_root = 1
             self.parents[next_state_copy] = dict()
+            self.parents[prev_state_copy] = dict() # root has no parent
             self.edges[prev_state_copy] = dict()
+            self.edges[next_state_copy] = dict() # no edges going out of next state
         else:
             assert self.root is not None, f"root cannot be None"
             assert prev_state in self.nodes, f"prev_state_node {prev_state} not in tree"
+            assert prev_state in self.edges, f"prev_state_node {prev_state} not in tree edges"
+            assert prev_state in self.parents, f"prev_state_node {prev_state} not in tree parents"
             if next_state not in self.nodes:
                 self.nodes.add(next_state_copy)
-            if prev_state not in self.edges:
-                self.edges[prev_state_copy] = dict()
+            if next_state not in self.edges:
+                self.edges[next_state_copy] = dict()
             if next_state not in self.parents:
                 self.parents[next_state_copy] = dict()
+            parent_distance_from_root = min([state_info.qinfo.distance_from_root for state_info in self.parents[prev_state_copy].values()])
+            qinfo_copy.distance_from_root = parent_distance_from_root + 1
 
-        self.edges[prev_state_copy][action_copy] = (qinfo_copy, next_state_copy)
-        self.parents[next_state_copy][action_copy] = (qinfo_copy, prev_state_copy)
+        self.edges[prev_state_copy][action_copy] = QTreeStateInfo(qinfo_copy, next_state_copy)
+        self.parents[next_state_copy][action_copy] = QTreeStateInfo(qinfo_copy, prev_state_copy)
+        qinfo_copy.has_self_loop = self._has_self_loop(next_state_copy)
+        if not qinfo_copy.has_self_loop:
+            qinfo_copy.has_loop = self._has_any_loop(next_state_copy)
+        else:
+            qinfo_copy.has_loop = True
+    
+    def is_leaf(self, state: State) -> bool:
+        assert state in self.nodes, "state not in the tree"
+        return len(self.edges[state]) == 0 # There should be no outgoing edge
+    
+    def _has_self_loop(self, state: State) -> bool:
+        assert state in self.nodes, "state not in the tree"
+        parents = self.parents[state]
+        for _, state_info in parents.items():
+            parent = state_info.state
+            if parent == state:
+                return True
+        return False
+    
+    def _has_any_loop(self, state: State) -> bool:
+        assert state in self.nodes, "state not in the tree"
+        visited = set()
+        dq = deque()
+        dq.append(state)
+        while len(dq) > 0:
+            node = dq.popleft()
+            if node in visited:
+                return True
+            visited.add(node)
+            for _, state_info in self.parents[node].items():
+                parent = state_info.state
+                dq.append(parent)
+        return False
+
+    def update_qinfo(self, prev_state: State, action: Action, next_state: State, new_qinfo: QInfo):
+        assert prev_state in self.nodes, f"prev_state_node {prev_state} not in tree"
+        assert next_state in self.nodes, f"next_state_node {next_state} not in tree"
+        assert prev_state in self.edges, f"prev_state_node {prev_state} not in tree"
+        assert next_state in self.parents, f"next_state_node {next_state} not in tree"
+        actual_next_state = self.edges[prev_state][action][1]
+        actual_prev_state = self.parents[next_state][action][1]
+        assert actual_next_state == next_state, f"next_state {next_state} not in tree"
+        assert actual_prev_state == prev_state, f"prev_state {prev_state} not in tree"
+        qinfo_copy = copy.deepcopy(new_qinfo)
+        self.edges[actual_prev_state][action] = QTreeStateInfo(qinfo_copy, actual_next_state)
+        self.parents[actual_next_state][action] = QTreeStateInfo(qinfo_copy, actual_prev_state)
     
     def get_all_ancestor_nodes(self, state: State) -> typing.List[typing.Tuple[int, QInfo, Action, State]]:
         assert state in self.nodes, f"node {node} not in tree"
@@ -86,7 +150,9 @@ class QTree(object):
         while len(dq) > 0:
             level, action, qinfo, node = dq.popleft()
             ancestors.append((level, action, qinfo, node))
-            for action, (qinfo, parent) in self.parents[node].items():
+            for action, state_info in self.parents[node].items():
+                qinfo = state_info.qinfo
+                parent = state_info.state
                 dq.append((level+1, action, qinfo, parent))
         return ancestors[1:]
     
@@ -97,7 +163,9 @@ class QTree(object):
             actions = []
             next_states = []
             qinfos = []
-            for action, (qinfo, next_state) in edges.items():
+            for action, state_info in edges.items():
+                qinfo = state_info.qinfo
+                next_state = state_info.state
                 actions.append(action)
                 next_states.append(next_state)
                 qinfos.append(qinfo)
@@ -105,9 +173,9 @@ class QTree(object):
         return QTreeNode.schema().dumps(qtree_nodes, many=True)
     
     @staticmethod
-    def deserialize(data: str) -> 'QTree':
+    def deserialize(data: str) -> 'QGraph':
         qtree_nodes : typing.List[QTreeNode] = QTreeNode.schema().loads(data, many=True)
-        qtree = QTree()
+        qtree = QGraph()
         for qtree_node in qtree_nodes:
             for action, next_state, qinfo in zip(qtree_node.actions, qtree_node.next_state, qtree_node.qinfo):
                 qtree.add(qtree_node.prev_state, action, next_state, qinfo)
