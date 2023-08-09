@@ -14,7 +14,8 @@ import logging
 from src.gpts.gpt_access import GptAccess
 from src.rl.proof_action import ProofAction
 from src.prompt_generator.prompter import PolicyPrompter
-from src.prompt_generator.agent_grammar import CoqGPTRequestGrammar, CoqGPTResponseGrammar, CoqGptRequestActions, CoqGptResponse, GptAgentGrammar
+from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
+from src.prompt_generator.agent_grammar import CoqGPTResponseGrammar, CoqGptResponse, GptAgentGrammar
 
 class RateLimiter(object):
     def __init__(self, token_limit_per_min: int, request_limit_per_min: int):
