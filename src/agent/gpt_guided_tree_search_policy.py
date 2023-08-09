@@ -171,7 +171,8 @@ class GptGuidedTreeSearchPolicy(Policy):
         tree_search_action : TreeSearchAction = self._tree_search_algorithm(self._proof_q_tree, state)
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \
-        or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
+        or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT \
+        or tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             action = self._policy_prompter(tree_search_action)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             action = ProofAction(ProofAction.ActionType.BACKTRACK)
@@ -182,12 +183,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         return action
 
     def update(self, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
-        qval = -math.inf
-        proof_q_info = ProofQInfo(reward, done, qval, info)
-        self._proof_q_tree.add(state, action, next_state, proof_q_info)
         self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
-        qval = self._tree_search_algorithm.estimate_q_value(self._proof_q_tree, state, action, next_state, reward, done, info)
-        self._proof_q_tree.update_qinfo(state, action, next_state, proof_q_info)
 
     def clone(self) -> 'GptGuidedTreeSearchPolicy':
         guid = str(uuid.uuid4())
