@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import typing
 from enum import Enum
 from src.prompt_generator.interpreter import Grammar
-from src.tools.training_data_format import TrainingDataFormat
+from src.tools.training_data_format import Goal, TrainingDataFormat
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
@@ -122,6 +122,9 @@ ErrorString:;
         END = "[END]"
         DESCRIPTION = "[DESCRIPTION]"
 
+        def __str__(self) -> str:
+            return self.value
+
     keywords = [keyword.value for keyword in Keywords]
 
     def before_keyword(text, pos):
@@ -157,7 +160,7 @@ ErrorString:;
             text = f"{CoqGPTResponseDfsGrammar.Keywords.ERROR}\n{coq_gpt_response.message}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
         elif coq_gpt_response.action == CoqGptResponseActions.GOALS:
             assert coq_gpt_response.training_data_format is not None
-            text = f"Goals to prove:\n{CoqGptResponseActions.GOALS}"
+            text = f"Goals to prove:\n{CoqGPTResponseDfsGrammar.Keywords.GOALS}"
             if coq_gpt_response.training_data_format.goal_description is not None:
                 text += f"{CoqGPTResponseDfsGrammar.Keywords.DESCRIPTION}\n{coq_gpt_response.training_data_format.goal_description}\n"
             lines = []
@@ -202,6 +205,28 @@ if __name__ == "__main__":
         compile_result = grammar.compile(user_message)
         print(compile_result)
     # Some other error examples
+    training_data_format = TrainingDataFormat(
+        goal_description="There are unfocused goals.",
+        all_useful_defns_theorems=[],
+        start_goals=[
+            Goal(
+                goal="forall n : nat, 0 + n = n",
+            )
+        ]
+    )
+    coq_gpt_response = CoqGptResponse(
+        CoqGptResponseActions.GOALS,
+        success=False,
+        steps=["intros."],
+        incorrect_steps=["rewrite <- plus_O_n."],
+        incorrect_step_message="Unable to unify the goal with the theorem.",
+        training_data_format=training_data_format)
+    text = grammar.format_as_per_grammar(coq_gpt_response)
+    print("="*50)
+    print(text)
+    print("="*50)
+    compile_result = grammar.compile(text)
+    print(compile_result)
     # TODO BUG the error response don't compile
 #     result = grammar.compile("""
 # [ERROR]
