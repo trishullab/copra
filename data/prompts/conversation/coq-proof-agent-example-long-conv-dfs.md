@@ -5,7 +5,6 @@ Goals to prove:
 [GOALS]
 [GOAL] 1
 forall a : nat, a + 0 = a
-[HYPOTHESES] 1
 
 [END]
 
@@ -20,9 +19,6 @@ Goals to prove:
 [GOALS]
 [GOAL] 1
 forall a : nat, a + 0 = a
-[HYPOTHESES] 1
-
-[STEPS]
 
 [INCORRECT STEPS]
 [STEP]reflexivity.
@@ -71,7 +67,6 @@ a + 0 = a
 
 [INCORRECT STEPS]
 [STEP]rewrite Nat.add_0_r. reflexivity.
-
 [ERROR MESSAGE]The reference Nat.add_0_r was not found in the current environment.
 [END]
 
@@ -85,11 +80,9 @@ Goals to prove:
 [GOALS]
 [GOAL] 1
 0 + 0 = 0
-[HYPOTHESES] 1
 
 [GOAL] 2
 S n + 0 = S n
-[HYPOTHESES] 2
 
 [STEPS]
 [STEP] intros a.

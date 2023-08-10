@@ -12,8 +12,8 @@ from dataclasses_json import dataclass_json
 
 class CoqGptRequestActions(object):
     RUN_TACTIC = "[RUN TACTIC]"
-    GET_THMS = "[GET THMS]"
-    GET_DFNS = "[GET DFNS]"
+    GET_THMS = "[GET THEOREMS]"
+    GET_DFNS = "[GET DEFINITIONS]"
 
 @dataclass_json
 @dataclass
@@ -39,14 +39,14 @@ StpRequests:
 | Stp String StpRequests;
 
 terminals
-Stp: "[STP]";
+Stp: "[STEP]";
 End: "[END]";
 RunTactic: "[RUN TACTIC]";
-GetThms: "[GET THMS]";
-GetDfns: "[GET DFNS]";
+GetThms: "[GET THEOREMS]";
+GetDfns: "[GET DEFINITIONS]";
 String:;
 """
-    keywords = ["[STP]", "[END]", "[RUN TACTIC]", "[GET THMS]", "[GET DFNS]"]
+    keywords = ["[STEP]", "[END]", "[RUN TACTIC]", "[GET THEOREMS]", "[GET DEFINITIONS]"]
 
     end = "[END]"
 
@@ -105,8 +105,8 @@ String:;
     
     def generate_message_from_gpt_request(self, coq_gpt_request: CoqGptRequest) -> str:
         if coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
-            args = '\n[STP]'.join(coq_gpt_request.args)
-            return f"{CoqGptRequestActions.RUN_TACTIC}[STP]{args}\n{CoqGPTRequestGrammar.end}"
+            args = '\n[STEP]'.join(coq_gpt_request.args)
+            return f"{CoqGptRequestActions.RUN_TACTIC}[STEP]{args}\n{CoqGPTRequestGrammar.end}"
         elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
             return f"{CoqGptRequestActions.GET_THMS}\n{CoqGPTRequestGrammar.end}"
         elif coq_gpt_request.action == CoqGptRequestActions.GET_DFNS:
@@ -164,8 +164,8 @@ String:;
 if __name__ == "__main__":
     code = """
 Please run the tactics below.
-[RUN TACTIC] [STP] reflexivity.
-[STP]reflexivity.
+[RUN TACTIC] [STEP] reflexivity.
+[STEP]reflexivity.
 rewrite <- plus_n_O.[END]"""
     grammar = CoqGPTRequestGrammar()
     result = grammar.compile(code)
@@ -174,12 +174,12 @@ rewrite <- plus_n_O.[END]"""
     print(run_result)
     result = grammar.compile(
 """
-[GET THMS]
+[GET THEOREMS]
 [END]""" 
     )
     print(result)
     result = grammar.compile(
 """
-[GET DFNS]
+[GET DEFINITIONS]
 [END]"""
     )
