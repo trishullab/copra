@@ -119,7 +119,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                 else:
                     edges = tree.edges[node]
                     assert isinstance(state_info.qinfo, ProofQInfo)
-                    state_info_action_pairs = [(edges[action], action) for action in edges if state_info.qinfo.state_type != StateType.BACKTRACKED]
+                    state_info_action_pairs = [(edges[action], action) for action in edges]
                     # Sort the state info action pairs based on qval
                     state_info_action_pairs.sort(key=lambda x: x[0].qinfo.qval)
                     stack.extend(state_info_action_pairs)
