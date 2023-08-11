@@ -30,7 +30,7 @@ class ProofAgent(Agent):
         steps = 0
         total_reward = 0
         while not done and steps < max_steps_per_episode:
-            action = self._policy(env)
+            action = self._policy(env.state)
             state, action, next_state, reward, done, info = env.step(action)
             if render:
                 env.render()

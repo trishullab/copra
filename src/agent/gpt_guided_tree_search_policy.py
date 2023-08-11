@@ -40,8 +40,9 @@ class StateType(Enum):
 @dataclass_json
 @dataclass
 class ProofQInfo(QInfo):
-    proof_env_info: ProofEnvInfo
-    state_type: StateType
+    proof_env_info: ProofEnvInfo = None
+    state_type: StateType = StateType.UNDISCOVERED
+
     def serialize(self) -> str:
         return self.to_json()
     
@@ -90,7 +91,7 @@ class ProofQTree(QGraph):
             qinfos = []
             for action, state_info in edges.items():
                 qinfo = state_info.qinfo
-                next_state = state_info.next_state
+                next_state = state_info.state
                 actions.append(action)
                 next_states.append(next_state)
                 qinfos.append(qinfo)
@@ -173,7 +174,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
-            action = self._policy_prompter(tree_search_action, state)
+            action = self._policy_prompter(tree_search_action)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             action = ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:

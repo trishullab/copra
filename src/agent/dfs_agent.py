@@ -23,12 +23,12 @@ if __name__ == "__main__":
     theorem_name = "algb_is_abelian_group"
     # proof_file = "data/test/SimpleNaturalProofs.v"
     # theorem_name = "algb_add_comm"
-    main_prompt = "data/prompts/system/coq-proof-agent-role.md"
-    conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv.md"
+    main_prompt = "data/prompts/system/coq-proof-agent-with-dfs.md"
+    conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     checkpoint_dir = ".log/checkpoints/"
     max_tokens_per_action = 25
     max_theorems_in_prompt = 3
-    gpt_model_name = "gpt-4"
+    gpt_model_name = "gpt-3.5-turbo"
     policy_prompter = DfsCoqGptPolicyPrompter(
         main_sys_prompt_path=main_prompt,
         example_conv_prompt_path=conv_prompt,
@@ -54,7 +54,8 @@ if __name__ == "__main__":
             checkpoint_dir, 
             theorem_name, 
             policy_prompter,
-            dfs_tree_search) as policy:
+            dfs_tree_search,
+            checkpoint_on_exit=False) as policy:
             agent = ProofAgent("proof_agent", policy)
             agent.run(env, 1, 50, True)
     pass

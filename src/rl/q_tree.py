@@ -54,7 +54,7 @@ class QGraph(object):
     """
     def __init__(self):
         self.root: typing.Optional[QTreeStateInfo] = None
-        self.nodes : typing.Set[State] = dict()
+        self.nodes : typing.Set[State] = set()
         self.parents : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
         self.edges : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
     
@@ -93,8 +93,8 @@ class QGraph(object):
             parent_distance_from_root = min([state_info.qinfo.distance_from_root for state_info in self.parents[prev_state_copy].values()])
             qinfo_copy.distance_from_root = parent_distance_from_root + 1
 
-        self.edges[prev_state_copy][action_copy] = QTreeStateInfo(qinfo_copy, next_state_copy)
-        self.parents[next_state_copy][action_copy] = QTreeStateInfo(qinfo_copy, prev_state_copy)
+        self.edges[prev_state_copy][action_copy] = QTreeStateInfo(next_state_copy, qinfo_copy)
+        self.parents[next_state_copy][action_copy] = QTreeStateInfo(prev_state_copy, qinfo_copy)
         qinfo_copy.has_self_loop = self._has_self_loop(next_state_copy)
         if not qinfo_copy.has_self_loop:
             qinfo_copy.has_loop = self._has_any_loop(next_state_copy)
@@ -134,13 +134,13 @@ class QGraph(object):
         assert next_state in self.nodes, f"next_state_node {next_state} not in tree"
         assert prev_state in self.edges, f"prev_state_node {prev_state} not in tree"
         assert next_state in self.parents, f"next_state_node {next_state} not in tree"
-        actual_next_state = self.edges[prev_state][action][1]
-        actual_prev_state = self.parents[next_state][action][1]
-        assert actual_next_state == next_state, f"next_state {next_state} not in tree"
-        assert actual_prev_state == prev_state, f"prev_state {prev_state} not in tree"
+        actual_next_state_info = self.edges[prev_state][action]
+        actual_prev_state_info = self.parents[next_state][action]
+        assert actual_next_state_info.state == next_state, f"next_state {next_state} not in tree"
+        assert actual_prev_state_info.state == prev_state, f"prev_state {prev_state} not in tree"
         qinfo_copy = copy.deepcopy(new_qinfo)
-        self.edges[actual_prev_state][action] = QTreeStateInfo(qinfo_copy, actual_next_state)
-        self.parents[actual_next_state][action] = QTreeStateInfo(qinfo_copy, actual_prev_state)
+        self.edges[actual_prev_state_info.state][action] = QTreeStateInfo(actual_next_state_info.state, qinfo_copy)
+        self.parents[actual_next_state_info.state][action] = QTreeStateInfo(actual_prev_state_info.state, qinfo_copy)
     
     def get_all_ancestor_nodes(self, state: State) -> typing.List[typing.Tuple[int, QInfo, Action, State]]:
         assert state in self.nodes, f"node {node} not in tree"

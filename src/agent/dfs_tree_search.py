@@ -7,6 +7,7 @@ if root_dir not in sys.path:
 import typing
 import copy
 from collections import deque
+from src.rl.q_tree import QTreeStateInfo
 from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
 from src.rl.simple_proof_env import ProgressState, ProofAction, ProofEnvInfo, ProofState
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
@@ -55,8 +56,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         if len(self._action_queue) > 0:
             return self._action_queue.popleft()
         elif len(tree.nodes) == 0:
+            qtree_state_info = QTreeStateInfo(state, None)
             # There are no nodes in the tree, so we have to just give the summary from the proof state.
-            return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, summary=PromptSummary([], state))
+            return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, state, summary=PromptSummary([], qtree_state_info))
         else:
             return self._dfs(tree, state)
     

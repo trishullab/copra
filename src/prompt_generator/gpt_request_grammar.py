@@ -160,6 +160,14 @@ String:;
             result : CoqGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
+    
+    def parse_request_to_args(self, messages: typing.List[str]) -> typing.List[str]:
+        results : typing.List[str] = []
+        for message in messages:
+            assert message.endswith(CoqGPTRequestGrammar.end), "Message must end with end token"
+            result : CoqGptRequest = self.run(message, None)
+            results.extend(result.args)
+        return results 
 
 if __name__ == "__main__":
     code = """
