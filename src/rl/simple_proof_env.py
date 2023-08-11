@@ -87,7 +87,16 @@ class ProofEnv(Env):
     @property
     def state(self):
         assert self._loaded, "Env not loaded, call reset() first"
-        current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
+        use_proof_executor_state = True
+        # Just check the last action in history
+        if len(self._history) > 0:
+            _, action, s2, _, _, _ = self._history[-1]
+            if action.action_type == ProofAction.ActionType.GET_DFNS or \
+                action.action_type == ProofAction.ActionType.GET_THMS:
+                use_proof_executor_state = False
+                current_goals = s2
+        if use_proof_executor_state:
+            current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
         state = ProofState(current_goals)

@@ -71,7 +71,9 @@ class QGraph(object):
         if len(self.nodes) == 0:
             assert len(self.parents) == 0 and len(self.edges) == 0, f"parents should be empty"
             # add root node
-            self.root = QTreeStateInfo(state=prev_state_copy, qinfo=None)
+            root_qinfo = copy.deepcopy(qinfo)
+            root_qinfo.distance_from_root = 0
+            self.root = QTreeStateInfo(state=prev_state_copy, qinfo=root_qinfo)
             self.nodes.add(prev_state_copy)
             self.nodes.add(next_state_copy)
             qinfo_copy.distance_from_root = 1

@@ -58,4 +58,3 @@ if __name__ == "__main__":
             checkpoint_on_exit=False) as policy:
             agent = ProofAgent("proof_agent", policy)
             agent.run(env, 1, 50, True)
-    pass

@@ -26,17 +26,17 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         if tree.state_in_tree(state) and tree.state_in_tree(next_state) and action in tree.edges[state]:
             # It is possible that the next state is same but might be reachable from a different path.
             next_state_info = tree.edges[state][action]
-            assert isinstance(next_state_info, ProofQInfo)
+            assert isinstance(next_state_info, QTreeStateInfo)
             assert next_state_info.state == next_state, f"next_state_info.state: {next_state_info.state}, next_state: {next_state} are not the same. even for the exact same action and state."
             should_add = False
             next_state_info.state_type = StateType.BACKTRACKED
             grandparent_node_infos = tree.parents[state].values()
             for grandparent_node_info in grandparent_node_infos:
-                assert isinstance(grandparent_node_info, ProofQInfo)
+                assert isinstance(grandparent_node_info, QTreeStateInfo)
                 for parent_node_action in tree.edges[grandparent_node_info.state]:
                     assert isinstance(parent_node_action, ProofAction)
                     parent_node_info = tree.edges[grandparent_node_info.state][parent_node_action]
-                    assert isinstance(parent_node_info, ProofQInfo)
+                    assert isinstance(parent_node_info, QTreeStateInfo)
                     if parent_node_info.state == state:
                         parent_proof_qinfo : ProofQInfo = parent_node_info.qinfo                    
                         parent_proof_qinfo.state_type = StateType.BACKTRACKED
@@ -56,9 +56,11 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         if len(self._action_queue) > 0:
             return self._action_queue.popleft()
         elif len(tree.nodes) == 0:
-            qtree_state_info = QTreeStateInfo(state, None)
+            qtree_state_info = QTreeStateInfo(state, 
+                ProofQInfo(0.0, False, 0.0, has_loop=False, distance_from_root=0, proof_env_info=None, state_type=StateType.UNDISCOVERED))
             # There are no nodes in the tree, so we have to just give the summary from the proof state.
-            return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, state, summary=PromptSummary([], qtree_state_info))
+            return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, state, 
+                summary=PromptSummary([], qtree_state_info))
         else:
             return self._dfs(tree, state)
     
@@ -73,7 +75,8 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             #         Along with the failure summary.
             #   1.2.2 If the node is NOT 'Failed', then return then simply backtrack to the parent node.
         last_action : typing.Optional[ProofAction] = None
-        stack = [(tree.root, None)]
+        old_action : typing.Optional[ProofAction] = None
+        stack = [(tree.root, old_action)]
         found_leaf_node = False
         leaf_node = None
         found_failed_node = False
@@ -103,13 +106,20 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     failed_node_backtrack = tree.parents[node][last_action]
                     qinfo.state_type = StateType.BACKTRACKED
                 elif qinfo.has_loop and qinfo.proof_env_info.progress == ProgressState.RUNNING:
-                    found_cycle_node = True
+                    assert old_action is not None and isinstance(old_action, ProofAction)
                     last_action = old_action
-                    cycle_node_backtrack = tree.parents[node][last_action]
-                    qinfo.state_type = StateType.BACKTRACKED
+                    if last_action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                        found_cycle_node = True
+                        cycle_node_backtrack = tree.parents[node][last_action]
+                        qinfo.state_type = StateType.BACKTRACKED
+                    else:
+                        found_leaf_node = True
+                        last_action = old_action
+                        leaf_node = state_info
                 else:
                     edges = tree.edges[node]
-                    state_info_action_pairs = [(edges[action], action) for action in edges if state_info.qinfo.state_type == StateType.UNDISCOVERED]
+                    assert isinstance(state_info.qinfo, ProofQInfo)
+                    state_info_action_pairs = [(edges[action], action) for action in edges if state_info.qinfo.state_type != StateType.BACKTRACKED]
                     # Sort the state info action pairs based on qval
                     state_info_action_pairs.sort(key=lambda x: x[0].qinfo.qval)
                     stack.extend(state_info_action_pairs)

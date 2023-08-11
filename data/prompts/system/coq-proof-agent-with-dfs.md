@@ -13,4 +13,4 @@ At any point in time, you can generate the following:
     2.2. `[GET THEOREMS]`: This gives the relevant theorems/lemmas which are similar to the goal and might help in rewriting or simplifying the goal. For example, `[GET THEOREMS][END]`
     2.3. Use these requests, add more information to the proof state description. These informations are added using the keyword `[DEFINITIONS]` and `[THEOREMS]`.
 
- **Make sure to end all your requests end with the keyword `[END]`. Follow the specified format strictly. While generating `[RUN TACTIC]` request, if possible, try to generate only ONE tactic at a time.**
+ **Make sure to end all your requests end with the keyword `[END]`. Follow the specified format strictly. While generating `[RUN TACTIC]` request, if possible, try to generate only ONE tactic at a time. Do NOT generate the tactics mentioned under `[INCORRECT STEPS]` in the response.**
