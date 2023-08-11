@@ -47,7 +47,7 @@ class ProofAction(Action):
             reader = CoqLineByLineReader(file_content=all_tactics)
             tactics = list(reader.instruction_step_generator())
             self.kwargs['tactics'] = tactics
-        self.original_message = None
+        self.original_message : typing.Any = None
         pass
 
     @property

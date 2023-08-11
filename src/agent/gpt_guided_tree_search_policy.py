@@ -11,7 +11,7 @@ from enum import Enum
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from abc import ABC, abstractmethod
-from src.rl.q_tree import QGraph, QInfo, QTreeNode
+from src.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
 
@@ -28,22 +28,6 @@ class TreeSearchActionType(Enum):
     BACKTRACK = 'BACKTRACK'
     # The action to stop the search
     STOP = 'STOP'
-
-@dataclass_json
-@dataclass
-class PromptSummary:
-    actions_to_avoid: typing.List[ProofAction]
-    state: ProofState
-    pass
-
-class TreeSearchAction:
-    def __init__(self, 
-        action_type: TreeSearchActionType,
-        state: ProofState, 
-        **kwargs):
-        self.action_type = action_type
-        self.state = state
-        self.kwargs = kwargs
 
 class StateType(Enum):
     # The state is Undiscovered
@@ -64,6 +48,22 @@ class ProofQInfo(QInfo):
     @staticmethod
     def deserialize(data: str) -> 'ProofQInfo':
         return ProofQInfo.schema().loads(data)
+
+@dataclass_json
+@dataclass
+class PromptSummary:
+    actions_to_avoid: typing.List[ProofAction]
+    state_info: QTreeStateInfo
+    pass
+
+class TreeSearchAction:
+    def __init__(self, 
+        action_type: TreeSearchActionType,
+        state: ProofState, 
+        **kwargs):
+        self.action_type = action_type
+        self.state = state
+        self.kwargs = kwargs
 
 @dataclass_json
 @dataclass
@@ -121,7 +121,7 @@ class TreeSearchAlgorithm(ABC):
 
 class GptPolicyPrompter(ABC):
     @abstractmethod
-    def __call__(self, tree_search_action: TreeSearchAction, state: ProofState) -> ProofAction:
+    def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
         pass
 
 class GptGuidedTreeSearchPolicy(Policy):

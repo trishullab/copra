@@ -22,17 +22,24 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         # The parent node had a similar next state and action pair.
         # Change all the nodes pointing to the parent as 'backtracked'
         should_add = True
-        if tree.state_in_tree(state) and tree.state_in_tree(next_state):
+        if tree.state_in_tree(state) and tree.state_in_tree(next_state) and action in tree.edges[state]:
+            # It is possible that the next state is same but might be reachable from a different path.
             next_state_info = tree.edges[state][action]
             assert isinstance(next_state_info, ProofQInfo)
-            if next_state_info.state == next_state:
-                should_add = False
-                next_state_info.state_type = StateType.BACKTRACKED
-                grandparent_node_infos = tree.parents[state].values()
-                for grandparent_node_info in grandparent_node_infos:
-                    assert isinstance(grandparent_node_info, ProofQInfo)
-                    proof_qinfo : ProofQInfo = grandparent_node_info.qinfo
-                    proof_qinfo.state_type = StateType.BACKTRACKED
+            assert next_state_info.state == next_state, f"next_state_info.state: {next_state_info.state}, next_state: {next_state} are not the same. even for the exact same action and state."
+            should_add = False
+            next_state_info.state_type = StateType.BACKTRACKED
+            grandparent_node_infos = tree.parents[state].values()
+            for grandparent_node_info in grandparent_node_infos:
+                assert isinstance(grandparent_node_info, ProofQInfo)
+                for parent_node_action in tree.edges[grandparent_node_info.state]:
+                    assert isinstance(parent_node_action, ProofAction)
+                    parent_node_info = tree.edges[grandparent_node_info.state][parent_node_action]
+                    assert isinstance(parent_node_info, ProofQInfo)
+                    if parent_node_info.state == state:
+                        parent_proof_qinfo : ProofQInfo = parent_node_info.qinfo                    
+                        parent_proof_qinfo.state_type = StateType.BACKTRACKED
+            self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
         if should_add:
             qinfo = ProofQInfo(reward, done, 0.0, proof_env_info=info, state_type=StateType.UNDISCOVERED)
             tree.add(state, action, next_state, qinfo)
@@ -81,13 +88,13 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                 if tree.is_leaf(node):
                     last_action = old_action
                     parent = tree.parents[node][last_action]
-                    if parent <= node: # This means that the new state is harder than the parent state and hence we should not consider this state
+                    if parent.state <= node: # This means that the new state is harder than the parent state and hence we should not consider this state
                         found_harder_node = True
                         harder_node_backtrack = parent
                         qinfo.state_type = StateType.BACKTRACKED
                     else:
                         found_leaf_node = True
-                        leaf_node = node
+                        leaf_node = state_info
                 elif qinfo.has_self_loop and qinfo.proof_env_info.progress == ProgressState.FAILED:
                     found_failed_node = True
                     last_action = old_action

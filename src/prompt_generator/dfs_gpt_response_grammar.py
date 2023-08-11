@@ -182,6 +182,15 @@ ErrorString:;
                     thms = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[thm.lemma_idx]) for thm in thms]
                     lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.THEOREMS} {i + 1}")
                     lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.THEOREM} {thm}" for thm in thms])
+            if len(coq_gpt_response.steps) > 0:
+                lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.STEPS}")
+                lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.STEP} {step}" for step in coq_gpt_response.steps])
+            if len(coq_gpt_response.incorrect_steps) > 0:
+                lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.INCORRECT_STEPS}")
+                lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.STEP} {step}" for step in coq_gpt_response.incorrect_steps])
+                if coq_gpt_response.incorrect_step_message is not None:
+                    lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE}")
+                    lines.append(coq_gpt_response.incorrect_step_message)
             gls_args = '\n'.join(lines)
             text += f"{gls_args}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
         else:
@@ -217,7 +226,7 @@ if __name__ == "__main__":
     coq_gpt_response = CoqGptResponse(
         CoqGptResponseActions.GOALS,
         success=False,
-        steps=["intros."],
+        steps=["intros.", "- reflexivity."],
         incorrect_steps=["rewrite <- plus_O_n."],
         incorrect_step_message="Unable to unify the goal with the theorem.",
         training_data_format=training_data_format)

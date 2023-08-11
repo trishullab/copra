@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -11,8 +10,9 @@ import os
 import time
 from openai.error import InvalidRequestError
 import logging
+from src.rl.proof_tree import ProofTree
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
-from src.agent.gpt_guided_tree_search_policy import GptPolicyPrompter, TreeSearchAction, TreeSearchActionType
+from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
 from src.gpts.gpt_access import GptAccess
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
@@ -30,14 +30,15 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             num_sequences: int = 1,
             temperature: float = 0.25,
             max_tokens_per_action: int = 50,
+            max_history_messages: int = 0, # This means keep no history of messages
             gpt_model_name: str = "gpt-3.5-turbo",
             secret_filepath: str = ".secrets/openai_key.json",
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
-        self.agent_grammar = GptAgentGrammar(user_name="example_user", agent_name="example_assistant")
+        self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.coq_gpt_request_grammar = CoqGPTRequestGrammar()
-        self.coq_gpt_response_grammar = CoqGPTResponseGrammar()
+        self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
@@ -53,6 +54,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._history_token_count = 0
         self._message_history = []
         self._message_history_token_count = []
+        self._max_history_messages = max_history_messages
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         pass
 
@@ -63,15 +65,20 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._history_token_count += message_token_count
 
     def _constrain_tokens_in_history(self, prompt_message, prompt_token_count: int, max_tokens_per_action: int) -> list:
-        total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
-        history_idx = 0
-        max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
-        assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
-        while total_token_count >= max_token_per_prompt:
-            self.logger.warning(f"Tokens exceeded removing history at index {history_idx}")
-            self._history_token_count -= self._message_history_token_count[history_idx]
+        if len(self._message_history) >= self._max_history_messages:
+            history_idx = len(self._message_history) - self._max_history_messages
+        else:
+            history_idx = 0
+        if history_idx < len(self._message_history):
+            # There is no point in checking the token count if there is no history to be maintained
             total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
-            history_idx += 1
+            max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
+            assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
+            while total_token_count >= max_token_per_prompt:
+                self.logger.warning(f"Tokens exceeded removing history at index {history_idx}")
+                self._history_token_count -= self._message_history_token_count[history_idx]
+                total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
+                history_idx += 1
         self._message_history = self._message_history[history_idx:]
         self._message_history_token_count = self._message_history_token_count[history_idx:]
         self._message_history.append(prompt_message)
@@ -95,7 +102,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             self.logger.info("Rate limit was hit. So the request was throttled.")
             self._rate_limiter.reset()
             self.logger.info("Rate limit reset now.")
-
 
     def run_prompt(self, request: CoqGptResponse) -> list:
         prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request)
@@ -178,91 +184,84 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             actions.append((action, probability))
         return actions
     
-    def __call__(self, tree_search_action: TreeSearchAction, state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo) -> ProofAction:
+    def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
+        state = tree_search_action.state
+        assert state is not None
+        assert tree_search_action.kwargs is not None and "summary" in tree_search_action.kwargs
+        prompt_summary : PromptSummary = tree_search_action.kwargs["summary"]
+        qinfo: ProofQInfo = prompt_summary.state_info.qinfo
+        env_info = qinfo.proof_env_info
+        proof_tree : ProofTree = state.proof_tree
+        assert proof_tree is not None
+        actions = proof_tree.actions
+        correct_steps : typing.List[str] = [action.original_message["content"] for action in actions]
+        assert all([isinstance(step, str) for step in correct_steps])
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT:
             message = ""
+            incorrect_actions = prompt_summary.actions_to_avoid
+            assert len(incorrect_actions) == 0, "There are some incorrect steps. We cannot go to the next action with incorrect steps."
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=True,
                 message=message,
-                steps=,
-                incorrect_steps=,
-                incorrect_step_message=)
+                steps=correct_steps,
+                incorrect_steps=[],
+                incorrect_step_message=None)
             pass
         elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
             message = env_info.error_message
+            incorrect_actions = prompt_summary.actions_to_avoid
+            assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
+            incorrect_steps= [action.original_message["content"] for action in incorrect_actions]
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=False,
                 message=message,
-                steps=,
-                incorrect_steps=,
+                steps=correct_steps,
+                incorrect_steps=incorrect_steps,
                 incorrect_step_message=message)
             pass
         elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
+            incorrect_actions = prompt_summary.actions_to_avoid
+            assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
+            incorrect_steps= [action.original_message["content"] for action in incorrect_actions]
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=False,
                 message=message,
-                steps=,
-                incorrect_steps=,
-                incorrect_step_message=)
+                steps=correct_steps,
+                incorrect_steps=incorrect_steps,
+                incorrect_step_message=message)
             pass
         elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
+            incorrect_actions = prompt_summary.actions_to_avoid
+            assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
+            incorrect_steps= [action.original_message["content"] for action in incorrect_actions]
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=False,
                 message=message,
-                steps=,
-                incorrect_steps=,
-                incorrect_step_message=)
+                steps=correct_steps,
+                incorrect_steps=incorrect_steps,
+                incorrect_step_message=message)
             pass
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             return ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:
             return ProofAction(ProofAction.ActionType.EXIT)
-        if len(env._history) > 0:
-            _, action, s2, _, _, proof_info = env._history[-1]
-            tdf = s2.training_data_format
-            if action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                if proof_info.progress == ProgressState.RUNNING or proof_info.progress == ProgressState.DONE or proof_info.progress == ProgressState.STARTING:
-                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
-                    training_data_format = tdf)
-                elif proof_info.progress == ProgressState.FAILED:
-                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
-                    success=False, message=proof_info.error_message)
-                else:
-                    raise Exception(f"Invalid proof_info.progress: {proof_info.progress}")
-            elif action.action_type == ProofAction.ActionType.GET_DFNS:
-                for goal in tdf.start_goals:
-                    goal.relevant_defns = goal.relevant_defns[:self.k]
-                gpt_response = CoqGptResponse(action = CoqGptResponseActions.GET_DFNS_RESULT, 
-                training_data_format = tdf)
-            elif action.action_type == ProofAction.ActionType.GET_THMS:
-                for goal in tdf.start_goals:
-                    goal.possible_useful_theorems_local = goal.possible_useful_theorems_local[:self.k]
-                    goal.possible_useful_theorems_external = goal.possible_useful_theorems_external[:self.k]
-                gpt_response = CoqGptResponse(action = CoqGptResponseActions.GET_THMS_RESULT, 
-                training_data_format = tdf)
-            else:
-                raise Exception(f"Invalid action type: {action.action_type}")
-        else:
-            state = env.state
-            gpt_response = CoqGptResponse(action = CoqGptResponseActions.GLS, 
-            training_data_format = state.training_data_format)
         success = False
         tries = 10
         exceptions = []
         while not success and tries > 0:
             try:
-                responses = self.prompter.run_prompt(gpt_response)
-                actions_tuple = self.prompter.parse_response(responses)
-                chosen_message = actions_tuple[0][0]
-                self.prompter.add_to_history(chosen_message)
+                responses = self.run_prompt(gpt_response)
+                actions_tuple = self.parse_response(responses)
+                chosen_message = actions_tuple[0][0].original_message # Selecting only top action here
+                self.add_to_history(chosen_message)
                 success = True
             except InvalidActionException as e:
                 gpt_response = CoqGptResponse(action = CoqGptResponseActions.ERROR, 
                 message=e.message)
                 chosen_message = responses[0]
-                self.prompter.add_to_history(chosen_message)
+                self.add_to_history(chosen_message)
                 exceptions.append(e)
             tries -= 1
         if not success:
