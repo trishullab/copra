@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
+
 import typing
 import os
 import time
-import logging
 from openai.error import InvalidRequestError
+import logging
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
+from src.agent.gpt_guided_tree_search_policy import GptPolicyPrompter, TreeSearchAction, TreeSearchActionType
 from src.gpts.gpt_access import GptAccess
+from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
+from src.rl.simple_proof_env import ProofEnvInfo
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
-from src.prompt_generator.agent_grammar import CoqGPTResponseGrammar, CoqGptResponse, GptAgentGrammar
+from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
+from src.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
 
-class CoqGptPolicyPrompter(PolicyPrompter):
+
+class DfsCoqGptPolicyPrompter(PolicyPrompter):
     def __init__(self, 
             main_sys_prompt_path: str, 
             example_conv_prompt_path: str,
@@ -147,7 +154,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
             raise Exception(f"Failed to get valid response after {retries} tries")
         return responses
 
-    def parse_response(self, responses: list) -> typing.List[typing.Tuple[typing.Any, ProofAction, float]]:
+    def parse_response(self, responses: list) -> typing.List[typing.Tuple[ProofAction, float]]:
         message_contents =  self.agent_grammar.parse_openai_messages(responses, "assistant")
         actions = []
         total = len(message_contents)
@@ -167,5 +174,98 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
             else:
                 raise Exception(f"Invalid action {coq_gpt_request.action}")
-            actions.append((open_ai_message, action, probability))
+            action.original_message = open_ai_message
+            actions.append((action, probability))
         return actions
+    
+    def __call__(self, tree_search_action: TreeSearchAction, state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo) -> ProofAction:
+        if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT:
+            message = ""
+            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+                success=True,
+                message=message,
+                steps=,
+                incorrect_steps=,
+                incorrect_step_message=)
+            pass
+        elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
+            message = env_info.error_message
+            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+                success=False,
+                message=message,
+                steps=,
+                incorrect_steps=,
+                incorrect_step_message=message)
+            pass
+        elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
+            message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
+            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+                success=False,
+                message=message,
+                steps=,
+                incorrect_steps=,
+                incorrect_step_message=)
+            pass
+        elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
+            message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
+            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+                success=False,
+                message=message,
+                steps=,
+                incorrect_steps=,
+                incorrect_step_message=)
+            pass
+        elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
+            return ProofAction(ProofAction.ActionType.BACKTRACK)
+        elif tree_search_action.action_type == TreeSearchActionType.STOP:
+            return ProofAction(ProofAction.ActionType.EXIT)
+        if len(env._history) > 0:
+            _, action, s2, _, _, proof_info = env._history[-1]
+            tdf = s2.training_data_format
+            if action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                if proof_info.progress == ProgressState.RUNNING or proof_info.progress == ProgressState.DONE or proof_info.progress == ProgressState.STARTING:
+                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
+                    training_data_format = tdf)
+                elif proof_info.progress == ProgressState.FAILED:
+                    gpt_response = CoqGptResponse(action = CoqGptResponseActions.RUN_TACTIC_RESULT, 
+                    success=False, message=proof_info.error_message)
+                else:
+                    raise Exception(f"Invalid proof_info.progress: {proof_info.progress}")
+            elif action.action_type == ProofAction.ActionType.GET_DFNS:
+                for goal in tdf.start_goals:
+                    goal.relevant_defns = goal.relevant_defns[:self.k]
+                gpt_response = CoqGptResponse(action = CoqGptResponseActions.GET_DFNS_RESULT, 
+                training_data_format = tdf)
+            elif action.action_type == ProofAction.ActionType.GET_THMS:
+                for goal in tdf.start_goals:
+                    goal.possible_useful_theorems_local = goal.possible_useful_theorems_local[:self.k]
+                    goal.possible_useful_theorems_external = goal.possible_useful_theorems_external[:self.k]
+                gpt_response = CoqGptResponse(action = CoqGptResponseActions.GET_THMS_RESULT, 
+                training_data_format = tdf)
+            else:
+                raise Exception(f"Invalid action type: {action.action_type}")
+        else:
+            state = env.state
+            gpt_response = CoqGptResponse(action = CoqGptResponseActions.GLS, 
+            training_data_format = state.training_data_format)
+        success = False
+        tries = 10
+        exceptions = []
+        while not success and tries > 0:
+            try:
+                responses = self.prompter.run_prompt(gpt_response)
+                actions_tuple = self.prompter.parse_response(responses)
+                chosen_message = actions_tuple[0][0]
+                self.prompter.add_to_history(chosen_message)
+                success = True
+            except InvalidActionException as e:
+                gpt_response = CoqGptResponse(action = CoqGptResponseActions.ERROR, 
+                message=e.message)
+                chosen_message = responses[0]
+                self.prompter.add_to_history(chosen_message)
+                exceptions.append(e)
+            tries -= 1
+        if not success:
+            raise Exception(f"Failed to get valid action after {tries} tries. Exceptions:\n {exceptions}")
+        action = actions_tuple[0][1]
+        return action

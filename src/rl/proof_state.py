@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import sys
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
+import typing
 from src.rl.abstraction import State
 from src.tools.training_data_format import TrainingDataFormat
 from dataclasses_json import dataclass_json
@@ -14,6 +14,9 @@ from dataclasses import dataclass
 @dataclass
 class ProofState(State):
     training_data_format: TrainingDataFormat
+
+    def _post_init(self):
+        self.proof_tree = None
 
     @property
     def name(self):

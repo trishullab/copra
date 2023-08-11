@@ -104,6 +104,11 @@ class CoqContextHelper(object):
     def get_focussed_goals(self, coq_executor: CoqExecutor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
         return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in coq_executor.coq.proof_context.fg_goals]
+    
+    def get_unfocussed_goals(self, coq_executor: CoqExecutor) -> List[Goal]:
+        # Only consider the foreground goals because we can handle the multi-line tactics
+        other_goals = coq_executor.coq.proof_context.bg_goals + coq_executor.coq.proof_context.shelved_goals + coq_executor.coq.proof_context.given_up_goals
+        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in other_goals]
 
     def get_local_lemmas(self, coq_executor: CoqExecutor, logger: logging.Logger = None) -> List[typing.Tuple[str, str]]:
         # Since LOCAL retrieval is not intelligent enough to filter out the useless lemmas, we will not filter out the useless lemmas here, and let the model learn it

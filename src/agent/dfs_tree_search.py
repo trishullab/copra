@@ -51,9 +51,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             # There are no nodes in the tree, so we have to just give the summary from the proof state.
             return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, summary=PromptSummary([], state))
         else:
-            return self._dfs(tree)
+            return self._dfs(tree, state)
     
-    def _dfs(self, tree: ProofQTree):
+    def _dfs(self, tree: ProofQTree, state: ProofState) -> TreeSearchAction:
         # 1. Get to the node which will act as the leaf node (has no cycle, has not failed, has no children, and is not visited)
         # (Step 1 ensures that we are doing a DFS search because we are going down the tree as far as possible)
         #   1.1 This means keep going down until you find a node which has no children, has not failed and has no cycle.
@@ -107,25 +107,24 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     qinfo.state_type = StateType.DISCOVERED
         if not found_leaf_node and not found_failed_node and not found_cycle_node and not found_harder_node:
             assert len(stack) == 0, "Stack should be empty"
-            return TreeSearchAction(TreeSearchActionType.STOP, summary=None) # No need to check anymore coz we have exhausted our search
+            return TreeSearchAction(TreeSearchActionType.STOP, state, summary=None) # No need to check anymore coz we have exhausted our search
         else:
             # only one type of node can be found
             assert sum([found_leaf_node, found_failed_node, found_cycle_node, found_harder_node]) == 1, "Only one type of node can be found"
             assert last_action is not None, "Last action cannot be None"
             action_to_take : TreeSearchAction = None
             if found_leaf_node:
-                action_to_take = TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, summary=PromptSummary([], leaf_node))
+                action_to_take = TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT, state, summary=PromptSummary([], leaf_node))
             elif found_failed_node:
-                action_to_take = TreeSearchAction(TreeSearchActionType.BACKTRACK, summary=None)
-                next_action = TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT, summary=PromptSummary([last_action], failed_node_backtrack))
-                self._action_queue.append(next_action)
+                # No need to backtrack because we are already at the failed node, and we will automatically backtrack to the same state
+                action_to_take = TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT, state, summary=PromptSummary([last_action], failed_node_backtrack))
             elif found_cycle_node:
-                action_to_take = TreeSearchAction(TreeSearchActionType.BACKTRACK, summary=None)
-                next_action = TreeSearchAction(TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT, summary=PromptSummary([last_action], cycle_node_backtrack))
+                action_to_take = TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None)
+                next_action = TreeSearchAction(TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT, state, summary=PromptSummary([last_action], cycle_node_backtrack))
                 self._action_queue.append(next_action)
             elif found_harder_node:
-                action_to_take = TreeSearchAction(TreeSearchActionType.BACKTRACK, summary=None)
-                next_action = TreeSearchAction(TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT, summary=PromptSummary([last_action], harder_node_backtrack))
+                action_to_take = TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None)
+                next_action = TreeSearchAction(TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT, state, summary=PromptSummary([last_action], harder_node_backtrack))
                 self._action_queue.append(next_action)
             else:
                 raise Exception("Should not reach here")

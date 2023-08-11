@@ -89,7 +89,9 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
+        current_proof_tree = copy.deepcopy(self._p_tree)
         state = ProofState(current_goals)
+        state.proof_tree = current_proof_tree
         return state
     
     @property
@@ -210,11 +212,11 @@ class ProofEnv(Env):
         assert all([isinstance(tactic, str) for tactic in tactics])
         # Remove unnecessary spaces, newlines, and tabs
         tactics = [tactic.strip() for tactic in tactics]
-        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, reward, done, env_info)
+        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
 
     
-    def _run_tactics(self, tactics: typing.List[str], state: ProofState, reward: float, done: bool, env_info: ProofEnvInfo):
+    def _run_tactics(self, tactics: typing.List[str], state: ProofState, action: ProofAction, env_info: ProofEnvInfo):
         env_info = copy.deepcopy(env_info)
         tactic_line_num, ran_successfully = self._dynamic_proof_executor.run_tactics(tactics)
         proof_progressed = False
@@ -223,7 +225,7 @@ class ProofEnv(Env):
             previous_proof_state.training_data_format.proof_steps = copy.deepcopy(tactics)
             current_proof_state = self.state
             # add the proof step to the proof tree
-            self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True)
+            self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True, action=action)
             proof_progressed = True
             self.current_proof_depth += 1
         else:
@@ -233,7 +235,6 @@ class ProofEnv(Env):
             assert len(self._p_tree) == self.current_proof_depth, "proof_tree must have the same length as current_depth"
             # cancel anything which might got executed
             self._dynamic_proof_executor.cancel_tactic_till_line(tactic_line_num)
-        assert proof_progressed or not done, "If proof didn't progress, then done must be False"
         reward = 0.0
         depth_ratio = self.current_proof_depth/self.max_proof_depth
         if depth_ratio > 1.0:

@@ -7,7 +7,6 @@ if root_dir not in sys.path:
 import uuid
 import typing
 import os
-import math
 from enum import Enum
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -39,9 +38,11 @@ class PromptSummary:
 
 class TreeSearchAction:
     def __init__(self, 
-        action_type: TreeSearchActionType, 
+        action_type: TreeSearchActionType,
+        state: ProofState, 
         **kwargs):
         self.action_type = action_type
+        self.state = state
         self.kwargs = kwargs
 
 class StateType(Enum):
@@ -78,7 +79,6 @@ class ProofQTreeNode(QTreeNode):
     @staticmethod
     def deserialize(data: str) -> 'ProofQTreeNode':
         return ProofQTreeNode.schema().loads(data)
-
 
 class ProofQTree(QGraph):
     def serialize(self) -> str:
@@ -121,7 +121,7 @@ class TreeSearchAlgorithm(ABC):
 
 class GptPolicyPrompter(ABC):
     @abstractmethod
-    def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
+    def __call__(self, tree_search_action: TreeSearchAction, state: ProofState) -> ProofAction:
         pass
 
 class GptGuidedTreeSearchPolicy(Policy):
@@ -173,7 +173,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
-            action = self._policy_prompter(tree_search_action)
+            action = self._policy_prompter(tree_search_action, state)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             action = ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:

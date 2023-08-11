@@ -92,21 +92,31 @@ class DynamicProofExecutor(CoqExecutor):
         if not self.is_in_proof_mode():
             return []
         return self.coq_context_helper.get_focussed_goals(self)
+    
+    def get_unfocussed_goals(self) -> typing.List[Goal]:
+        if not self.is_in_proof_mode():
+            return []
+        return self.coq_context_helper.get_unfocussed_goals(self)
 
     def get_current_proof_state_as_training_data(self) -> TrainingDataFormat:
         # get the current goal
-        current_goals = self.get_focussed_goals()
-        training_data_format = TrainingDataFormat(start_goals=current_goals)
         if self.needs_cut_close():
-            assert len(current_goals) == 0, "There should be no goals when needs_cut_close is True"
+            current_goals = self.get_unfocussed_goals()
+            training_data_format = TrainingDataFormat(start_goals=current_goals)
             training_data_format.goal_description = DynamicProofExecutor.UnfocussedGoalsDescription
         elif not self.is_in_proof_mode():
-            assert len(current_goals) == 0, "There should be no goals when not in proof mode"
+            current_goals = self.get_focussed_goals()
+            training_data_format = TrainingDataFormat(start_goals=current_goals)
             training_data_format.goal_description = DynamicProofExecutor.NotInProofModeDescription
         elif self.needs_qed():
+            current_goals = self.get_focussed_goals()
             assert len(current_goals) == 0, "There should be no goals when needs_qed is True"
+            training_data_format = TrainingDataFormat(start_goals=current_goals)
             training_data_format.goal_description = DynamicProofExecutor.ProofFinishedDescription
-        assert training_data_format.goal_description is not None or len(current_goals) > 0, "The goal description must be set if there are no goals"
+        else:
+            current_goals = self.get_focussed_goals()
+            training_data_format = TrainingDataFormat(start_goals=current_goals)
+            training_data_format.goal_description = None
         return training_data_format
     
     def get_all_relevant_thms(self) -> TrainingDataFormat:
