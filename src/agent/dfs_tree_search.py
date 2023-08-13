@@ -33,13 +33,16 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             grandparent_node_infos = tree.parents[state].values()
             for grandparent_node_info in grandparent_node_infos:
                 assert isinstance(grandparent_node_info, QTreeStateInfo)
-                for parent_node_action in tree.edges[grandparent_node_info.state]:
-                    assert isinstance(parent_node_action, ProofAction)
-                    parent_node_info = tree.edges[grandparent_node_info.state][parent_node_action]
-                    assert isinstance(parent_node_info, QTreeStateInfo)
-                    if parent_node_info.state == state:
-                        parent_proof_qinfo : ProofQInfo = parent_node_info.qinfo                    
-                        parent_proof_qinfo.state_type = StateType.BACKTRACKED
+                if grandparent_node_info.state != state:
+                    # This is for grandparent nodes which are not the parent node. (self loop nodes)
+                    for parent_node_action in tree.edges[grandparent_node_info.state]:
+                        assert isinstance(parent_node_action, ProofAction)
+                        parent_node_info = tree.edges[grandparent_node_info.state][parent_node_action]
+                        assert isinstance(parent_node_info, QTreeStateInfo)
+                        if parent_node_info.state == state:
+                            # Mark all the edges from the grandparent node to the parent node as 'backtracked'
+                            parent_proof_qinfo : ProofQInfo = parent_node_info.qinfo                    
+                            parent_proof_qinfo.state_type = StateType.BACKTRACKED
             self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
         if should_add:
             qinfo = ProofQInfo(reward, done, 0.0, proof_env_info=info, state_type=StateType.UNDISCOVERED)
@@ -87,13 +90,18 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         harder_node_backtrack = None
         while len(stack) > 0 and not found_leaf_node and not found_failed_node and not found_cycle_node and not found_harder_node:
             state_info, old_action = stack.pop()
+            assert old_action is None or isinstance(old_action, ProofAction)
+            if isinstance(old_action, ProofAction):
+                assert old_action.action_type != ProofAction.ActionType.BACKTRACK
+                assert old_action.action_type != ProofAction.ActionType.EXIT
             node : ProofState = state_info.state
             qinfo : ProofQInfo = state_info.qinfo
             if qinfo.state_type != StateType.BACKTRACKED:
-                if tree.is_leaf(node):
+                # The condition above ensures that we do not visit any subtree coming from a node which has already been backtracked.
+                if self._is_leaf_node(tree, node, qinfo, old_action):
                     last_action = old_action
                     parent = tree.parents[node][last_action]
-                    if parent.state <= node: # This means that the new state is harder than the parent state and hence we should not consider this state
+                    if parent.state <= node and old_action.action_type == ProofAction.ActionType.RUN_TACTIC: # This means that the new state is harder than the parent state and hence we should not consider this state
                         found_harder_node = True
                         harder_node_backtrack = parent
                         qinfo.state_type = StateType.BACKTRACKED
@@ -107,18 +115,15 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     qinfo.state_type = StateType.BACKTRACKED
                 elif qinfo.has_loop and qinfo.proof_env_info.progress == ProgressState.RUNNING:
                     assert old_action is not None and isinstance(old_action, ProofAction)
+                    assert last_action.action_type == ProofAction.ActionType.RUN_TACTIC, "Last action should be a tactic"
                     last_action = old_action
-                    if last_action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                        found_cycle_node = True
-                        cycle_node_backtrack = tree.parents[node][last_action]
-                        qinfo.state_type = StateType.BACKTRACKED
-                    else:
-                        found_leaf_node = True
-                        last_action = old_action
-                        leaf_node = state_info
+                    found_cycle_node = True
+                    cycle_node_backtrack = tree.parents[node][last_action]
+                    qinfo.state_type = StateType.BACKTRACKED
                 else:
                     edges = tree.edges[node]
                     assert isinstance(state_info.qinfo, ProofQInfo)
+                    # No need to filter nodes here because the condition for 'Backtracked' is already checked above
                     state_info_action_pairs = [(edges[action], action) for action in edges]
                     # Sort the state info action pairs based on qval
                     state_info_action_pairs.sort(key=lambda x: x[0].qinfo.qval)
@@ -148,3 +153,12 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             else:
                 raise Exception("Should not reach here")
             return action_to_take
+        
+    def _is_leaf_node(self, tree: ProofQTree, state: ProofState, qinfo: ProofQInfo, last_action: ProofAction) -> bool:
+        # A leaf node is a node which has no children or all its children are backtracked or it has a self loop and the action is get_dfns or get_thms
+        return len(tree.edges[state]) == 0 or \
+            (qinfo.has_self_loop and qinfo.proof_env_info.progress == ProgressState.RUNNING and (last_action.action_type == ProofAction.ActionType.GET_DFNS or last_action.action_type == ProofAction.ActionType.GET_THMS) )or \
+            all([state_info.qinfo.state_type == StateType.BACKTRACKED for _, state_info in tree.edges[state].items()])
+
+    def _has_all_backtracked_children(self, tree: ProofQTree, state: ProofState) -> bool:
+        return all([state_info.qinfo.state_type == StateType.BACKTRACKED for _, state_info in tree.edges[state].items()])

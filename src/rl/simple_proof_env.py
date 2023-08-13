@@ -87,19 +87,21 @@ class ProofEnv(Env):
     @property
     def state(self):
         assert self._loaded, "Env not loaded, call reset() first"
-        use_proof_executor_state = True
-        # Just check the last action in history
+        use_fallback = True
         if len(self._history) > 0:
-            _, action, s2, _, _, _ = self._history[-1]
-            if action.action_type == ProofAction.ActionType.GET_DFNS or \
-                action.action_type == ProofAction.ActionType.GET_THMS:
-                use_proof_executor_state = False
-                current_goals = s2
-        if use_proof_executor_state:
+            # Just check the last action in history to the current state
+            _, _, s2, _, _, _ = self._history[-1]
+            if s2 is not None:
+                # s2 can be None when called internally for getting the current state before executing an action
+                # We need this for actions which keep the state same but add more information like useful theorems and defintions
+                current_goals = s2.training_data_format
+                use_fallback = False
+        if use_fallback:
+            # This gets the state from the Coq interface itself
             current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
-        state = ProofState(current_goals)
+        state = ProofState(current_goals) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         return state
     
@@ -232,11 +234,11 @@ class ProofEnv(Env):
         if ran_successfully:
             previous_proof_state = state
             previous_proof_state.training_data_format.proof_steps = copy.deepcopy(tactics)
-            current_proof_state = self.state
             # add the proof step to the proof tree
             self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True, action=action)
-            proof_progressed = True
             self.current_proof_depth += 1
+            proof_progressed = True
+            current_proof_state = self.state
         else:
             proof_progressed = False
         if not proof_progressed:
@@ -292,6 +294,7 @@ class ProofEnv(Env):
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
         current_proof_state = ProofState(relevant_thms)
+        current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         reward = 0.0
         done = self.done
         env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
@@ -317,6 +320,7 @@ class ProofEnv(Env):
                 relevant_defns_reranked[i].score = relevant_defns_idx[i][1]/sum_scores
             goal.relevant_defns = relevant_defns_reranked
         current_proof_state = ProofState(relevant_defns)
+        current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         reward = 0.0
         done = self.done
         env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
