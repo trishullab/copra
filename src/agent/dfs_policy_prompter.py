@@ -211,7 +211,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 message=message,
                 steps=correct_steps,
                 incorrect_steps=[],
-                incorrect_step_message=None,
+                error_message=None,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
             assert env_info is not None
@@ -225,7 +225,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 message=message,
                 steps=correct_steps,
                 incorrect_steps=incorrect_steps,
-                incorrect_step_message=message,
+                error_message=message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
@@ -238,7 +238,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 message=message,
                 steps=correct_steps,
                 incorrect_steps=incorrect_steps,
-                incorrect_step_message=message,
+                error_message=message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
@@ -251,7 +251,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 message=message,
                 steps=correct_steps,
                 incorrect_steps=incorrect_steps,
-                incorrect_step_message=message,
+                error_message=message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             return ProofAction(ProofAction.ActionType.BACKTRACK)

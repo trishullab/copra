@@ -24,7 +24,8 @@ class CoqGptResponse(object):
     message: str = ""
     steps: typing.List[str] = field(default_factory=list)
     incorrect_steps: typing.List[str] = field(default_factory=list)
-    incorrect_step_message: typing.Optional[str] = None
+    error_message: typing.Optional[str] = None
+    last_step: typing.Optional[str] = None
     training_data_format: typing.Optional[TrainingDataFormat] = None
 
 class CoqGPTResponseDfsGrammar(Grammar):
@@ -38,8 +39,8 @@ ErrorResponse:
    Error String End
 |  Error ErrorString End;
 GoalsResponse:
-  Goals Description String GoalResponses StepsResponses IncorrectStepsResponses End
-| Goals GoalResponses StepsResponses IncorrectStepsResponses End;
+  Goals Description String GoalResponses StepsResponses IncorrectStepsResponses LastResponse End
+| Goals GoalResponses StepsResponses IncorrectStepsResponses LastResponse End;
 GoalResponses:
   GoalResponse
 | GoalResponse GoalResponses
@@ -71,7 +72,11 @@ HypResponses:
 HypResponse:
   Hyp String;
 IncorrectStepsResponses:
-    IncrctStps StepResponses ErrorMessage String
+    IncrctStps StepResponses
+|   EMPTY;
+LastResponse:
+    LastStep String ErrorMessage String
+|   LastStep String Success
 |   EMPTY;
 StepsResponses:
     Stps StepResponses
@@ -99,6 +104,7 @@ Thm: "[THEOREM]";
 Error: "[ERROR]";
 ErrorMessage: "[ERROR MESSAGE]";
 Success: "[SUCCESS]";
+LastStep: "[LAST STEP]";
 End: "[END]";
 Description: "[DESCRIPTION]";
 String:;
@@ -121,6 +127,7 @@ ErrorString:;
         SUCCESS = "[SUCCESS]"
         END = "[END]"
         DESCRIPTION = "[DESCRIPTION]"
+        LAST_STEP = "[LAST STEP]"
 
         def __str__(self) -> str:
             return self.value
@@ -172,7 +179,6 @@ ErrorString:;
                     for hyp in goal.hypotheses:
                         lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.HYPOTHESIS} {hyp}")
                 if len(goal.relevant_defns) > 0:
-                    lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS} {i + 1}")
                     dfns = goal.relevant_defns
                     dfns = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[dfn.lemma_idx]) for dfn in dfns]
                     lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS} {i+1}")
@@ -188,9 +194,16 @@ ErrorString:;
             if len(coq_gpt_response.incorrect_steps) > 0:
                 lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.INCORRECT_STEPS}")
                 lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.STEP} {step}" for step in coq_gpt_response.incorrect_steps])
-                if coq_gpt_response.incorrect_step_message is not None:
-                    lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE}")
-                    lines.append(coq_gpt_response.incorrect_step_message)
+            if coq_gpt_response.last_step is not None:
+                lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.LAST_STEP}")
+                lines.append(coq_gpt_response.last_step)
+                if coq_gpt_response.success:
+                    lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.SUCCESS}")
+            if coq_gpt_response.error_message is not None:
+                assert coq_gpt_response.last_step is not None
+                assert not coq_gpt_response.success
+                lines.append(f"\n{CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE}")
+                lines.append(coq_gpt_response.error_message)
             gls_args = '\n'.join(lines)
             text += f"{gls_args}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
         else:
@@ -228,7 +241,8 @@ if __name__ == "__main__":
         success=False,
         steps=["intros.", "- reflexivity."],
         incorrect_steps=["rewrite <- plus_O_n."],
-        incorrect_step_message="Unable to unify the goal with the theorem.",
+        last_step="rewrite <- plus_n_O.",
+        error_message="Unable to unify the goal with the theorem.",
         training_data_format=training_data_format)
     text = grammar.format_as_per_grammar(coq_gpt_response)
     print("="*50)
