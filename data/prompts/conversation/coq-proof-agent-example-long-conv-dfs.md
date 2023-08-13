@@ -10,7 +10,8 @@ forall a : nat, a + 0 = a
 
 
 `example_assistant`
-[RUN TACTIC][STEP]reflexivity.
+[RUN TACTIC]
+reflexivity.
 [END]
 
 
@@ -20,9 +21,8 @@ Goals to prove:
 [GOAL] 1
 forall a : nat, a + 0 = a
 
-[INCORRECT STEPS]
-[STEP]reflexivity.
-
+[LAST STEP]
+reflexivity.
 [ERROR MESSAGE]Error: In environment
 a : nat
 Unable to unify "a" with "a + 0".
@@ -32,7 +32,28 @@ Unable to unify "a" with "a + 0".
 
 `example_assistant`
 [RUN TACTIC]
-[STEP]intros a.
+intros a.
+[END]
+
+
+`example_user`
+Goals to prove:
+[GOALS]
+[GOAL] 1
+a + 0 = a
+[HYPOTHESES] 1
+[HYPOTHESIS] a : nat
+
+[LAST STEP]
+intros a.
+[SUCCESS]
+
+[END]
+
+
+`example_assistant`
+[RUN TACTIC]
+rewrite Nat.add_0_r. reflexivity.
 [END]
 
 
@@ -46,13 +67,16 @@ a + 0 = a
 
 [STEPS]
 [STEP] intros a.
-[END]
 
+[LAST STEP]
+rewrite Nat.add_0_r. reflexivity.
+[ERROR MESSAGE]The reference Nat.add_0_r was not found in the current environment.
+[END]
 
 `example_assistant`
-[RUN TACTIC][STEP]rewrite Nat.add_0_r. reflexivity.
+[RUN TACTIC]
+rewrite Nat.add_r_0. reflexivity.
 [END]
-
 
 `example_user`
 Goals to prove:
@@ -66,13 +90,16 @@ a + 0 = a
 [STEP] intros a.
 
 [INCORRECT STEPS]
-[STEP]rewrite Nat.add_0_r. reflexivity.
-[ERROR MESSAGE]The reference Nat.add_0_r was not found in the current environment.
+[STEP] rewrite Nat.add_0_r. reflexivity.
+
+[LAST STEP]
+rewrite Nat.add_r_0. reflexivity.
+[ERROR MESSAGE]The reference Nat.add_r_0 was not found in the current environment.
 [END]
 
-
 `example_assistant`
-[RUN TACTIC][STEP]induction a as [| n IHn].
+[RUN TACTIC]
+induction a as [| n IHn].
 [END]
 
 `example_user`
@@ -86,12 +113,16 @@ S n + 0 = S n
 
 [STEPS]
 [STEP] intros a.
-[STEP] induction a as [| n IHn].
+
+[LAST STEP]
+induction a as [| n IHn].
+[SUCCESS]
 
 [END]
 
 `example_assistant`
-[RUN TACTIC][STEP] - reflexivity.
+[RUN TACTIC]
+- reflexivity.
 [END]
 
 `example_user`
@@ -107,7 +138,11 @@ S n + 0 = S n
 [STEPS]
 [STEP] intros a.
 [STEP] induction a as [| n IHn].
-[STEP] - reflexivity.
+
+[LAST STEP]
+- reflexivity.
+[SUCCESS]
+
 [END]
 
 
@@ -133,10 +168,16 @@ S n + 0 = S n
 [STEP] intros a.
 [STEP] induction a as [| n IHn].
 [STEP] - reflexivity.
+
+[LAST STEP]
+GET THEOREMS
+[SUCCESS]
+
 [END]
 
 `example_assistant`
-[RUN TACTIC][STEP]- rewrite plus_n_O. reflexivity.
+[RUN TACTIC]
+- rewrite plus_n_O. reflexivity.
 [END]
 
 `example_user`
@@ -148,11 +189,16 @@ Goals to prove:
 [STEP] intros a.
 [STEP] induction a as [| n IHn].
 [STEP] - reflexivity.
-[STEP] - rewrite plus_n_O. reflexivity.
+
+[LAST STEP]
+- rewrite plus_n_O. reflexivity.
+[SUCCESS]
+
 [END]
 
 `example_assistant`
-[RUN TACTIC][STEP]Qed.
+[RUN TACTIC]
+Qed.
 [END]
 
 `conv end`
