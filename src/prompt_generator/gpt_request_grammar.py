@@ -35,8 +35,7 @@ GetDfnsRequest:
 RunTacticRequest:
     RunTactic StpRequests End;
 StpRequests:
-  Stp String 
-| Stp String StpRequests;
+  String;
 
 terminals
 Stp: "[STEP]";
@@ -79,8 +78,8 @@ String:;
             context.action = CoqGptRequestActions.RUN_TACTIC
             context.args.reverse()
         elif nonTerminal == "StpRequests":
-            assert len(nodes) >= 2
-            str_node = str(nodes[1]).strip()
+            assert len(nodes) >= 1
+            str_node = str(nodes[0]).strip()
             if len(str_node) > 0:
                 context.args.append(str_node)
         else:
@@ -172,8 +171,8 @@ String:;
 if __name__ == "__main__":
     code = """
 Please run the tactics below.
-[RUN TACTIC] [STEP] reflexivity.
-[STEP]reflexivity.
+[RUN TACTIC] reflexivity.
+reflexivity.
 rewrite <- plus_n_O.[END]"""
     grammar = CoqGPTRequestGrammar()
     result = grammar.compile(code)
