@@ -16,7 +16,7 @@ from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, T
 from src.gpts.gpt_access import GptAccess
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
-from src.rl.simple_proof_env import ProofEnvInfo
+from src.rl.simple_proof_env import ProgressState, ProofEnvInfo
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
@@ -193,63 +193,66 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         assert state is not None
         assert tree_search_action.kwargs is not None and "summary" in tree_search_action.kwargs
         prompt_summary : PromptSummary = tree_search_action.kwargs["summary"]
+        actions_till_now = prompt_summary.actions_till_now
+        steps = self.coq_gpt_request_grammar.parse_request_to_args([action.original_message["content"] for action in actions_till_now])
+        last_action = prompt_summary.last_action
+        last_step = None if last_action is None else self.coq_gpt_request_grammar.parse_request_to_args([last_action.original_message["content"]])[0]
         qinfo: ProofQInfo = prompt_summary.state_info.qinfo
         env_info = qinfo.proof_env_info if qinfo is not None else None
-        proof_tree : ProofTree = state.proof_tree
-        assert proof_tree is not None
-        actions = proof_tree.actions
-        correct_steps : typing.List[str] = [action.original_message["content"] for action in actions]
-        assert all([isinstance(step, str) for step in correct_steps])
         # Parse all correct steps as tactics using CoqGptRequestGrammar
         correct_steps = self.coq_gpt_request_grammar.parse_request_to_args(correct_steps)
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT:
             message = ""
-            incorrect_actions = prompt_summary.actions_to_avoid
+            incorrect_actions = prompt_summary.incorrect_actions
             assert len(incorrect_actions) == 0, "There are some incorrect steps. We cannot go to the next action with incorrect steps."
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=True,
                 message=message,
-                steps=correct_steps,
+                steps=steps,
+                last_step=last_step,
                 incorrect_steps=[],
                 error_message=None,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
             assert env_info is not None
             message = env_info.error_message
-            incorrect_actions = prompt_summary.actions_to_avoid
-            assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
+            success = env_info.progress == ProgressState.RUNNING # It can be a success in case of backtracking
+            incorrect_actions = prompt_summary.incorrect_actions
             incorrect_steps = [action.original_message["content"] for action in incorrect_actions]
             incorrect_steps = self.coq_gpt_request_grammar.parse_request_to_args(incorrect_steps)
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-                success=False,
+                success= success,
                 message=message,
-                steps=correct_steps,
+                steps=steps,
+                last_step = last_step,
                 incorrect_steps=incorrect_steps,
                 error_message=message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
-            incorrect_actions = prompt_summary.actions_to_avoid
+            incorrect_actions = prompt_summary.incorrect_actions
             assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
             incorrect_steps= [action.original_message["content"] for action in incorrect_actions]
             incorrect_steps = self.coq_gpt_request_grammar.parse_request_to_args(incorrect_steps)
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=False,
                 message=message,
-                steps=correct_steps,
+                steps=steps,
+                last_step = last_step,
                 incorrect_steps=incorrect_steps,
                 error_message=message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
             message = "The proof state reached now is not simpler than what was seen before. Try stepping back and trying other tactis."
-            incorrect_actions = prompt_summary.actions_to_avoid
+            incorrect_actions = prompt_summary.incorrect_actions
             assert len(incorrect_actions) > 0, "There are no incorrect steps. We cannot go to the next action with no incorrect steps."
             incorrect_steps = [action.original_message["content"] for action in incorrect_actions]
             incorrect_steps = self.coq_gpt_request_grammar.parse_request_to_args(incorrect_steps)
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=False,
                 message=message,
-                steps=correct_steps,
+                steps=steps,
+                last_step = last_step,
                 incorrect_steps=incorrect_steps,
                 error_message=message,
                 training_data_format=state.training_data_format)

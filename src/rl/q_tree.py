@@ -21,6 +21,9 @@ class QInfo(object):
     has_self_loop: bool = False
     distance_from_root: int = -1
 
+    def _post_init_(self):
+        self.looping_state : State = None
+
     def serialize(self) -> str:
         return self.to_json()
     
@@ -99,10 +102,11 @@ class QGraph(object):
         self.parents[next_state_copy][action_copy] = QTreeStateInfo(prev_state_copy, qinfo_copy)
         qinfo_copy.has_self_loop = self._has_self_loop(next_state_copy)
         if not qinfo_copy.has_self_loop:
-            qinfo_copy.has_loop = self._has_any_loop(next_state_copy)
+            qinfo_copy.has_loop, qinfo_copy.looping_state = self._has_any_loop(next_state_copy)
         else:
             qinfo_copy.has_loop = True
-    
+            qinfo_copy.looping_state = next_state_copy
+   
     def is_leaf(self, state: State) -> bool:
         assert state in self.nodes, "state not in the tree"
         return len(self.edges[state]) == 0 # There should be no outgoing edge
@@ -121,15 +125,20 @@ class QGraph(object):
         visited = set()
         dq = deque()
         dq.append(state)
-        while len(dq) > 0:
+        trajectory : typing.List[State] = []
+        has_loop = False
+        while len(dq) > 0 and not has_loop:
             node = dq.popleft()
+            trajectory.append(node)
             if node in visited:
-                return True
-            visited.add(node)
-            for _, state_info in self.parents[node].items():
-                parent = state_info.state
-                dq.append(parent)
-        return False
+                has_loop = True
+            else:
+                visited.add(node)
+                for _, state_info in self.parents[node].items():
+                    parent = state_info.state
+                    dq.append(parent)
+        looping_state = trajectory[-1] if has_loop else None
+        return has_loop, looping_state
 
     def update_qinfo(self, prev_state: State, action: Action, next_state: State, new_qinfo: QInfo):
         assert prev_state in self.nodes, f"prev_state_node {prev_state} not in tree"

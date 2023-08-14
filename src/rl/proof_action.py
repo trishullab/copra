@@ -21,6 +21,7 @@ class ProofAction(Action):
         RUN_TACTIC = 'RUN_TACTIC'
         BACKTRACK = 'BACKTRACK'
         EXIT = 'EXIT'
+        NONE = 'NONE'
 
     action_type: ActionType
     kwargs: typing.Optional[dict] = field(default_factory=dict)

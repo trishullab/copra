@@ -53,7 +53,9 @@ class ProofQInfo(QInfo):
 @dataclass_json
 @dataclass
 class PromptSummary:
-    actions_to_avoid: typing.List[ProofAction]
+    incorrect_actions: typing.List[ProofAction]
+    actions_till_now: typing.List[ProofAction]
+    last_action: ProofAction
     state_info: QTreeStateInfo
     pass
 
