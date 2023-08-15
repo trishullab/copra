@@ -37,11 +37,24 @@ class StateType(Enum):
     # The state is Backtracked
     BACKTRACKED = 'BACKTRACKED'
 
+class FailureReason(Enum):
+    # The next step didn't compile
+    COMPILE_FAILED = 'COMPILE_FAILED'
+    # The state is harder than previous state(s)
+    HARDER_STATE = 'HARDER_STATE'
+    # The state leads to a state which is already discovered
+    CYCLIC_STATE = 'CYCLIC_STATE'
+    # The state leads to a state which ultimately fails
+    SUBSEQUENT_STATE_FAILED = 'SUBSEQUENT_STATE_FAILED'
+    # No failure
+    NONE = 'NONE'
+
 @dataclass_json
 @dataclass
 class ProofQInfo(QInfo):
     proof_env_info: ProofEnvInfo = None
     state_type: StateType = StateType.UNDISCOVERED
+    failure_reason: FailureReason = FailureReason.NONE
 
     def serialize(self) -> str:
         return self.to_json()

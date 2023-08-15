@@ -6,7 +6,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 import copy
-from collections import deque
+from collections import OrderedDict, deque
 from src.rl.abstraction import State, Action
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -58,8 +58,8 @@ class QGraph(object):
     def __init__(self):
         self.root: typing.Optional[QTreeStateInfo] = None
         self.nodes : typing.Set[State] = set()
-        self.parents : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
-        self.edges : typing.Dict[State, typing.Dict[Action, QTreeStateInfo]] = dict()
+        self.parents : typing.OrderedDict[State, typing.Dict[Action, QTreeStateInfo]] = OrderedDict()
+        self.edges : typing.OrderedDict[State, typing.Dict[Action, QTreeStateInfo]] = OrderedDict()
     
     def state_in_tree(self, state: State) -> bool:
         return state in self.nodes
