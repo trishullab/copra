@@ -95,7 +95,11 @@ class QGraph(object):
                 self.edges[next_state_copy] = dict()
             if next_state not in self.parents:
                 self.parents[next_state_copy] = dict()
-            parent_distance_from_root = min([state_info.qinfo.distance_from_root for state_info in self.parents[prev_state_copy].values()])
+            prev_dist = [state_info.qinfo.distance_from_root for state_info in self.parents[prev_state_copy].values()]
+            if len(prev_dist) > 0:
+                parent_distance_from_root = min(prev_dist)
+            else:
+                parent_distance_from_root = 0
             qinfo_copy.distance_from_root = parent_distance_from_root + 1
 
         self.edges[prev_state_copy][action_copy] = QTreeStateInfo(next_state_copy, qinfo_copy)

@@ -161,7 +161,7 @@ ErrorString:;
         }
         super(CoqGPTResponseDfsGrammar, self).__init__(CoqGPTResponseDfsGrammar.grammar, CoqGPTResponseDfsGrammar.keywords, recognizers=recognizers)
     
-    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse) -> str:
+    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None) -> str:
         text = ""
         if coq_gpt_response.action == CoqGptResponseActions.ERROR:
             text = f"{CoqGPTResponseDfsGrammar.Keywords.ERROR}\n{coq_gpt_response.message}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
@@ -178,13 +178,17 @@ ErrorString:;
                     lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.HYPOTHESES} {i + 1}")
                     for hyp in goal.hypotheses:
                         lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.HYPOTHESIS} {hyp}")
-                if len(goal.relevant_defns) > 0:
+                if len(goal.relevant_defns) > 0 and (k is None or k > 0):
                     dfns = goal.relevant_defns
+                    if k is not None:
+                        dfns = dfns[:k]
                     dfns = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[dfn.lemma_idx]) for dfn in dfns]
                     lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS} {i+1}")
                     lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.DEFINITION} {dfn}" for dfn in dfns])
-                if len(goal.possible_useful_theorems_external) + len(goal.possible_useful_theorems_local) > 0:
+                if len(goal.possible_useful_theorems_external) + len(goal.possible_useful_theorems_local) > 0 and (k is None or k > 0):
                     thms = goal.possible_useful_theorems_local + goal.possible_useful_theorems_external
+                    if k is not None:
+                        thms = thms[:k]
                     thms = [str(coq_gpt_response.training_data_format.all_useful_defns_theorems[thm.lemma_idx]) for thm in thms]
                     lines.append(f"{CoqGPTResponseDfsGrammar.Keywords.THEOREMS} {i + 1}")
                     lines.extend([f"{CoqGPTResponseDfsGrammar.Keywords.THEOREM} {thm}" for thm in thms])

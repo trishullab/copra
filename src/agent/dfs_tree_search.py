@@ -31,8 +31,16 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert next_state_info.state == next_state, f"next_state_info.state: {next_state_info.state}, next_state: {next_state} are not the same. even for the exact same action and state."
             assert isinstance(next_state_info.qinfo, ProofQInfo)
             should_add = False
-            assert next_state_info.qinfo.proof_env_info.progress != ProgressState.RUNNING, "The next state should not be running as DFS allows only one path to run"
+            if action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                assert next_state_info.qinfo.proof_env_info.progress != ProgressState.RUNNING, "The next state should not be running as DFS allows only one path to run"
+            else:
+                next_state_info.qinfo.proof_env_info.progress = ProgressState.FAILED
+                next_state_info.qinfo.proof_env_info.error_message = "The last tactic fails because it keeps getting repeated and does not simplify the goal."
+                next_state_info.qinfo.failure_reason = FailureReason.CYCLIC_STATE
+                # No need to backtrack because no tactic was run.
             next_state_info.qinfo.state_type = StateType.BACKTRACKED
+            assert next_state_info.qinfo.proof_env_info.progress == ProgressState.FAILED, "The next state should be failed"
+            assert next_state_info.qinfo.proof_env_info.error_message is not None, "The next state should have an error message"
             grandparent_node_infos = tree.parents[state].values()
             found_parent_node = False
             for grandparent_node_info in grandparent_node_infos:
@@ -49,7 +57,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                         parent_proof_qinfo.state_type = StateType.BACKTRACKED
                         if parent_proof_qinfo.proof_env_info.progress == ProgressState.RUNNING:
                             parent_proof_qinfo.proof_env_info.progress = ProgressState.FAILED
-                            parent_proof_qinfo.proof_env_info.error_message = "This tactic fails because it leads to proof-state which eventually fails."
+                            parent_proof_qinfo.proof_env_info.error_message = \
+                                "This tactic fails because it leads to proof-state which eventually fails due to reasons:\n" + \
+                                next_state_info.qinfo.proof_env_info.error_message
                             parent_proof_qinfo.failure_reason = FailureReason.SUBSEQUENT_STATE_FAILED
                             found_parent_node = True
             if found_parent_node:
@@ -64,23 +74,29 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             # Check if this node has a loop
             if qinfo.proof_env_info.progress == ProgressState.RUNNING:
                 parent_node_info = tree.parents[next_state][action]
-                if qinfo.has_loop:
-                    qinfo.state_type = StateType.BACKTRACKED
-                    self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
-                    # Update the qval of the parent node
-                    qinfo.qval = -0.5
-                    qinfo.proof_env_info.progress = ProgressState.FAILED
-                    qinfo.proof_env_info.error_message = "This tactic fails becuase it does NOT simplify the goal, and takes us to a goal which we have already seen."
-                    qinfo.failure_reason = FailureReason.CYCLIC_STATE
-                elif parent_node_info.state <= next_state:
-                    qinfo.state_type = StateType.BACKTRACKED
-                    self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
-                    # Update the qval of the parent node
-                    qinfo.qval = -0.5
-                    qinfo.proof_env_info.progress = ProgressState.FAILED
-                    qinfo.proof_env_info.error_message = "This tactic fails because it does NOT simplify the goal, and takes us to a goal which is harder (or as hard) as the current goal."
-                    qinfo.failure_reason = FailureReason.HARDER_STATE
-                else:
+                action_is_successful = True
+                if action.ActionType == ProofAction.ActionType.RUN_TACTIC:
+                    if qinfo.has_loop:
+                        action_is_successful = False
+                        qinfo.state_type = StateType.BACKTRACKED
+                        self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
+                        # Update the qval of the parent node
+                        qinfo.qval = -0.5
+                        qinfo.proof_env_info.progress = ProgressState.FAILED
+                        qinfo.proof_env_info.error_message = "This tactic fails becuase it does NOT simplify the goal, and takes us to a goal which we have already seen."
+                        qinfo.failure_reason = FailureReason.CYCLIC_STATE
+                    elif parent_node_info.state <= next_state:
+                        action_is_successful = False
+                        qinfo.state_type = StateType.BACKTRACKED
+                        self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
+                        # Update the qval of the parent node
+                        qinfo.qval = -0.5
+                        qinfo.proof_env_info.progress = ProgressState.FAILED
+                        qinfo.proof_env_info.error_message = "This tactic fails because it does NOT simplify the goal, and takes us to a goal which is harder (or as hard) as the current goal."
+                        qinfo.failure_reason = FailureReason.HARDER_STATE
+                    else:
+                        action_is_successful = True
+                if action_is_successful:
                     qval = 1.0/qinfo.distance_from_root
                     qinfo.qval = qval
                     qinfo.failure_reason = FailureReason.NONE
@@ -145,32 +161,36 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     incorrect_actions_from_node = list(iter(tree.edges[node]))[:-1]
                     qinfo = tree.edges[node][last_backtracked_action].qinfo
                     last_node_info = tree.edges[node][last_backtracked_action]
+                    if last_action.action_type != ProofAction.ActionType.NONE:
+                        action_path = actions_till_now + [last_action]
+                    else:
+                        action_path = actions_till_now
                     if qinfo.failure_reason == FailureReason.SUBSEQUENT_STATE_FAILED:
                         action_to_take = TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT, node, 
                             summary=PromptSummary(
                             incorrect_actions_from_node, 
-                            actions_till_now + [last_action], 
+                            action_path, 
                             last_backtracked_action, 
                             last_node_info))
                     elif qinfo.failure_reason == FailureReason.CYCLIC_STATE:
                         action_to_take = TreeSearchAction(TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT, node,
                             summary=PromptSummary(
                             incorrect_actions_from_node,
-                            actions_till_now + [last_action],
+                            action_path,
                             last_backtracked_action,
                             last_node_info))
                     elif qinfo.failure_reason == FailureReason.HARDER_STATE:
                         action_to_take = TreeSearchAction(TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT, node,
                             summary=PromptSummary(
                             incorrect_actions_from_node,
-                            actions_till_now + [last_action],
+                            action_path,
                             last_backtracked_action,
                             last_node_info))
                     elif qinfo.failure_reason == FailureReason.COMPILE_FAILED:
                         action_to_take = TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT, node,
                             summary=PromptSummary(
                             incorrect_actions_from_node,
-                            actions_till_now + [last_action],
+                            action_path,
                             last_backtracked_action,
                             last_node_info))
                     else:

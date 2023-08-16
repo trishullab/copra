@@ -69,10 +69,10 @@ String:;
     def _parse_expr(self, nonTerminal, nodes, context):
         if nonTerminal == "GetThmsRequest":
             context.action = CoqGptRequestActions.GET_THMS
-            context.args = []
+            context.args = [CoqGptRequestActions.GET_THMS[1:-1]]
         elif nonTerminal == "GetDfnsRequest":
             context.action = CoqGptRequestActions.GET_DFNS
-            context.args = []
+            context.args = [CoqGptRequestActions.GET_DFNS[1:-1]]
         elif nonTerminal == "RunTacticRequest":
             assert len(nodes) >= 2
             context.action = CoqGptRequestActions.RUN_TACTIC

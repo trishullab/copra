@@ -33,7 +33,8 @@ if __name__ == "__main__":
         main_sys_prompt_path=main_prompt,
         example_conv_prompt_path=conv_prompt,
         max_tokens_per_action=max_tokens_per_action,
-        gpt_model_name=gpt_model_name)
+        gpt_model_name=gpt_model_name,
+        k=3) # k is the number of theorems to consider at each step
     dfs_tree_search = DFSTreeSearch()
     proof_exec_callback = ProofExecutorCallback(
         project_folder=".",

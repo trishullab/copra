@@ -33,6 +33,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             max_history_messages: int = 0, # This means keep no history of messages
             gpt_model_name: str = "gpt-3.5-turbo",
             secret_filepath: str = ".secrets/openai_key.json",
+            k : typing.Optional[int] = None,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
@@ -55,6 +56,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._message_history = []
         self._message_history_token_count = []
         self._max_history_messages = max_history_messages
+        self._k = k
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         pass
 
@@ -108,7 +110,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             self.logger.info("Rate limit reset now.")
 
     def run_prompt(self, request: CoqGptResponse) -> list:
-        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request)
+        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k)
         prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
         prompt_messages = [prompt_message]
         prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
@@ -194,6 +196,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         assert tree_search_action.kwargs is not None and "summary" in tree_search_action.kwargs
         prompt_summary : PromptSummary = tree_search_action.kwargs["summary"]
         actions_till_now = prompt_summary.actions_till_now
+        # Fix the bug here, about none type object
         steps = self.coq_gpt_request_grammar.parse_request_to_args([action.original_message["content"] for action in actions_till_now])
         last_action = prompt_summary.last_action
         last_step = None if last_action is None else self.coq_gpt_request_grammar.parse_request_to_args([last_action.original_message["content"]])[0]

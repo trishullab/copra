@@ -337,19 +337,20 @@ class ProofEnv(Env):
         if last_tactic is not None and last_tactic_line is not None:
             try:
                 self._dynamic_proof_executor.cancel_tactic_till_line(last_tactic_line)
+                self.current_proof_depth -= 1
             except Exception as e:
-                history = self._history # History helps us to restore the state
+                # history = self._history # History helps us to restore the state
                 self.logger.error("Exception occured while backtracking: {}".format(e))
-                self.reset() # To ensure that everything is fine
-                # Run all tactics in the history
-                self._history = history
-                run_tactic_idx = []
-                for i in range(history_idx):
-                    _, action, _, _, _, _ = history[i]
-                    if action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                        run_tactic_idx.append(i)
-                for i in run_tactic_idx[:-1]:
-                    self._run_tactic(i) # Run all tactics except the last one which is being backtracked
+                self.reset() # To ensure that everything is fine we start again
+                # # Run all tactics in the history
+                # self._history = history
+                # run_tactic_idx = []
+                # for i in range(history_idx):
+                #     _, action, _, _, _, info = history[i]
+                #     if action.action_type == ProofAction.ActionType.RUN_TACTIC and info.progress == ProgressState.RUNNING:
+                #         run_tactic_idx.append(i)
+                # for i in run_tactic_idx[:-1]:
+                #     self._run_tactic(i) # Run all tactics except the last one which is being backtracked
             if self._dynamic_proof_executor.is_in_proof_mode():
                 env_info.progress = ProgressState.RUNNING
                 env_info.error_message = "Backtracked successfully"
