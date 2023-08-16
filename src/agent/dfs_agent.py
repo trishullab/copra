@@ -19,10 +19,10 @@ if __name__ == "__main__":
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
     log_path = ".log/proof_agent-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))
+    # proof_file = "data/test/SimpleAlgebra.v"
+    # theorem_name = "algb_is_abelian_group"
     proof_file = "data/test/SimpleAlgebra.v"
-    theorem_name = "algb_is_abelian_group"
-    # proof_file = "data/test/SimpleNaturalProofs.v"
-    # theorem_name = "algb_add_comm"
+    theorem_name = "algb_add_comm"
     main_prompt = "data/prompts/system/coq-proof-agent-with-dfs.md"
     conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     checkpoint_dir = ".log/checkpoints/"
