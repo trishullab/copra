@@ -148,10 +148,8 @@ class ProofEnv(Env):
         self._history.append((state_before, action, None, 0.0, False, info))
         if action.action_type == ProofAction.ActionType.RUN_TACTIC:
             self._run_tactic(history_idx)
-        elif action.action_type == ProofAction.ActionType.GET_DFNS:
-            self._get_dfns(history_idx)
-        elif action.action_type == ProofAction.ActionType.GET_THMS:
-            self._get_thms(history_idx)
+        elif action.action_type == ProofAction.ActionType.GET_DFNS_THMS:
+            self._get_dfns_thms(history_idx)
         elif action.action_type == ProofAction.ActionType.BACKTRACK:
             self._backtrack(history_idx)
         else:
@@ -306,15 +304,16 @@ class ProofEnv(Env):
         self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
         pass
 
-    def _get_dfns(self, history_idx: int = None):
+    def _get_dfns_thms(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
-        assert action.action_type == ProofAction.ActionType.GET_DFNS, "Action must be of type GET_DEFNS"
-        relevant_defns = self._dynamic_proof_executor.get_all_relevant_defns()
-        for goal in relevant_defns.start_goals:
+        assert action.action_type == ProofAction.ActionType.GET_DFNS_THMS, "Action must be of type GET_DFNS_THMS"
+
+        relevant_defns_thms = self._dynamic_proof_executor.get_all_relevant_defns_and_thms()
+        for goal in relevant_defns_thms.start_goals:
             query = goal.goal
-            responses = [str(relevant_defns.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.relevant_defns]
+            responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.relevant_defns]
             response_scores = self._re_ranker.rerank(query, responses)
             relevant_defns_idx = [(idx, score) for idx, score in enumerate(response_scores)]
             relevant_defns_idx.sort(key=lambda x: x[1], reverse=True)
@@ -323,7 +322,28 @@ class ProofEnv(Env):
             for i in range(len(relevant_defns_reranked)):
                 relevant_defns_reranked[i].score = relevant_defns_idx[i][1]/sum_scores
             goal.relevant_defns = relevant_defns_reranked
-        current_proof_state = ProofState(relevant_defns)
+
+        for goal in relevant_defns_thms.start_goals:
+            query = goal.goal
+            local_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
+            global_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
+            local_scores = self._re_ranker.rerank(query, local_responses)
+            global_scores = self._re_ranker.rerank(query, global_responses)
+            local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
+            global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
+            local_idx.sort(key=lambda x: x[1], reverse=True)
+            global_idx.sort(key=lambda x: x[1], reverse=True)
+            local_responses = [goal.possible_useful_theorems_local[idx] for idx, _ in local_idx]
+            global_responses = [goal.possible_useful_theorems_external[idx] for idx, _ in global_idx]
+            sum_local_scores = sum([score for _, score in local_idx]) + 1e-6
+            sum_global_scores = sum([score for _, score in global_idx]) + 1e-6
+            for i in range(len(local_responses)):
+                local_responses[i].score = local_idx[i][1]/sum_local_scores
+            for i in range(len(global_responses)):
+                global_responses[i].score = global_idx[i][1]/sum_global_scores
+            goal.possible_useful_theorems_local = local_responses
+            goal.possible_useful_theorems_external = global_responses
+        current_proof_state = ProofState(relevant_defns_thms)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         reward = 0.0
         done = self.done
@@ -408,9 +428,7 @@ if __name__ == "__main__":
             inp = input("Enter tactic(s) (';' separated): ")
             inp = inp.split(';')
             return ProofAction(action_type, tactics=inp)
-        elif action_type == ProofAction.ActionType.GET_THMS:
-            return ProofAction(action_type)
-        elif action_type == ProofAction.ActionType.GET_DFNS:
+        elif action_type == ProofAction.ActionType.GET_DFNS_THMS:
             return ProofAction(action_type)
         elif action_type == ProofAction.ActionType.BACKTRACK:
             return ProofAction(action_type)

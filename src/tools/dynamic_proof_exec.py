@@ -133,6 +133,12 @@ class DynamicProofExecutor(CoqExecutor):
         training_data_format = self.get_current_proof_state_as_training_data()
         self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
+    
+    def get_all_relevant_defns_and_thms(self) -> TrainingDataFormat:
+        training_data_format = self.get_current_proof_state_as_training_data()
+        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
+        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:
         cmd_failed = False

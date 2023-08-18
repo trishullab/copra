@@ -178,9 +178,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_DFNS)
-            elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_THMS)
+                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS)
             elif coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
                 action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
             else:

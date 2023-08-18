@@ -16,8 +16,6 @@ from dataclasses_json import dataclass_json
 @dataclass
 class ProofAction(Action):
     class ActionType(Enum):
-        GET_THMS = 'GET_THMS'
-        GET_DFNS = 'GET_DFNS'
         GET_DFNS_THMS = 'GET_DFNS_THMS'
         RUN_TACTIC = 'RUN_TACTIC'
         BACKTRACK = 'BACKTRACK'
@@ -36,10 +34,6 @@ class ProofAction(Action):
                 return 4
             if action_type == ProofAction.ActionType.RUN_TACTIC:
                 return 1
-            if action_type == ProofAction.ActionType.GET_DFNS_THMS:
-                return 2
-            elif action_type == ProofAction.ActionType.BACKTRACK:
-                return 3
             else:
                 return 0
 
