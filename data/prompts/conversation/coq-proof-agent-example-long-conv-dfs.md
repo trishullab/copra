@@ -147,7 +147,7 @@ S n + 0 = S n
 
 
 `example_assistant`
-[GET THEOREMS][END]
+[GET DEFINITIONS AND THEOREMS][END]
 
 `example_user`
 Goals to prove:
@@ -158,6 +158,8 @@ S n + 0 = S n
 [HYPOTHESES] 1
 [HYPOTHESIS] n : nat
 [HYPOTHESIS] IHn : n + 0 = n
+[DEFINITIONS] 1
+[DEFINITION] nat: Set
 [THEOREMS] 1
 [THEOREM] plus_O_n: forall n : nat, 0 + n = n
 [THEOREM] plus_n_O: forall n : nat, n = n + 0
@@ -170,7 +172,7 @@ S n + 0 = S n
 [STEP] - reflexivity.
 
 [LAST STEP]
-GET THEOREMS
+GET DEFINITIONS AND THEOREMS
 [SUCCESS]
 
 [END]
