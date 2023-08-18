@@ -59,10 +59,31 @@ class DynamicProofExecutor(CoqExecutor):
     UnfocussedGoalsDescription = "There are unfocussed goals."
     ProofFinishedDescription = "Proof finished."
     NotInProofModeDescription = "Not in proof mode."
+    GoalDescriptionOrder = {
+        UnfocussedGoalsDescription: 2, # This more hard
+        ProofFinishedDescription: 1, # This is easier coz proof is almost done
+        NotInProofModeDescription: 0 # This is the easiest as the proof is done
+    }
     class ContextType(enum.Enum):
         NoContext = 0
         LocalContext = 1
         BestContext = 2
+
+    def goal_description_compare(description1: str, descripton2: str) -> int:
+        """
+        Returns 1 if description1 < description2, 0 if description1 == description2, -1 if description1 > description2
+        """
+        # In case of no description it is much more harder as we have to do a lot of work
+        # So None will have same value as unfocussed goals
+        order1 = DynamicProofExecutor.GoalDescriptionOrder.get(description1, 2) if description1 is not None else 2
+        order2 = DynamicProofExecutor.GoalDescriptionOrder.get(descripton2, 2) if descripton2 is not None else 2
+        if order1 < order2:
+            return 1
+        elif order1 == order2:
+            return 0
+        else:
+            return -1
+
 
     def __init__(self, coq_context_helper: CoqContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: bool = False, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
         assert proof_file is None or os.path.exists(proof_file), f"Proof file {proof_file} does not exist"

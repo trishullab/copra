@@ -33,25 +33,37 @@ class StateActionPair(object):
         assert isinstance(__o, StateActionPair)
         assert isinstance(self.state, ProofState)
         assert isinstance(self.action, ProofAction)
-        return (self.state, self.action) >= (__o.state, __o.action)
+        if self.state == __o.state:
+            return self.action >= __o.action
+        else:
+            return self.state >= __o.state 
     
     def __le__(self, __o: object) -> bool:
         assert isinstance(__o, StateActionPair)
         assert isinstance(self.state, ProofState)
         assert isinstance(self.action, ProofAction)
-        return (self.state, self.action) <= (__o.state, __o.action)
+        if self.state == __o.state:
+            return self.action <= __o.action
+        else:
+            return self.state <= __o.state
     
     def __lt__(self, __o: object) -> bool:
         assert isinstance(__o, StateActionPair)
         assert isinstance(self.state, ProofState)
         assert isinstance(self.action, ProofAction)
-        return (self.state, self.action) < (__o.state, __o.action)
+        if self.state == __o.state:
+            return self.action < __o.action
+        else:
+            return self.state < __o.state
     
     def __gt__(self, __o: object) -> bool:
         assert isinstance(__o, StateActionPair)
         assert isinstance(self.state, ProofState)
         assert isinstance(self.action, ProofAction)
-        return (self.state, self.action) > (__o.state, __o.action)
+        if self.state == __o.state:
+            return self.action > __o.action
+        else:
+            return self.state > __o.state
 
 
 @dataclass_json
@@ -101,7 +113,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             new_node.next_state_action_pair.state = FailedProofState # This is to ensure that there are no cycles in the tree
             current_node_is_correct = False
         else:
-            assert new_node.info.progress == ProgressState.STATE_CHANGED or new_node.info.progress == ProgressState.STATE_UNCHANGED, "The progress should be either STATE_CHANGED or STATE_UNCHANGED"
+            assert new_node.info.progress == ProgressState.STATE_CHANGED or new_node.info.progress == ProgressState.STATE_UNCHANGED or new_node.info.progress == ProgressState.DONE, "The progress should be either STATE_CHANGED or STATE_UNCHANGED"
             assert not new_node.state_action_pair <= new_node.next_state_action_pair, "The next state should not be harder than the current state"
             current_node_is_correct = True
 
