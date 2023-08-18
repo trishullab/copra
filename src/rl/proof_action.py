@@ -30,10 +30,10 @@ class ProofAction(Action):
                 return 6
             elif action_type == ProofAction.ActionType.NONE:
                 return 5
-            elif action_type == ProofAction.ActionType.GET_DFNS_THMS:
-                return 4
             if action_type == ProofAction.ActionType.RUN_TACTIC:
-                return 1
+                return 4
+            elif action_type == ProofAction.ActionType.GET_DFNS_THMS:
+                return 3
             else:
                 return 0
 
@@ -42,19 +42,19 @@ class ProofAction(Action):
         
         def __lt__(self, other):
             assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
-            return ProofAction.get_order(self) < ProofAction.get_order(other)
+            return ProofAction.ActionType.get_order(self) < ProofAction.ActionType.get_order(other)
         
         def __le__(self, other):
             assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
-            return ProofAction.get_order(self) <= ProofAction.get_order(other)
+            return ProofAction.ActionType.get_order(self) <= ProofAction.ActionType.get_order(other)
         
         def __gt__(self, other):
             assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
-            return ProofAction.get_order(self) > ProofAction.get_order(other)
+            return ProofAction.ActionType.get_order(self) > ProofAction.ActionType.get_order(other)
         
         def __ge__(self, other):
             assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
-            return ProofAction.get_order(self) >= ProofAction.get_order(other)
+            return ProofAction.ActionType.get_order(self) >= ProofAction.ActionType.get_order(other)
 
     action_type: ActionType
     kwargs: typing.Optional[dict] = field(default_factory=dict)
