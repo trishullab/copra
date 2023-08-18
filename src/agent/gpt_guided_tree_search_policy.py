@@ -26,6 +26,8 @@ class TreeSearchActionType(Enum):
     CYCLIC_STATE_SUMMARY_PROMPT = 'CYCLIC_STATE_SUMMARY_PROMPT'
     # The action to backtrack to the previous state
     BACKTRACK = 'BACKTRACK'
+    # Run action
+    RUN_ACTION = 'RUN_ACTION'
     # The action to stop the search
     STOP = 'STOP'
 
@@ -196,6 +198,8 @@ class GptGuidedTreeSearchPolicy(Policy):
         or tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             action = self._policy_prompter(tree_search_action)
+        elif tree_search_action.action_type == TreeSearchActionType.RUN_ACTION:
+            action = ProofAction(ProofAction.ActionType.RUN_TACTIC, **tree_search_action.kwargs)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             action = ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:

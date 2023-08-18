@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import logging
 import typing
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
-from src.agent.dfs_tree_search import DFSTreeSearch
+from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.rl.proof_search_result import ProofSearchResult
 from src.agent.simple_proof_agent import ProofAgent
@@ -35,6 +35,7 @@ class EvalSettings(object):
     render: bool = False
     checkpoint_dir: str = ".log/checkpoints"
     should_checkpoint: bool = False
+    temperature: float = 0.0
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
     lemmas_to_prove = []
@@ -78,6 +79,7 @@ def eval_project(
             example_conv_prompt_path=eval_settings.conv_prompt,
             max_tokens_per_action=eval_settings.max_tokens_per_action,
             gpt_model_name=eval_settings.gpt_model_name,
+            temperature=eval_settings.temperature,
             k=eval_settings.max_theorems_in_prompt) # k is the number of theorems to consider at each step
         dfs_tree_search = DFSTreeSearch()
         with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, logger=logger) as env:
@@ -113,6 +115,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_theorems_in_prompt", type=int, default=5, help="Max theorems in prompt")
     parser.add_argument("--max_steps_per_episode", type=int, default=30, help="Max steps per episode")
     parser.add_argument("--render", type=bool, default=False, help="Render")
+    parser.add_argument("--temperature", type=float, default=0.0, help="Temperature")
     args = parser.parse_args()
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
