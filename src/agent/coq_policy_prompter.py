@@ -159,7 +159,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 error_message = f"Invalid response:\n {str(e)}"
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
-            if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS:
+            if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
                 action = ProofAction(ProofAction.ActionType.GET_DFNS)
             elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
                 action = ProofAction(ProofAction.ActionType.GET_THMS)

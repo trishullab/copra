@@ -10,13 +10,11 @@ import os
 import time
 from openai.error import InvalidRequestError
 import logging
-from src.rl.proof_tree import ProofTree
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
 from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
 from src.gpts.gpt_access import GptAccess
-from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
-from src.rl.simple_proof_env import ProgressState, ProofEnvInfo
+from src.rl.simple_proof_env import ProgressState
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
@@ -127,6 +125,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             try:
                 self._throttle_if_needed(total_token_count)
                 self.logger.info(f"Requesting {total_token_count} tokens.")
+                self.logger.info(f"Prompt Message:\n{prompt_message['content']}")
                 request_start_time = time.time()
                 responses, usage = self._gpt_access.complete_chat(
                     messages,
@@ -178,7 +177,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 error_message = f"Invalid response:\n {str(e)}"
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
-            if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS:
+            if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
                 action = ProofAction(ProofAction.ActionType.GET_DFNS)
             elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
                 action = ProofAction(ProofAction.ActionType.GET_THMS)
@@ -226,34 +225,36 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 incorrect_steps=incorrect_steps,
                 error_message=env_info.error_message,
                 training_data_format=state.training_data_format)
-        elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
-            assert env_info is not None
-            assert env_info.progress == ProgressState.FAILED
-            assert env_info.error_message is not None
-            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-                success=False,
-                message=env_info.error_message,
-                steps=steps,
-                last_step = last_step,
-                incorrect_steps=incorrect_steps,
-                error_message=env_info.error_message,
-                training_data_format=state.training_data_format)
-        elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
-            assert env_info is not None
-            assert env_info.progress == ProgressState.FAILED
-            assert env_info.error_message is not None
-            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-                success=False,
-                message=env_info.error_message,
-                steps=steps,
-                last_step = last_step,
-                incorrect_steps=incorrect_steps,
-                error_message=env_info.error_message,
-                training_data_format=state.training_data_format)
+        # elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
+        #     assert env_info is not None
+        #     assert env_info.progress == ProgressState.FAILED
+        #     assert env_info.error_message is not None
+        #     gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+        #         success=False,
+        #         message=env_info.error_message,
+        #         steps=steps,
+        #         last_step = last_step,
+        #         incorrect_steps=incorrect_steps,
+        #         error_message=env_info.error_message,
+        #         training_data_format=state.training_data_format)
+        # elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
+        #     assert env_info is not None
+        #     assert env_info.progress == ProgressState.FAILED
+        #     assert env_info.error_message is not None
+        #     gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
+        #         success=False,
+        #         message=env_info.error_message,
+        #         steps=steps,
+        #         last_step = last_step,
+        #         incorrect_steps=incorrect_steps,
+        #         error_message=env_info.error_message,
+        #         training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             return ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:
             return ProofAction(ProofAction.ActionType.EXIT)
+        else:
+            raise Exception(f"Invalid action type {tree_search_action.action_type}")
         success = False
         tries = 10
         exceptions = []

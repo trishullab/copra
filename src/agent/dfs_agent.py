@@ -10,7 +10,7 @@ import logging
 from src.agent.simple_proof_agent import ProofAgent
 from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.agent.dfs_tree_search import DFSTreeSearch
+from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 
@@ -22,19 +22,19 @@ if __name__ == "__main__":
     # proof_file = "data/test/SimpleAlgebra.v"
     # theorem_name = "algb_is_abelian_group"
     proof_file = "data/test/SimpleAlgebra.v"
-    theorem_name = "algb_add_comm"
+    theorem_name = "algb_has_identity"
     main_prompt = "data/prompts/system/coq-proof-agent-with-dfs.md"
     conv_prompt = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     checkpoint_dir = ".log/checkpoints/"
     max_tokens_per_action = 25
     max_theorems_in_prompt = 3
-    gpt_model_name = "gpt-3.5-turbo"
+    gpt_model_name = "gpt-4"
     policy_prompter = DfsCoqGptPolicyPrompter(
         main_sys_prompt_path=main_prompt,
         example_conv_prompt_path=conv_prompt,
         max_tokens_per_action=max_tokens_per_action,
         gpt_model_name=gpt_model_name,
-        k=3) # k is the number of theorems to consider at each step
+        k=5) # k is the number of theorems to consider at each step
     dfs_tree_search = DFSTreeSearch()
     proof_exec_callback = ProofExecutorCallback(
         project_folder=".",
@@ -58,4 +58,4 @@ if __name__ == "__main__":
             dfs_tree_search,
             checkpoint_on_exit=False) as policy:
             agent = ProofAgent("proof_agent", policy)
-            agent.run(env, 1, 50, True)
+            agent.run(env, 1, 50, False)

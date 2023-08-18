@@ -124,6 +124,10 @@ class ProofQTree(QGraph):
 
 class TreeSearchAlgorithm(ABC):
     @abstractmethod
+    def reset(self):
+        pass
+
+    @abstractmethod
     def __call__(self, tree: ProofQTree, state: ProofState) -> TreeSearchAction:
         pass
 
@@ -184,6 +188,8 @@ class GptGuidedTreeSearchPolicy(Policy):
         self._checkpoint_in_file(checkpoint_path)
 
     def __call__(self, state: ProofState) -> ProofAction:
+        if state.was_reset:
+            self._tree_search_algorithm.reset()
         tree_search_action : TreeSearchAction = self._tree_search_algorithm(self._proof_q_tree, state)
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \

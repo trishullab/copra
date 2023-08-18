@@ -14,6 +14,7 @@ from dataclasses import dataclass
 @dataclass
 class ProofState(State):
     training_data_format: TrainingDataFormat
+    was_reset: bool = False
 
     def _post_init(self):
         self.proof_tree = None
@@ -36,16 +37,31 @@ class ProofState(State):
     
     def __ge__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
+        assert isinstance(self.training_data_format, TrainingDataFormat)
+        if __o == FailedProofState: # FailedProofState is the hardest state to reach
+            return self.training_data_format == __o.training_data_format
         return self.training_data_format >= __o.training_data_format
 
     def __le__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
+        assert isinstance(self.training_data_format, TrainingDataFormat)
+        if self == FailedProofState: # FailedProofState is the hardest state to reach
+            return self.training_data_format == __o.training_data_format
         return self.training_data_format <= __o.training_data_format
     
     def __lt__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
+        assert isinstance(self.training_data_format, TrainingDataFormat)
         return self.training_data_format != __o.training_data_format and self.training_data_format <= __o.training_data_format
     
     def __gt__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
+        assert isinstance(self.training_data_format, TrainingDataFormat)
         return self.training_data_format != __o.training_data_format and self.training_data_format >= __o.training_data_format
+
+FailedProofState = ProofState(training_data_format=None)
+
+if __name__ == "__main__":
+    proof_state = ProofState(training_data_format=None)
+    print(proof_state.serialize())
+    pass

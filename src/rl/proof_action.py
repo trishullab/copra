@@ -18,10 +18,49 @@ class ProofAction(Action):
     class ActionType(Enum):
         GET_THMS = 'GET_THMS'
         GET_DFNS = 'GET_DFNS'
+        GET_DFNS_THMS = 'GET_DFNS_THMS'
         RUN_TACTIC = 'RUN_TACTIC'
         BACKTRACK = 'BACKTRACK'
         EXIT = 'EXIT'
         NONE = 'NONE'
+
+        @staticmethod
+        def get_order(action_type: 'ProofAction.ActionType'):
+            if action_type == ProofAction.ActionType.EXIT:
+                return 7
+            elif action_type == ProofAction.ActionType.BACKTRACK:
+                return 6
+            elif action_type == ProofAction.ActionType.NONE:
+                return 5
+            elif action_type == ProofAction.ActionType.GET_DFNS_THMS:
+                return 4
+            if action_type == ProofAction.ActionType.RUN_TACTIC:
+                return 1
+            if action_type == ProofAction.ActionType.GET_DFNS_THMS:
+                return 2
+            elif action_type == ProofAction.ActionType.BACKTRACK:
+                return 3
+            else:
+                return 0
+
+        def __str__(self):
+            return self.name
+        
+        def __lt__(self, other):
+            assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
+            return ProofAction.get_order(self) < ProofAction.get_order(other)
+        
+        def __le__(self, other):
+            assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
+            return ProofAction.get_order(self) <= ProofAction.get_order(other)
+        
+        def __gt__(self, other):
+            assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
+            return ProofAction.get_order(self) > ProofAction.get_order(other)
+        
+        def __ge__(self, other):
+            assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
+            return ProofAction.get_order(self) >= ProofAction.get_order(other)
 
     action_type: ActionType
     kwargs: typing.Optional[dict] = field(default_factory=dict)
@@ -76,6 +115,26 @@ class ProofAction(Action):
         else:
             tactics = self.kwargs['tactics']
             return hash((self.action_type, tuple(tactics)))
+
+    def __ge__(self, other):
+        if not isinstance(other, ProofAction):
+            return False
+        return self.action_type >= other.action_type
+
+    def __gt__(self, other):
+        if not isinstance(other, ProofAction):
+            return False
+        return self.action_type > other.action_type
+    
+    def __le__(self, other):
+        if not isinstance(other, ProofAction):
+            return False
+        return self.action_type <= other.action_type
+    
+    def __lt__(self, other):
+        if not isinstance(other, ProofAction):
+            return False
+        return self.action_type < other.action_type
 
     def __call__(self):
         pass

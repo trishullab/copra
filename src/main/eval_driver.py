@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
 import sys
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import logging
 import typing
+from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
+from src.agent.dfs_tree_search import DFSTreeSearch
+from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.rl.proof_search_result import ProofSearchResult
-from src.agent.basic_policy import BasicPolicy
-from src.agent.coq_policy_prompter import CoqGptPolicyPrompter
-from src.agent.proof_agent import ProofAgent
-from src.rl.proof_env import ProofEnv
+from src.agent.simple_proof_agent import ProofAgent
+from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -22,17 +22,19 @@ class EvalSettings(object):
     project_folder: str
     file_path: str
     use_hammer: bool
-    max_proof_depth: int = 20
+    max_proof_depth: int = 50
     timeout_in_secs: int = 60
     proof_retries: int = 1
-    main_prompt: str = "data/prompts/system/coq-proof-agent-role.md"
-    conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv.md"
+    main_prompt: str = "data/prompts/system/coq-proof-agent-with-dfs.md"
+    conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     max_tokens_per_action: int = 25
     max_theorems_in_prompt: int = 3
     gpt_model_name: str = "gpt-3.5-turbo"
     max_number_of_episodes: int = 1
     max_steps_per_episode: int = 50
     render: bool = False
+    checkpoint_dir: str = ".log/checkpoints"
+    should_checkpoint: bool = False
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
     lemmas_to_prove = []
@@ -71,15 +73,22 @@ def eval_project(
     success_count = 0
     for lemma_name in lemmas_to_prove:
         logger.info(f"Attempting to prove lemma: {lemma_name}")
-        policy_prompter = CoqGptPolicyPrompter(
+        policy_prompter = DfsCoqGptPolicyPrompter(
             main_sys_prompt_path=eval_settings.main_prompt,
             example_conv_prompt_path=eval_settings.conv_prompt,
             max_tokens_per_action=eval_settings.max_tokens_per_action,
-            gpt_model_name=eval_settings.gpt_model_name)
-        basic_policy = BasicPolicy(policy_prompter, eval_settings.max_theorems_in_prompt)
-        agent = ProofAgent(f"basic_proof_agent_{lemma_name}", basic_policy)
+            gpt_model_name=eval_settings.gpt_model_name,
+            k=eval_settings.max_theorems_in_prompt) # k is the number of theorems to consider at each step
+        dfs_tree_search = DFSTreeSearch()
         with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, logger=logger) as env:
-            agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
+            with GptGuidedTreeSearchPolicy(
+                eval_settings.checkpoint_dir, 
+                lemma_name, 
+                policy_prompter,
+                dfs_tree_search,
+                checkpoint_on_exit=eval_settings.should_checkpoint) as policy:
+                agent = ProofAgent(f"proof_agent_{lemma_name}", policy)
+                agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
             proof_results[lemma_name] = env.proof_search_res
         logger.info(f"Finished the attempt for proving lemma: {lemma_name}")
     
@@ -95,18 +104,28 @@ def eval_project(
 if __name__ == "__main__":
     import os
     import time
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--project_folder", type=str, default=".", help="Project folder")
+    parser.add_argument("--file_path", type=str, default="data/test/SimpleAlgebra.v", help="File path")
+    parser.add_argument("--use_hammer", type=bool, default=False, help="Use hammer")
+    parser.add_argument("--model_name", type=str, default="gpt-3.5-turbo", help="GPT model name")
+    parser.add_argument("--max_theorems_in_prompt", type=int, default=5, help="Max theorems in prompt")
+    parser.add_argument("--max_steps_per_episode", type=int, default=30, help="Max steps per episode")
+    parser.add_argument("--render", type=bool, default=False, help="Render")
+    args = parser.parse_args()
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
     os.makedirs(".log/evals", exist_ok=True)
     log_path = ".log/evals/{}.log".format(time.strftime("%Y%m%d-%H%M%S"))
     eval_settings = EvalSettings(
-        project_folder=".",
-        file_path="data/test/SimpleAlgebra.v",
-        use_hammer=False,
-        gpt_model_name="gpt-4",
-        max_theorems_in_prompt=3,
-        max_steps_per_episode=30,
-        render=True
+        project_folder=args.project_folder,
+        file_path=args.file_path,
+        use_hammer=args.use_hammer,
+        gpt_model_name=args.model_name,
+        max_theorems_in_prompt=args.max_theorems_in_prompt,
+        max_steps_per_episode=args.max_steps_per_episode,
+        render=args.render
     )
     logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger("eval_driver")

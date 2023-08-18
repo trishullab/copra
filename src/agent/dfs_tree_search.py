@@ -20,6 +20,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._action_queue : deque = deque()
         pass
 
+    def reset(self):
+        self._action_queue.clear()
+
     def update_new_node(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         # The parent node had a similar next state and action pair.
         # Change all the nodes pointing to the parent as 'backtracked'
@@ -32,7 +35,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert isinstance(next_state_info.qinfo, ProofQInfo)
             should_add = False
             if action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                assert next_state_info.qinfo.proof_env_info.progress != ProgressState.RUNNING, "The next state should not be running as DFS allows only one path to run"
+                assert next_state_info.qinfo.proof_env_info.progress != ProgressState.STATE_CHANGED, "The next state should not be running as DFS allows only one path to run"
             else:
                 next_state_info.qinfo.proof_env_info.progress = ProgressState.FAILED
                 next_state_info.qinfo.proof_env_info.error_message = "The last tactic fails because it keeps getting repeated and does not simplify the goal."
@@ -55,10 +58,10 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                         # Mark all the edges from the grandparent node to the parent node as 'backtracked'
                         parent_proof_qinfo : ProofQInfo = parent_node_info.qinfo                    
                         parent_proof_qinfo.state_type = StateType.BACKTRACKED
-                        if parent_proof_qinfo.proof_env_info.progress == ProgressState.RUNNING:
+                        if parent_proof_qinfo.proof_env_info.progress == ProgressState.STATE_CHANGED:
                             parent_proof_qinfo.proof_env_info.progress = ProgressState.FAILED
                             parent_proof_qinfo.proof_env_info.error_message = \
-                                "This tactic fails because it leads to proof-state which eventually fails due to reasons:\n" + \
+                                "This tactic fails because it leads to a proof-state which eventually fails due to reasons:\n" + \
                                 next_state_info.qinfo.proof_env_info.error_message
                             parent_proof_qinfo.failure_reason = FailureReason.SUBSEQUENT_STATE_FAILED
                             found_parent_node = True
@@ -72,7 +75,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             tree.add(state, action, next_state, qinfo)
             qinfo : ProofQInfo = copy.deepcopy(tree.edges[state][action].qinfo)
             # Check if this node has a loop
-            if qinfo.proof_env_info.progress == ProgressState.RUNNING:
+            if qinfo.proof_env_info.progress == ProgressState.STATE_CHANGED or \
+                qinfo.proof_env_info.progress == ProgressState.DONE or \
+                qinfo.proof_env_info.progress == ProgressState.STARTING:
                 parent_node_info = tree.parents[next_state][action]
                 action_is_successful = True
                 if action.ActionType == ProofAction.ActionType.RUN_TACTIC:
@@ -101,6 +106,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     qinfo.qval = qval
                     qinfo.failure_reason = FailureReason.NONE
             else:
+                assert qinfo.proof_env_info.progress == ProgressState.FAILED, "The progress should be failed"
                 qinfo.qval = -0.5
                 qinfo.failure_reason = FailureReason.COMPILE_FAILED
             tree.update_qinfo(state, action, next_state, qinfo)
@@ -139,11 +145,15 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         incorrect_actions_from_node = []
         actions_till_now = []
         action_to_take : TreeSearchAction = None
+        visited_nodes = set()
         while len(stack) > 0 and not found_leaf_node and not found_backtracked_leaf_node:
             state_info, old_actions = stack.pop()
             assert all([(old_action.action_type != ProofAction.ActionType.BACKTRACK and old_action.action_type != ProofAction.ActionType.EXIT) for old_action in old_actions])
             node : ProofState = state_info.state
             qinfo : ProofQInfo = state_info.qinfo
+            if node in visited_nodes:
+                continue
+            visited_nodes.add(node)
             if qinfo.state_type != StateType.BACKTRACKED:
                 last_action = old_actions[-1]
                 actions_till_now = old_actions[1:-1]
@@ -218,7 +228,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         # A leaf node is a node which has no children or all its children are backtracked or it has a self loop and the action is get_dfns or get_thms
         return len(tree.edges[state]) == 0 or \
             (qinfo.has_self_loop and \
-             qinfo.proof_env_info.progress == ProgressState.RUNNING and \
+             qinfo.proof_env_info.progress == ProgressState.STATE_CHANGED and \
                 (last_action.action_type == ProofAction.ActionType.GET_DFNS or \
                  last_action.action_type == ProofAction.ActionType.GET_THMS or \
                  last_action.action_type == ProofAction.ActionType.NONE) )

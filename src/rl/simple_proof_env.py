@@ -22,7 +22,8 @@ from enum import Enum
 
 class ProgressState:
     STARTING = "Starting"
-    RUNNING = "Running"
+    STATE_CHANGED = "StateChanged"
+    STATE_UNCHANGED = "StateUnchanged"
     DONE = "Done"
     FAILED = "Failed"
     def __init__(self):
@@ -34,7 +35,9 @@ class ProofEnvInfo(object):
     progress: str = ProgressState.STARTING
     error_message: typing.Optional[str] = None
     info_messages: typing.List[str] = field(default_factory=list)
-    pass
+
+    def __eq__(self, __value: object) -> bool:
+        return isinstance(__value, ProofEnvInfo) and self.progress == __value.progress and self.error_message == __value.error_message    
 
 class ProofEnvReRankStrategy(Enum):
     BM25 = 1
@@ -103,6 +106,7 @@ class ProofEnv(Env):
         current_proof_tree = copy.deepcopy(self._p_tree)
         state = ProofState(current_goals) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
+        state.was_reset = len(self._history) == 0
         return state
     
     @property
@@ -259,7 +263,7 @@ class ProofEnv(Env):
             env_info.error_message = None
         elif proof_progressed:
             reward += ProofEnv.progress_reward
-            env_info.progress = ProgressState.RUNNING
+            env_info.progress = ProgressState.STATE_CHANGED if state != current_proof_state else ProgressState.STATE_UNCHANGED
             env_info.error_message = None
         else:
             env_info.progress = ProgressState.FAILED
@@ -297,7 +301,7 @@ class ProofEnv(Env):
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         reward = 0.0
         done = self.done
-        env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
+        env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
         env_info.error_message = None
         self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
         pass
@@ -323,7 +327,7 @@ class ProofEnv(Env):
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         reward = 0.0
         done = self.done
-        env_info.progress = ProgressState.RUNNING if not done else ProgressState.DONE
+        env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
         env_info.error_message = None
         self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
 
@@ -352,7 +356,7 @@ class ProofEnv(Env):
                 # for i in run_tactic_idx[:-1]:
                 #     self._run_tactic(i) # Run all tactics except the last one which is being backtracked
             if self._dynamic_proof_executor.is_in_proof_mode():
-                env_info.progress = ProgressState.RUNNING
+                env_info.progress = ProgressState.STATE_CHANGED
                 env_info.error_message = "Backtracked successfully"
                 reward = 0.0
             else:

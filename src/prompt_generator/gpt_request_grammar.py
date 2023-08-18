@@ -12,8 +12,7 @@ from dataclasses_json import dataclass_json
 
 class CoqGptRequestActions(object):
     RUN_TACTIC = "[RUN TACTIC]"
-    GET_THMS = "[GET THEOREMS]"
-    GET_DFNS = "[GET DEFINITIONS]"
+    GET_DFNS_THMS = "[GET DEFINITIONS AND THEOREMS]"
 
 @dataclass_json
 @dataclass
@@ -25,13 +24,10 @@ class CoqGPTRequestGrammar(Grammar):
     grammar = """
 Prog: 
   RunTacticRequest
-| GetThmsRequest
-| GetDfnsRequest
+| GetDfnsThmsRequest
 | String Prog;
-GetThmsRequest:
-    GetThms End;
-GetDfnsRequest:
-    GetDfns End;
+GetDfnsThmsRequest:
+    GetDfnsThms End;
 RunTacticRequest:
     RunTactic StpRequests End;
 StpRequests:
@@ -41,11 +37,10 @@ terminals
 Stp: "[STEP]";
 End: "[END]";
 RunTactic: "[RUN TACTIC]";
-GetThms: "[GET THEOREMS]";
-GetDfns: "[GET DEFINITIONS]";
+GetDfnsThms: "[GET DEFINITIONS AND THEOREMS]";
 String:;
 """
-    keywords = ["[STEP]", "[END]", "[RUN TACTIC]", "[GET THEOREMS]", "[GET DEFINITIONS]"]
+    keywords = ["[STEP]", "[END]", "[RUN TACTIC]", "[GET DEFINITIONS]"]
 
     end = "[END]"
 
@@ -67,12 +62,9 @@ String:;
         super(CoqGPTRequestGrammar, self).__init__(CoqGPTRequestGrammar.grammar, CoqGPTRequestGrammar.keywords, recognizers=recognizers)
 
     def _parse_expr(self, nonTerminal, nodes, context):
-        if nonTerminal == "GetThmsRequest":
-            context.action = CoqGptRequestActions.GET_THMS
-            context.args = [CoqGptRequestActions.GET_THMS[1:-1]]
-        elif nonTerminal == "GetDfnsRequest":
-            context.action = CoqGptRequestActions.GET_DFNS
-            context.args = [CoqGptRequestActions.GET_DFNS[1:-1]]
+        if nonTerminal == "GetDfnsThmsRequest":
+            context.action = CoqGptRequestActions.GET_DFNS_THMS
+            context.args = [CoqGptRequestActions.GET_DFNS_THMS[1:-1]]
         elif nonTerminal == "RunTacticRequest":
             assert len(nodes) >= 2
             context.action = CoqGptRequestActions.RUN_TACTIC
@@ -90,8 +82,7 @@ String:;
         context = CoqGptRequest()
         actions = {
             "Prog": lambda _, nodes: context,
-            "GetThmsRequest": lambda _, nodes: self._parse_expr('GetThmsRequest', nodes, context),
-            "GetDfnsRequest": lambda _, nodes: self._parse_expr('GetDfnsRequest', nodes, context),
+            "GetDfnsThmsRequest": lambda _, nodes: self._parse_expr('GetDfnsThmsRequest', nodes, context),
             "RunTacticRequest": lambda _, nodes: self._parse_expr('RunTacticRequest', nodes, context),
             "StpRequests": lambda _, nodes: self._parse_expr('StpRequests', nodes, context),
             "String": lambda _, nodes: str(nodes) # Since this is always a string
@@ -106,10 +97,8 @@ String:;
         if coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
             args = '\n'.join(coq_gpt_request.args)
             return f"{CoqGptRequestActions.RUN_TACTIC}{args}\n{CoqGPTRequestGrammar.end}"
-        elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
-            return f"{CoqGptRequestActions.GET_THMS}\n{CoqGPTRequestGrammar.end}"
-        elif coq_gpt_request.action == CoqGptRequestActions.GET_DFNS:
-            return f"{CoqGptRequestActions.GET_DFNS}\n{CoqGPTRequestGrammar.end}"
+        elif coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
+            return f"{CoqGptRequestActions.GET_DFNS_THMS}\n{CoqGPTRequestGrammar.end}"
         else:
             raise Exception(f"Invalid action {coq_gpt_request.action}")
 
@@ -181,12 +170,6 @@ rewrite <- plus_n_O.[END]"""
     print(run_result)
     result = grammar.compile(
 """
-[GET THEOREMS]
-[END]""" 
-    )
-    print(result)
-    result = grammar.compile(
-"""
-[GET DEFINITIONS]
+[GET DEFINITIONS AND THEOREMS]
 [END]"""
     )
