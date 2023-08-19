@@ -209,7 +209,9 @@ class GptGuidedTreeSearchPolicy(Policy):
         return action
 
     def update(self, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
-        self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
+        if not done:
+            # No need to update if the proof is done
+            self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
 
     def clone(self) -> 'GptGuidedTreeSearchPolicy':
         guid = str(uuid.uuid4())

@@ -74,14 +74,28 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
             max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
             assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
-            while total_token_count >= max_token_per_prompt:
-                self.logger.warning(f"Tokens exceeded removing history at index {history_idx}")
-                self._history_token_count -= self._message_history_token_count[history_idx]
-                total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
+            tokens_shredded = False
+            remove_cnt  = 0
+            history_count = self._history_token_count
+            while total_token_count >= max_token_per_prompt and history_idx < len(self._message_history):
+                self.logger.warning(f"Tokens exceeded removing history at index {history_idx}: {total_token_count} >= {max_token_per_prompt}")
+                history_count -= self._message_history_token_count[history_idx]
+                total_token_count = self.system_token_count + history_count + prompt_token_count
                 history_idx += 1
+                tokens_shredded = True
+                remove_cnt += 1
+            if remove_cnt % 2 == 1 and history_idx < len(self._message_history):
+                history_count -= self._message_history_token_count[history_idx]
+                total_token_count = self.system_token_count + history_count + prompt_token_count
+                history_idx += 1
+            if tokens_shredded:
+                self.logger.warning(f"Shredded tokens from history. New total token count: {total_token_count}, max token per prompt: {max_token_per_prompt}, history token count: {self._history_token_count}, prompt token count: {prompt_token_count}")
+            if total_token_count >= max_token_per_prompt:
+                self.logger.warning(f"Total token count {total_token_count} is still greater than max token per prompt {max_token_per_prompt}.")
         else:
             total_token_count = self.system_token_count + prompt_token_count
-            for idx in range(len(self._message_history)):
+        if history_idx > 0:
+            for idx in range(min(history_idx, len(self._message_history))):
                 self._history_token_count -= self._message_history_token_count[idx]
         self._message_history = self._message_history[history_idx:]
         self._message_history_token_count = self._message_history_token_count[history_idx:]
@@ -118,8 +132,11 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         time_to_sleep = 60
         exp_factor = 1.25
         tokens_factor = 1.25
+        temp_factor = 0.025
+        max_temp = 0.4
+        temperature = self.temperature
         tokens_to_generate = self._max_tokens_per_action
-        upper_bound = 10 * self._max_tokens_per_action
+        upper_bound = 3 * self._max_tokens_per_action
         responses = None
         while not success and retries > 0:
             try:
@@ -130,7 +147,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 responses, usage = self._gpt_access.complete_chat(
                     messages,
                     n=self.num_sequences,
-                    temperature=self.temperature,
+                    temperature=temperature,
                     max_tokens=tokens_to_generate,
                     stop=["[END]"])
                 request_end_time = time.time()
@@ -145,6 +162,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
+                    temperature = max(max_temp, temperature + temp_factor)
                 else:
                     self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                     self.logger.debug(f"Response messages: \n{responses}")
@@ -174,7 +192,8 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 coq_gpt_request, parsed_message = self.coq_gpt_request_grammar.get_openai_request(message)
                 open_ai_message = self.agent_grammar.get_openai_main_message_from_string(parsed_message, "assistant")
             except Exception as e:
-                error_message = f"Invalid response:\n {str(e)}"
+                error = f"Expected {str(e)}"
+                error_message = f"Invalid response:\n '{message[0]}', \n Stopping Reason: '{message[1]}'.\n Failure reason: {error} \nPlease respond only in the format specified."
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
@@ -223,30 +242,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 incorrect_steps=incorrect_steps,
                 error_message=env_info.error_message,
                 training_data_format=state.training_data_format)
-        # elif tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
-        #     assert env_info is not None
-        #     assert env_info.progress == ProgressState.FAILED
-        #     assert env_info.error_message is not None
-        #     gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-        #         success=False,
-        #         message=env_info.error_message,
-        #         steps=steps,
-        #         last_step = last_step,
-        #         incorrect_steps=incorrect_steps,
-        #         error_message=env_info.error_message,
-        #         training_data_format=state.training_data_format)
-        # elif tree_search_action.action_type == TreeSearchActionType.CYCLIC_STATE_SUMMARY_PROMPT:
-        #     assert env_info is not None
-        #     assert env_info.progress == ProgressState.FAILED
-        #     assert env_info.error_message is not None
-        #     gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-        #         success=False,
-        #         message=env_info.error_message,
-        #         steps=steps,
-        #         last_step = last_step,
-        #         incorrect_steps=incorrect_steps,
-        #         error_message=env_info.error_message,
-        #         training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
             return ProofAction(ProofAction.ActionType.BACKTRACK)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:

@@ -23,7 +23,9 @@ forall a : nat, a + 0 = a
 
 [LAST STEP]
 reflexivity.
-[ERROR MESSAGE]Error: In environment
+
+[ERROR MESSAGE]
+Error: In environment
 a : nat
 Unable to unify "a" with "a + 0".
 [END]
@@ -70,7 +72,9 @@ a + 0 = a
 
 [LAST STEP]
 rewrite Nat.add_0_r. reflexivity.
-[ERROR MESSAGE]The reference Nat.add_0_r was not found in the current environment.
+
+[ERROR MESSAGE]
+The reference Nat.add_0_r was not found in the current environment.
 [END]
 
 `example_assistant`
@@ -94,7 +98,9 @@ a + 0 = a
 
 [LAST STEP]
 rewrite Nat.add_r_0. reflexivity.
-[ERROR MESSAGE]The reference Nat.add_r_0 was not found in the current environment.
+
+[ERROR MESSAGE]
+The reference Nat.add_r_0 was not found in the current environment.
 [END]
 
 `example_assistant`
@@ -116,8 +122,8 @@ S n + 0 = S n
 
 [LAST STEP]
 induction a as [| n IHn].
-[SUCCESS]
 
+[SUCCESS]
 [END]
 
 `example_assistant`
@@ -141,8 +147,8 @@ S n + 0 = S n
 
 [LAST STEP]
 - reflexivity.
-[SUCCESS]
 
+[SUCCESS]
 [END]
 
 
@@ -173,8 +179,8 @@ S n + 0 = S n
 
 [LAST STEP]
 GET DEFINITIONS AND THEOREMS
-[SUCCESS]
 
+[SUCCESS]
 [END]
 
 `example_assistant`
@@ -194,8 +200,8 @@ Goals to prove:
 
 [LAST STEP]
 - rewrite plus_n_O. reflexivity.
-[SUCCESS]
 
+[SUCCESS]
 [END]
 
 `example_assistant`

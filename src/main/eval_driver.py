@@ -36,6 +36,7 @@ class EvalSettings(object):
     checkpoint_dir: str = ".log/checkpoints"
     should_checkpoint: bool = False
     temperature: float = 0.0
+    max_history_messages: int = 0
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
     lemmas_to_prove = []
@@ -80,6 +81,7 @@ def eval_project(
             max_tokens_per_action=eval_settings.max_tokens_per_action,
             gpt_model_name=eval_settings.gpt_model_name,
             temperature=eval_settings.temperature,
+            max_history_messages=eval_settings.max_history_messages,
             k=eval_settings.max_theorems_in_prompt) # k is the number of theorems to consider at each step
         dfs_tree_search = DFSTreeSearch()
         with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, logger=logger) as env:
@@ -116,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_steps_per_episode", type=int, default=30, help="Max steps per episode")
     parser.add_argument("--render", type=bool, default=False, help="Render")
     parser.add_argument("--temperature", type=float, default=0.0, help="Temperature")
+    parser.add_argument("--max_history_messages", type=int, default=4, help="Max history messages")
     args = parser.parse_args()
     os.chdir(root_dir)
     os.makedirs(".log", exist_ok=True)
@@ -128,7 +131,9 @@ if __name__ == "__main__":
         gpt_model_name=args.model_name,
         max_theorems_in_prompt=args.max_theorems_in_prompt,
         max_steps_per_episode=args.max_steps_per_episode,
-        render=args.render
+        temperature=args.temperature,
+        render=args.render,
+        max_history_messages=args.max_history_messages
     )
     logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger("eval_driver")
