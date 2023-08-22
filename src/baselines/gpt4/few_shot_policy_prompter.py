@@ -18,7 +18,7 @@ from src.rl.proof_action import ProofAction
 from src.rl.simple_proof_env import ProgressState
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.baselines.gpt4.few_shot_grammar import FewShotGptRequest, FewShotGptRequestGrammar
+from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponseGrammar
 
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
@@ -37,7 +37,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.coq_gpt_request_grammar = FewShotGptRequestGrammar()
-        self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
+        self.coq_gpt_response_grammar = FewShotGptResponseGrammar()
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
@@ -149,7 +149,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     n=self.num_sequences,
                     temperature=temperature,
                     max_tokens=tokens_to_generate,
-                    stop=[FewShotGptRequestGrammar])
+                    stop=[FewShotGptKeywords.QED])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
@@ -196,76 +196,10 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                 error_message = f"Invalid response:\n '{message[0]}', \n Stopping Reason: '{message[1]}'.\n Failure reason: {error} \nPlease respond only in the format specified."
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
-            if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS)
-            elif coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
-                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
-            else:
-                raise Exception(f"Invalid action {coq_gpt_request.action}")
+            action = coq_gpt_request.action
             action.original_message = open_ai_message
             actions.append((action, probability))
         return actions
     
     def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
-        state = tree_search_action.state
-        assert state is not None
-        assert tree_search_action.kwargs is not None and "summary" in tree_search_action.kwargs
-        prompt_summary : PromptSummary = tree_search_action.kwargs["summary"]
-        actions_till_now = prompt_summary.actions_till_now
-        # Fix the bug here, about none type object
-        steps = self.coq_gpt_request_grammar.parse_request_to_args([action.original_message["content"] for action in actions_till_now])
-        last_action = prompt_summary.last_action
-        last_step = None if last_action is None else self.coq_gpt_request_grammar.parse_request_to_args([last_action.original_message["content"]])[0]
-        qinfo: ProofQInfo = prompt_summary.state_info.qinfo
-        env_info = qinfo.proof_env_info if qinfo is not None else None
-        incorrect_actions = prompt_summary.incorrect_actions
-        incorrect_steps = [action.original_message["content"] for action in incorrect_actions]
-        incorrect_steps = self.coq_gpt_request_grammar.parse_request_to_args(incorrect_steps)
-        if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT:
-            assert len(incorrect_actions) == 0, "There are some incorrect steps. We cannot go to the next action with incorrect steps."
-            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-                success=True,
-                steps=steps,
-                last_step=last_step,
-                incorrect_steps=[],
-                error_message=None,
-                training_data_format=state.training_data_format)
-        elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
-            assert env_info is not None
-            assert env_info.progress == ProgressState.FAILED
-            assert env_info.error_message is not None
-            gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
-                success = False,
-                message = env_info.error_message,
-                steps=steps,
-                last_step = last_step,
-                incorrect_steps=incorrect_steps,
-                error_message=env_info.error_message,
-                training_data_format=state.training_data_format)
-        elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
-            return ProofAction(ProofAction.ActionType.BACKTRACK)
-        elif tree_search_action.action_type == TreeSearchActionType.STOP:
-            return ProofAction(ProofAction.ActionType.EXIT)
-        else:
-            raise Exception(f"Invalid action type {tree_search_action.action_type}")
-        success = False
-        tries = 10
-        exceptions = []
-        while not success and tries > 0:
-            try:
-                responses = self.run_prompt(gpt_response)
-                actions_tuple = self.parse_response(responses)
-                chosen_message = actions_tuple[0][0].original_message # Selecting only top action here
-                self.add_to_history(chosen_message)
-                success = True
-            except InvalidActionException as e:
-                gpt_response = CoqGptResponse(action = CoqGptResponseActions.ERROR, 
-                message=e.message)
-                chosen_message = responses[0]
-                self.add_to_history(chosen_message)
-                exceptions.append(e)
-            tries -= 1
-        if not success:
-            raise Exception(f"Failed to get valid action after {tries} tries. Exceptions:\n {exceptions}")
-        action = actions_tuple[0][0]
-        return action
+        pass
