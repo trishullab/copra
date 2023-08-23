@@ -8,6 +8,7 @@ import copy
 import typing
 import logging
 import time
+import os
 from src.rl.proof_tree import ProofSearchResult, ProofTree
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
@@ -195,7 +196,7 @@ class ProofEnv(Env):
         self.logger.info("-"*50)
         pass
 
-    def dump_proof(self):
+    def dump_proof(self, dump_file_name: str = None):
         assert self._loaded, "Env not loaded, call reset() first"
         self.goal_end_time = time.time()
         self.time_taken = self.goal_end_time - self.goal_start_time
@@ -212,6 +213,10 @@ class ProofEnv(Env):
             is_inference_exhausted=False, 
             longest_success_path=-1)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
+        if dump_file_name is not None and os.path.exists(dump_file_name):
+            with open(dump_file_name, 'a') as f:
+                f.write("\n\n")
+                f.write(str(self.proof_search_res))
 
     def _run_tactic(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"

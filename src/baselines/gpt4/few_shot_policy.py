@@ -86,7 +86,7 @@ class FewShotGptPolicy(Policy):
                     responses = self._policy_prompter.run_prompt(gpt_response)
                     actions_tuple : typing.List[typing.Tuple[ProofAction, float]] = self._policy_prompter.parse_response(responses)
                     chosen_message = actions_tuple[0][0].original_message # Selecting only top action here
-                    self.logger.info(f"Chosen message: {chosen_message}")
+                    self.logger.info(f"Chosen message: \n\n{chosen_message['content']}")
                     # The proofs will not be added to history
                     success = True
                 except InvalidActionException as e:

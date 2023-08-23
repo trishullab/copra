@@ -12,10 +12,9 @@ import time
 from openai.error import InvalidRequestError
 import logging
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
-from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
+from src.agent.gpt_guided_tree_search_policy import TreeSearchAction
 from src.gpts.gpt_access import GptAccess
 from src.rl.proof_action import ProofAction
-from src.rl.simple_proof_env import ProgressState
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponseGrammar
@@ -27,7 +26,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             example_conv_prompt_path: str,
             num_sequences: int = 1,
             temperature: float = 0.25,
-            max_tokens_per_action: int = 50,
+            max_tokens_per_action: int = 250,
             max_history_messages: int = 0, # This means keep no history of messages
             gpt_model_name: str = "gpt-3.5-turbo",
             secret_filepath: str = ".secrets/openai_key.json",
@@ -162,7 +161,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
-                    temperature = max(max_temp, temperature + temp_factor)
+                    # temperature = max(max_temp, temperature + temp_factor)
+                    # Don't change the temperature for now
                 else:
                     self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                     self.logger.debug(f"Response messages: \n{responses}")

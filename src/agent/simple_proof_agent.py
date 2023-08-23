@@ -11,10 +11,11 @@ from src.rl.simple_proof_env import ProofEnv
 
 
 class ProofAgent(Agent):
-    def __init__(self, name: str, policy: Policy, should_checkpoint: bool = False, logger: logging.Logger = None):
+    def __init__(self, name: str, policy: Policy, should_checkpoint: bool = False, proof_dump_file_name: str = None, logger: logging.Logger = None):
         self._policy = policy
         self._name = name
         self._should_checkpoint = should_checkpoint
+        self._proof_dump_file_name = proof_dump_file_name
         self.logger = logger or logging.getLogger(__name__)
         pass
 
@@ -57,7 +58,7 @@ class ProofAgent(Agent):
             else:
                 self.logger.warning("Got EXIT action, exiting")
                 break
-        env.dump_proof()
+        env.dump_proof(self._proof_dump_file_name)
         if self._should_checkpoint:
             self.logger.info("Checkpointing policy")
             self._policy.checkpoint()

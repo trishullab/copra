@@ -135,7 +135,7 @@ String:;
     def _parse_expr(self, nonTerminal: str, nodes) -> FewShotGptRequest:
         if nonTerminal == "Prog":
             assert len(nodes) >= 3
-            actions = str(nodes[1]).strip()
+            actions = str(nodes[1]).strip() + "\nQed."
             proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=[actions])
             return FewShotGptRequest(action=proof_action, proof_string=actions)
         else:
@@ -152,7 +152,7 @@ String:;
         return result
     
     def generate_message_from_gpt_request(self, coq_gpt_request: FewShotGptRequest) -> str:
-        return f"{FewShotGptKeywords.PROOF}\n{coq_gpt_request.proof_string}\n{FewShotGptKeywords.QED}"
+        return f"{FewShotGptKeywords.PROOF}\n{coq_gpt_request.proof_string}"
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
         message, finish_reason = message_response
@@ -191,10 +191,10 @@ String:;
                     raise exceptions[0]
                 result : FewShotGptRequest = self.run(message, None)
             else:
-                message += FewShotGptKeywords.QED
+                message += f"\n{FewShotGptKeywords.QED}"
                 result : FewShotGptRequest = self.run(message, None)
         else:
-            message += FewShotGptKeywords.QED
+            message += f"\n{FewShotGptKeywords.QED}"
             result : FewShotGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)

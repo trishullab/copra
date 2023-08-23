@@ -266,11 +266,3 @@ Proof.
     { simpl. reflexivity. }
     { simpl. reflexivity. }
 Qed.
-
-Theorem algb_mul_add_distr1 : 
-forall a b c, algb_mul a (algb_add b c) = algb_add (algb_mul a b) (algb_mul a c).
-Proof.
-    intros; unfold algb_mul, algb_add; intros.
-    destruct a; auto; destruct b; auto.
-    destruct c; intuition congruence.
-Qed.
