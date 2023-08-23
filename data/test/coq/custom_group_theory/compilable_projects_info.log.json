@@ -1,0 +1,19 @@
+{
+    "root": "data/test/coq/custom_group_theory",
+    "compilable_projects": [
+        "theories"
+    ],
+    "compilable_files": [
+        "data/test/coq/custom_group_theory/theories/grpdefn.v",
+        "data/test/coq/custom_group_theory/theories/grpthm.v"
+    ],
+    "uncompilable_projects": [],
+    "uncompilable_files": [],
+    "train_compilable_files": [
+        "data/test/coq/custom_group_theory/theories/grpdefn.v",
+        "data/test/coq/custom_group_theory/theories/grpthm.v"
+    ],
+    "train_uncompilable_files": [],
+    "test_compilable_files": [],
+    "test_uncompilable_files": []
+}

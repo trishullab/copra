@@ -1,0 +1,11 @@
+[
+    {
+        "project_name": "theories",
+        "train_files": [
+            "grpdefn.v",
+            "grpthm.v"
+        ],
+        "test_files": [
+        ]
+    }
+]
