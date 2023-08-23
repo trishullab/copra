@@ -164,3 +164,13 @@ cython_debug/
 
 # Nohup out
 nohup.out
+
+# Coq temporary files
+*.aux
+*.vo
+*.vos
+*.vok
+*.glob
+*.d
+*.coq
+*.coq.conf
