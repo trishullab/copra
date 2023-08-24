@@ -328,6 +328,80 @@ class TrainingDataFormat(object):
         assert json_text is not None, "json_text cannot be None"
         return TrainingDataFormat.schema().loads(json_text)
 
+@dataclass_json
+@dataclass
+class TrainingDataCollection(MergableCollection):
+    training_data: List[TrainingDataFormat] = field(default_factory=list) # The list of training data.
+
+    @staticmethod
+    def load_from_file(file_path: str, logger: logging.Logger = None):
+        assert os.path.exists(file_path), f"file_path: {file_path} must be a valid path to a file"
+        json_text = None
+        if logger is not None:
+            logger.info(f"Loading json data from {file_path}")
+        with open(file_path, "r") as f:
+            json_text = f.read()
+        if logger is not None:
+            logger.info(f"Loaded json data from {file_path}")
+        return TrainingDataCollection.load_from_string(json_text, logger)
+
+    @staticmethod
+    def load_from_string(json_text: str, logger: logging.Logger = None):
+        assert json_text is not None, "json_text cannot be None"
+        if logger is not None:
+            logger.info(f"Deseiralizing json data from string of length {len(json_text)} characters")
+        deserialized = TrainingDataCollection.schema().loads(json_text)
+        if logger is not None:
+            logger.info(f"Deseiralized json data from string of length {len(json_text)} characters")
+        return deserialized
+    
+    def __len__(self) -> int:
+        return len(self.training_data)
+
+@dataclass_json
+@dataclass
+class TrainingDataMetadataFormat(MergableCollection):
+    """Class to store the training data metadata.
+
+    This class is responsible for storing the training data metadata.
+    """
+    training_data_buffer_size: int = 10000
+    last_training_data: int = 0
+    last_proof_id: Optional[str] = None
+    external_theorems_used_cnt: int = 0
+    local_theorems_used_cnt: int = 0
+    total_proof_step_cnt: int = 0
+    data_filename_prefix: str = "full_data"
+    data_filename_suffix: str = ".json"
+    lemma_ref_filename_prefix: str = "full_data_lemma_ref"
+    lemma_ref_filename_suffix: str = ".json"
+
+    def merge(self, __o: object):
+        if not isinstance(__o, TrainingDataMetadataFormat):
+            raise TypeError(f"Cannot merge TrainingDataMetadata with {type(__o)}")
+        self.training_data_buffer_size = max(__o.training_data_buffer_size, self.training_data_buffer_size)
+        self.last_training_data = __o.last_training_data
+        self.last_proof_id = __o.last_proof_id
+        self.total_proof_step_cnt += __o.total_proof_step_cnt
+        self.external_theorems_used_cnt += __o.external_theorems_used_cnt
+        self.local_theorems_used_cnt += __o.local_theorems_used_cnt
+
+    
+    def __len__(self) -> int:
+        return 0
+
+    @staticmethod
+    def load_from_file(file_path: str):
+        assert os.path.exists(file_path), "file_path must be a valid path to a file"
+        json_text = None
+        with open(file_path, "r") as f:
+            json_text = f.read()
+        return TrainingDataMetadataFormat.load_from_string(json_text)
+
+    @staticmethod
+    def load_from_string(json_text: str):
+        assert json_text is not None, "json_text cannot be None"
+        return TrainingDataMetadataFormat.schema().loads(json_text)
 
 
 class TrainingDataFormatLayout(object):

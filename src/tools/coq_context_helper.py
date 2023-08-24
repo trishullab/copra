@@ -307,6 +307,6 @@ class CoqContextHelper(object):
                 unique_thms[defn] = lemma_idx
                 training_data_point.all_useful_defns_theorems.append(LemmaReferences(lemma_idx, defn, defn_val, 0))
             if defn in self.search_exec_local_lemmas_discovered_so_far:
-                useful_local_theorems.append((defn, defn_val, CoqContextHelper.max_relevance_score))
+                useful_local_theorems.append((unique_thms[defn], CoqContextHelper.max_relevance_score))
         for goal in training_data_point.start_goals:
             goal.possible_useful_theorems_local = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_local_theorems if score <= CoqContextHelper.max_relevance_score]
