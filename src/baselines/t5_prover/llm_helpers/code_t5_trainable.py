@@ -207,7 +207,7 @@ class CodeT5Trainable(TheoremProvingTrainableModelWrapper):
         return named_tuples
 
 if __name__ == "__main__":
-    from src.baselines.t5_prover.proof_search.common.data_format_layout import DataLayout, DataFormatLayoutTypes
+    from baselines.t5_prover.llm_helpers.data_format_layout import DataLayout, DataFormatLayoutTypes
     data_layout = DataLayout(DataFormatLayoutTypes.Start_Proof_End__GPTStyle, with_label=True)
     training_data_formatter = data_layout.get_layout_formatter()
     training_data_parser = data_layout.get_format_parser()

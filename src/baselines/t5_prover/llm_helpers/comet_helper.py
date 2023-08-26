@@ -10,7 +10,7 @@ import typing
 from comet_ml import Experiment
 
 class CometHelper(object):
-    def __init__(self, secret_file: str, secret_folder: str = ".secret"):
+    def __init__(self, secret_file: str, secret_folder: str = ".secrets"):
         assert secret_file is not None, "Secret file cannot be None"
         secret_file_path = os.path.join(secret_folder, secret_file)
         assert os.path.exists(secret_file_path), f"Secret file {secret_file} does not exist in the folder {secret_folder}"

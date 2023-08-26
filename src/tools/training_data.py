@@ -7,6 +7,7 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
+import copy
 import ray
 import typing
 import logging
@@ -39,7 +40,6 @@ class TrainingData(MergableCollection):
         self._max_parallelism: int = max_parallelism
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         self.remove_from_store_after_loading = remove_from_store_after_loading
-        self.load_in_refereces_only = False
         self._meta_loaded = False
         self._object_id_map : typing.List[ray.ObjectRef] = []
         super().__init__()
@@ -77,12 +77,11 @@ class TrainingData(MergableCollection):
         self._meta_loaded = True
         pass
 
-    def load(self, load_in_references: bool = False):
+    def load(self):
         assert self.is_readonly, "Training data is not loadable"
         if not self._meta_loaded:
             self.load_meta()
         files_to_load = [self.training_meta_filename, self._lemma_ref_filename] + self._training_data_filenames
-        self.load_in_refereces_only = load_in_references
         self.logger.info(f"Loading {len(files_to_load)} files...")
         last_loaded_idx = 1
 
@@ -101,12 +100,7 @@ class TrainingData(MergableCollection):
                     assert len(res) == 2, "Invalid tuple length"
                     assert isinstance(res[0], int), "Invalid type"
                     assert res[0] < len(self._object_id_map), f"Invalid index {res[0]} in {len(self._object_id_map)}"
-                    # obj = None if self.load_in_refereces_only else ray.get(res[1])
                     obj = res[1]
-                    # self._object_id_map[res[0]] = res[1]
-                    # if obj is None:
-                    #     self.logger.info(f"[TrainingData] Finished the loading of [{res[0]}] in references mode")                    
-                    # else:
                     is_lemma_ref = res[0] == 1
                     if not is_lemma_ref:
                         assert isinstance(obj, TrainingDataCollection), "Invalid type"
@@ -116,15 +110,6 @@ class TrainingData(MergableCollection):
                         assert isinstance(obj, LemmaReferencesCollection), "Invalid type"
                         self.lemma_ref_collection = obj
                         self.logger.info(f"[TrainingData] Finished the loading of {self._lemma_ref_filename}")
-                    if self.load_in_refereces_only:
-                        self.logger.info(f"[TrainingData] Putting {res[0]} on ray...")
-                        self._object_id_map[res[0]] = ray.put(obj)
-                        self.logger.info(f"[TrainingData] Finished putting {res[0]} on ray")
-                        if res[0] == 1:
-                            self.lemma_ref_collection = None
-                        else:
-                            assert res[0] > 1, f"Invalid index {res[0]}" 
-                            self.training_data_collections[res[0] - 2] = None
                 else:
                     raise Exception(f"Invalid type {type(res)}")
                 process = psutil.Process()
@@ -136,33 +121,15 @@ class TrainingData(MergableCollection):
             last_loaded_idx += len(filenames)
             return filenames
 
-        RayUtils.ray_run_within_parallel_limits(self._max_parallelism, len(files_to_load) - 1, _transform_remote, _prepare_next_batch, _create_remote)
+        RayUtils.ray_run_within_parallel_limits(self._max_parallelism, len(files_to_load) - 1, _transform_remote, _prepare_next_batch, _create_remote, logger=self.logger)
         self.logger.info(f"Finished loading {len(files_to_load)} files")
         self._is_loaded = True
-
-    def load_data_obj_from_idx(self, idx: int, use_cache: bool = True):
-        assert self.is_readonly and self._meta_loaded, "Training data is not loadable"
-        if use_cache and self.training_data_collections[idx] is not None:
-            return self.training_data_collections[idx]
-        else:
-            remote = TrainingData._get_training_data_collection.remote(idx, self.folder, self._training_data_filenames[idx])
-            i, obj = ray.get(remote)
-            assert i == idx, f"Invalid index {i} != {idx}"
-            if use_cache:
-                self.logger.info(f"[TrainingData] Putting {idx} on ray...")
-                self._object_id_map[idx + 2] = ray.put(obj)
-                self.logger.info(f"[TrainingData] Finished putting {idx} on ray")
-                self.training_data_collections[idx] = obj
-            else:
-                self.logger.info(f"[TrainingData] Finished the loading of {idx}")
-            return obj
     
     def merge(self, __o: object, new_lemma_ref_idx: typing.List[int] = None):
         assert isinstance(__o, TrainingDataFormat) or \
         isinstance(__o, TrainingData), "other must be a TrainingDataFormat or TrainingDataMetadata"
         assert not self.is_readonly, "Training data is read only"
         assert self.lemma_ref_collection is not None, "Lemma reference collection is not set"
-        assert not self.load_in_refereces_only, "Training data is loaded in references mode"
         if isinstance(__o, TrainingData):
             assert new_lemma_ref_idx is None, "new_lemma_ref_idx must be None"
             new_lemma_ref_idx = self.lemma_ref_collection.merge(__o.lemma_ref_collection) # merge lemma references
@@ -204,7 +171,6 @@ class TrainingData(MergableCollection):
         assert len(self._training_data_filenames) == len(training_data.training_data_collections), "Invalid length"
 
     def __getitem__(self, idx: int) -> TrainingDataFormat:
-        assert not self.load_in_refereces_only, "Training data is loaded in references mode"
         tdc_idx = idx // self.meta.training_data_buffer_size
         idx_in_tdc = idx % self.meta.training_data_buffer_size
         if tdc_idx >= len(self.training_data_collections):
@@ -212,7 +178,25 @@ class TrainingData(MergableCollection):
         tdc = self.training_data_collections[tdc_idx]
         if idx_in_tdc >= len(tdc):
             raise IndexError(f"Index out of range (len(self.training_data_collections)={len(self.training_data_collections)},buffer={self.meta.training_data_buffer_size}, range idx={idx}, tdc_idx={tdc_idx}, idx_in_tdc={idx_in_tdc}, len(tdc)={len(tdc)})")
-        return tdc.training_data[idx_in_tdc]
+        training_data = copy.deepcopy(tdc.training_data[idx_in_tdc])
+        lemma_refs : typing.Set[int] = set()
+        for goal in training_data.start_goals:
+            lemma_refs.update([ref.lemma_idx for ref in goal.relevant_defns])
+            lemma_refs.update([ref.lemma_idx for ref in goal.used_theorems_local])
+            lemma_refs.update([ref.lemma_idx for ref in goal.used_theorems_external])
+            lemma_refs.update([ref.lemma_idx for ref in goal.possible_useful_theorems_local])
+            lemma_refs.update([ref.lemma_idx for ref in goal.possible_useful_theorems_external])
+        ordered_lemma_refs = sorted(list(lemma_refs))
+        lemma_ref_map = {lemma_ref: idx for idx, lemma_ref in enumerate(ordered_lemma_refs)}
+        training_data.all_useful_defns_theorems = [self.lemma_ref_collection.lemma_references[lemma_idx].clone(idx) for idx, lemma_idx in enumerate(ordered_lemma_refs)]
+        # Change the lemma references
+        for goal in training_data.start_goals:
+            goal.relevant_defns = [LemmaRefWithScore(lemma_ref_map[lemma_ref.lemma_idx], lemma_ref.score) for lemma_ref in goal.relevant_defns]
+            goal.used_theorems_local = [LemmaRefWithScore(lemma_ref_map[lemma_ref.lemma_idx], lemma_ref.score) for lemma_ref in goal.used_theorems_local]
+            goal.used_theorems_external = [LemmaRefWithScore(lemma_ref_map[lemma_ref.lemma_idx], lemma_ref.score) for lemma_ref in goal.used_theorems_external]
+            goal.possible_useful_theorems_local = [LemmaRefWithScore(lemma_ref_map[lemma_ref.lemma_idx], lemma_ref.score) for lemma_ref in goal.possible_useful_theorems_local]
+            goal.possible_useful_theorems_external = [LemmaRefWithScore(lemma_ref_map[lemma_ref.lemma_idx], lemma_ref.score) for lemma_ref in goal.possible_useful_theorems_external]
+        return training_data
 
     def save(self) -> str:
         assert not self.is_readonly, "Training data is read only"

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -9,6 +10,7 @@ import logging
 import random
 import typing
 from torch.utils.data import DataLoader, Dataset
+from src.baselines.t5_prover.llm_helpers.data_format_layout import DataFormatLayoutTypes, DataLayout
 from src.tools.training_data import TrainingData
 from src.tools.training_data_format import TrainingDataFormat
 from src.baselines.t5_prover.llm_helpers.trainable_model import TrainingDataArguments, PaddingPolicy
@@ -86,6 +88,43 @@ class CustomBatch(object):
     def __getitem__(self, idx):
         return CustomBatch(self.x[idx], self.y[idx], self.should_tokenize_x, self.should_tokenize_y, self.max_length_x, self.max_length_y, self.padding, self.truncation)
 
+class DatasetFactory(object):
+    def __init__(self,
+        data_format_layout: DataFormatLayoutTypes = DataFormatLayoutTypes.Start_Local_MProof__GPTStyle,
+        with_label: bool = True, 
+        dataset_class = TheoremProvingDataset, 
+        data_sampler: typing.Any = None):
+        data_layout = DataLayout(data_format_layout, with_label)
+        self.training_data_formatter = data_layout.get_layout_formatter()
+        self.dataset_class = dataset_class
+        self.data_sampler = data_sampler
+        pass
+
+    def get_dataset(self, 
+        data_folder: str, 
+        meta_filename: str, 
+        data_args: TrainingDataArguments, 
+        logger: logging.Logger = None, 
+        sample_percent: float = 1.0, 
+        shuffle_seed: int = None, 
+        data_sampler: typing.Callable[[Dataset, typing.Tuple[TrainingDataFormat]], bool] = None) -> Dataset:
+        assert data_folder is not None, "Data folder cannot be None"
+        assert os.path.exists(data_folder), f"Data folder {data_folder} does not exist"
+        assert isinstance(sample_percent, float) and sample_percent > 0.0 and sample_percent <= 1.0, "Sample percent must be a float between 0 and 1"        
+        assert shuffle_seed is None or isinstance(shuffle_seed, int), "Seed must be greater than or equal to 0"
+        self.logger = logger if logger is not None else logging.getLogger()
+        dataset = TheoremProvingDataset(
+            data_folder=data_folder,
+            meta_filename=meta_filename,
+            formatter=self.training_data_formatter,
+            data_args=data_args,
+            logger=self.logger,
+            sample_percent=sample_percent,
+            shuffle_seed=shuffle_seed,
+            data_sampler=data_sampler
+        )
+        return dataset
+
 class TheoremProvingDataLoaderFactory:
     def __init__(self,  
             tokenizer: typing.Callable[[typing.Union[str, typing.List[str]], bool, bool, int], typing.Dict[str, typing.Any]], 
@@ -162,7 +201,6 @@ if __name__ == "__main__":
     random.seed(0xf00)
     from transformers import TrainingArguments
     from src.baselines.t5_prover.llm_helpers.code_t5_trainable import CodeT5Trainable
-    from src.baselines.t5_prover.proof_search.common.data_format_layout import DataLayout, DataFormatLayoutTypes
     data_layout = DataLayout(DataFormatLayoutTypes.Start_Local_MProof__GPTStyle, with_label=True)
     training_data_formatter = data_layout.get_layout_formatter()
     max_length = 1024

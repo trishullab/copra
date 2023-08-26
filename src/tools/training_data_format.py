@@ -115,6 +115,12 @@ class LemmaReferences(object):
         return f"{self.lemma_name} : {self.lemma_defn}"
 #        return f"{self.lemma_defn} : {self.lemma_name}"
 
+    def clone(self, idx : typing.Optional[int] = None):
+        new_copy = copy.deepcopy(self)
+        if idx is not None:
+            new_copy.lemma_idx = idx
+        return new_copy
+
 @dataclass_json
 @dataclass
 class LemmaReferencesCollection(MergableCollection):
