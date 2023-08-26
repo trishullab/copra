@@ -25,6 +25,8 @@ class TrainingDataArguments:
     padding: bool = False
     truncation: bool = True
     max_length: int = 512
+    max_len_x: int = 256
+    max_len_y: int = 256
     padding_policy: PaddingPolicy = PaddingPolicy.MAX_BATCH_LENGTH
     ignore_input_longer_than_block_size: bool = True
     shuffle: bool = True
