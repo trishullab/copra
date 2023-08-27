@@ -177,3 +177,6 @@ nohup.out
 
 # Untrack the vscode settings
 .vscode/settings.json
+
+# Hydra output dir
+outputs/
