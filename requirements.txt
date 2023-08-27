@@ -1,4 +1,4 @@
-comet-ml==3.32.2
+comet-ml==3.33.9
 dataclasses-json==0.5.7
 numpy==1.23.2
 pexpect==4.8.0
@@ -28,3 +28,4 @@ parglare
 openai==0.27.8
 tiktoken==0.4.0
 psutil==5.9.5
+accelerate==0.20.3

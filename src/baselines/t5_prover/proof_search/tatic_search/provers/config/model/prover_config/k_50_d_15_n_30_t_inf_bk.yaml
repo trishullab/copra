@@ -1,0 +1,8 @@
+k: 50
+proof_depth: 15
+proof_timeout_in_secs: inf
+max_inferences_allowed: 30
+config_file_path: # data/test/coq/custom_group_theory/compilable_projects_info.log.json
+only_test: True
+seed: 0xf00
+disable_backtracking: False

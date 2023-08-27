@@ -1,0 +1,18 @@
+experiment_name: # code_t5_base_compcert_Local_Context_Start_MProof__T5Style_500t_400t_150t
+model_name: # code_t5_base_compcert_Local_Context_Start_MProof__T5Style_500t_400t_150t
+data_format_type: DataFormatLayoutTypes.Start_Local_MProof__T5Style
+commet_secret_name: theorem_prover_experiments.json
+training_folder_name: #data/generated/compcert/local_retriever/depth_full_new/train
+test_folder_name: #data/generated/compcert/local_retriever/depth_full_new/test
+top_k: 2
+model_param_top_p: 0.95
+model_param_top_k: 20
+model_param_temperature: 0.8
+test_sample_percentage: 1.0
+num_gen_examples_dumps: 10000
+block_size: 1050
+max_sub_part_lens1: [] # 500 + 400 + 150 = 1050, 150 for proof step
+max_sub_part_lens2: []
+tokenize_during_loss_computation: False
+use_data_parallel: True
+train_percentage: 0.0

@@ -1,0 +1,6 @@
+name: LocalTacticGenerationEngine
+model_name_or_path: # .log/generator_experiments/codet5/test/code_t5_small_Local_test_x750_y150_2023-08-27_20-22-11
+max_model_length: # 900
+data_format_layout: DataFormatLayoutTypes.Start_Local_MProof__T5Style
+layout_split1: []
+layout_split2: []

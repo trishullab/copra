@@ -24,10 +24,15 @@ class PaddingPolicy(enum.Enum):
 class TrainingDataArguments:
     padding: bool = False
     truncation: bool = True
-    max_length: int = 512
+    max_len_x: int = 256
+    max_len_y: int = 256
     padding_policy: PaddingPolicy = PaddingPolicy.MAX_BATCH_LENGTH
     ignore_input_longer_than_block_size: bool = True
     shuffle: bool = True
+
+    @property
+    def max_length(self):
+        return self.max_len_x + self.max_len_y
 
 class TheoremProvingTrainableModelWrapper(object):
     def __init__(self, 
@@ -94,7 +99,7 @@ class TheoremProvingTrainableModelWrapper(object):
         """
         raise Exception("Implement the trainable model")
     
-    def generate_and_compare(self, inputs: typing.Dict[str, typing.Any], labels: typing.Any, top_k: int = 5, objective_type: ObjectiveTypes = ObjectiveTypes.AutoRegressive, metrics : typing.Dict[str, float] = {}, good_examples: list = [], bad_examples: list = []) -> list:
+    def generate_and_compare(self, inputs: typing.Dict[str, typing.Any], labels: typing.Any, top_k: int = 5, max_new_tokens: typing.Optional[int] = None, objective_type: ObjectiveTypes = ObjectiveTypes.AutoRegressive, metrics : typing.Dict[str, float] = {}, good_examples: list = [], bad_examples: list = []) -> list:
         """
         This should return a list of namedtuple with the following fields:
         - input: Input text

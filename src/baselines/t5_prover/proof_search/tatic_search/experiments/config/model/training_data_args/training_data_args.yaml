@@ -1,0 +1,7 @@
+padding: True 
+truncation: True
+max_length_x: 750
+max_length_y: 150
+padding_policy: PaddingPolicy.MAX_LENGTH
+ignore_input_longer_than_block_size: False
+shuffle: True
