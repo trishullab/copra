@@ -1,0 +1,22 @@
+defaults:
+  - decoding: nucleus
+  - output_settings: local_context
+  - prover_config: k_50_d_15_n_30_t_inf_bk.yaml
+  - tactic_engine: local_tactic_engine
+
+tactic_engine:
+  model_name_or_path: .log/generator_experiments/codet5/test/code_t5_small_Local_test_x750_y150_2023-08-27_20-22-11
+  max_model_length: 900
+  data_format_layout: DataFormatLayoutTypes.Start_Local_MProof__T5Style
+
+output_settings:
+  name_suffix: test_k50d15n30bk_inf_nucleus
+  dumping_folder_prefix: .log/proofs/test
+  logging_folder_prefix: .log/proof_search_experiments/test
+
+prover_config:
+  config_file_path: data/test/coq/custom_group_theory/compilable_projects_info.log.json
+  only_test: False
+
+enabled: False
+context_type: DynamicProofExecutor.ContextType.LocalContext
