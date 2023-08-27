@@ -95,6 +95,8 @@ class DatasetFactory(object):
         dataset_class = TheoremProvingDataset, 
         data_sampler: typing.Any = None):
         data_layout = DataLayout(data_format_layout, with_label)
+        self.data_format_layout = data_format_layout
+        self.with_label = with_label
         self.training_data_formatter = data_layout.get_layout_formatter()
         self.dataset_class = dataset_class
         self.data_sampler = data_sampler
@@ -206,8 +208,7 @@ if __name__ == "__main__":
     max_length = 1024
     training_data_args = TrainingDataArguments(
         padding = True, 
-        truncation = True, 
-        max_length = max_length,
+        truncation = True,
         max_len_x = int(max_length * 0.75),
         max_len_y = int(max_length * 0.25),
         padding_policy=PaddingPolicy.MAX_BATCH_LENGTH, 

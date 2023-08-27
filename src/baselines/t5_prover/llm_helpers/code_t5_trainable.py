@@ -150,7 +150,7 @@ class CodeT5Trainable(TheoremProvingTrainableModelWrapper):
         named_tuple = self.prediction_named_tuple(logits_np, None, metrics)
         return named_tuple
     
-    def generate_and_compare(self, inputs: typing.Dict[str, typing.Any], labels: typing.Any, top_k: int = 5, objective_type: ObjectiveTypes = ObjectiveTypes.AutoRegressive, metrics: typing.Dict[str, float] = {}, good_examples: list = [], bad_examples: list = []) -> list:
+    def generate_and_compare(self, inputs: typing.Dict[str, typing.Any], labels: typing.Any, top_k: int = 5, max_new_tokens: typing.Optional[int] = None, objective_type: ObjectiveTypes = ObjectiveTypes.AutoRegressive, metrics: typing.Dict[str, float] = {}, good_examples: list = [], bad_examples: list = []) -> list:
         self.code_t5_helper.cuda_context.free_cuda_cache_if_possible()
         input_ids = inputs['input_ids']
         attention_masks = inputs['attention_mask']
@@ -159,8 +159,9 @@ class CodeT5Trainable(TheoremProvingTrainableModelWrapper):
         assert len(input_ids.shape) == 2, "Input ids must be a 2D tensor"
         assert len(attention_masks.shape) == 2, "Attention mask must be a 2D tensor"
         named_tuples = []
+        max_new_tokens = max_new_tokens if max_new_tokens is not None else self.get_block_size()//4
         generated = self.model.generate(input_ids=input_ids, attention_mask=attention_masks, 
-                                        max_new_tokens=self.get_block_size()//4, 
+                                        max_new_tokens=max_new_tokens, 
                                         do_sample=True, 
                                         top_k=self.top_k, 
                                         top_p=self.top_p, 
@@ -208,18 +209,23 @@ class CodeT5Trainable(TheoremProvingTrainableModelWrapper):
 
 if __name__ == "__main__":
     from baselines.t5_prover.llm_helpers.data_format_layout import DataLayout, DataFormatLayoutTypes
-    data_layout = DataLayout(DataFormatLayoutTypes.Start_Proof_End__GPTStyle, with_label=True)
+    import os
+    data_layout = DataLayout(DataFormatLayoutTypes.Start_Local_MProof__GPTStyle, with_label=True)
     training_data_formatter = data_layout.get_layout_formatter()
     training_data_parser = data_layout.get_format_parser()
+    logging_dir = ".log/code_t5_trainable/models/logs/codet5"
+    output_dir = ".log/code_t5_trainable/models/codet5"
+    os.makedirs(logging_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     training_args = TrainingArguments(
-        output_dir=".temp_cache/code_t5_small_test", 
+        output_dir=output_dir, 
         do_train=True, 
         do_eval=True, 
         per_gpu_eval_batch_size=2, 
         per_gpu_train_batch_size=2, 
         seed=0xf00, 
         overwrite_output_dir=True, 
-        logging_dir=".log/code_t5_small_test", 
+        logging_dir=logging_dir, 
         num_train_epochs=20,
         eval_steps=10,
         save_steps=10,
@@ -235,7 +241,7 @@ if __name__ == "__main__":
         load_best_model_at_end=True,
         metric_for_best_model='eval_accuracy',
         greater_is_better=True)
-    data_args = TrainingDataArguments(padding=True, truncation=True, max_length=512, padding_policy=PaddingPolicy.MAX_BATCH_LENGTH, shuffle=True)
+    data_args = TrainingDataArguments(padding=True, truncation=True, max_len_x=256, max_len_y=256, padding_policy=PaddingPolicy.MAX_BATCH_LENGTH, shuffle=True)
     code_t5_trainable = CodeT5Trainable(training_data_formatter, training_data_parser, training_args, data_args)
     tokens1 = code_t5_trainable.tokenize("print('hello world')")
     tokens2 = code_t5_trainable.tokenize(["print('hello world')", "n*factorial(n-1)"])

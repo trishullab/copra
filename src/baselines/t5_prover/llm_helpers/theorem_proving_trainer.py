@@ -66,6 +66,7 @@ class TheoremProvingTrainer(Trainer):
         self.logger = logger if logger is not None else logging.getLogger(training_name)
         self.meta_filename = meta_filename
         block_size = self.trainable_model.get_block_size()
+        assert self.training_data_format_args.max_length <= block_size, f"Block size must be greater than or equal to {self.training_data_format_args.max_length}"
         self.top_k = top_k
         self.num_gen_example_dumps = num_gen_example_dumps
         self.use_data_parallelism = use_data_parallel
@@ -280,7 +281,7 @@ class TheoremProvingTrainer(Trainer):
                     else:
                         x, y = examples
                     # Accumulate metrics over all batches
-                    generated_list = self.trainable_model.generate_and_compare(x, y, top_k=self.top_k, objective_type=self.objective_type, metrics=metrics, good_examples=good_examples, bad_examples=bad_examples)
+                    generated_list = self.trainable_model.generate_and_compare(x, y, top_k=self.top_k, max_new_tokens=self.training_data_format_args.max_len_y, objective_type=self.objective_type, metrics=metrics, good_examples=good_examples, bad_examples=bad_examples)
                     self.logger.info(f"Evaluating batch. Current metrics: {metrics}")
                     examples_evaluated += len(generated_list)
                 self.logger.info(f"Finished evaluation. Evaluated {examples_evaluated} examples. Metrics: {metrics}")
@@ -381,17 +382,18 @@ if __name__ == "__main__":
     from src.baselines.t5_prover.llm_helpers.cuda_context import CudaContext
     from transformers import TrainingArguments
     from datetime import datetime
-    CudaContext.set_default_context(turn_off_cuda=True)
-    cuda_context = CudaContext()
     os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-    experiment_name = "codet5_test_1"
-    training_folder = ".log/run_data_generation_transforms/data/test/custom_group_theory/train"
-    test_folder = ".log/run_data_generation_transforms/data/test/custom_group_theory/train"
-    model_output_dir = ".log/models/codet5/simple_benchmark"
-    model_log_dir = ".log/modesl/logs/codet5/simple_benchmark"
-    log_folder = ".log/theorem_proving_trainer/test"
+    cuda_context = CudaContext()
     time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    training_folder = f".log/run_data_generation_transforms/data/test/custom_group_theory/train"
+    test_folder = f".log/run_data_generation_transforms/data/test/custom_group_theory/train"
+    model_output_dir = f".log/models/codet5/simple_benchmark/{time}"
+    model_log_dir = f".log/modesl/logs/codet5/simple_benchmark/{time}"
+    log_folder = f".log/theorem_proving_trainer/test/{time}"
+    experiment_name = f"codet5_test_1-{time}"
     os.makedirs(log_folder, exist_ok=True)
+    os.makedirs(model_output_dir, exist_ok=True)
+    os.makedirs(model_log_dir, exist_ok=True)
     log_file = f"{os.path.join(log_folder, f'experiment_run_{time}.log')}"
     logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger = logging.getLogger()
@@ -421,14 +423,14 @@ if __name__ == "__main__":
         learning_rate=1e-4,
         adam_beta1=0.9,
         adam_beta2=0.999,
-        warmup_ratio=0.1,
+        warmup_ratio=0.01,
         weight_decay=0.01,
         dataloader_num_workers=10,
         lr_scheduler_type=SchedulerType.COSINE_WITH_RESTARTS,
         load_best_model_at_end=True,
         metric_for_best_model='acc_at_2',
         greater_is_better=True)
-    data_args = TrainingDataArguments(padding=True, truncation=True, max_length=900, max_len_x=750, max_len_y=150, padding_policy=PaddingPolicy.MAX_BATCH_LENGTH, ignore_input_longer_than_block_size=True, shuffle=True)
+    data_args = TrainingDataArguments(padding=True, truncation=True, max_len_x=500, max_len_y=50, padding_policy=PaddingPolicy.MAX_LENGTH, ignore_input_longer_than_block_size=True, shuffle=True)
     code_t5_trainable = CodeT5Trainable(training_data_formatter, training_data_parser, training_args, data_args, block_size=900, cuda_context=cuda_context)
     dataset_factory = DatasetFactory(
         data_format_layout=data_layout.data_format_layout,
