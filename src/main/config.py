@@ -2,11 +2,12 @@
 
 import sys
 
+from dataclasses_json import dataclass_json
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from hydra.core.config_store import ConfigStore
 from dataclasses import dataclass
 from enum import Enum
 
@@ -25,6 +26,7 @@ class PolicyName(Enum):
     def __str__(self):
         return self.value
 
+@dataclass_json
 @dataclass
 class EvalSettings(object):
     # project_folder: str
@@ -47,25 +49,29 @@ class EvalSettings(object):
     temperature: float = 0.0
     max_history_messages: int = 0
     policy_name: PolicyName = PolicyName.Dfs
-    proof_dump_file_prefix: str = ".log/proofs/proof-dump-"
+    proof_dump_dir: str = ".log/proofs/proof-dump-"
     use_human_readable_proof_context: bool = True
 
+@dataclass_json
 @dataclass
 class EvalFile(object):
     path: str
     theorems: typing.Union[str, typing.List[str]]
 
+@dataclass_json
 @dataclass
 class EvalDataset(object):
     project: str
     files: typing.List[EvalFile]
 
+@dataclass_json
 @dataclass
 class EvalBenchmark(object):
     name: str
     num_files: int
     datasets: typing.List[EvalDataset]
 
+@dataclass_json
 @dataclass
 class Experiments(object):
     eval_settings: EvalSettings
@@ -92,17 +98,23 @@ def parse_config(cfg):
         temperature=eval_settings_cfg["temperature"],
         max_history_messages=eval_settings_cfg["max_history_messages"],
         policy_name=PolicyName(eval_settings_cfg["policy_name"]),
-        proof_dump_file_prefix=eval_settings_cfg["proof_dump_file_prefix"])
+        proof_dump_dir=eval_settings_cfg["proof_dump_dir"],
+        use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"])
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []
     for dataset_cfg in datasets_cfg:
-        files_cfg = dataset_cfg["files"]
+        files_cfg = list(dataset_cfg["files"])
         eval_files = []
         for file_cfg in files_cfg:
+            theorems = None
+            if type(file_cfg["theorems"]) == str:
+                theorems = file_cfg["theorems"]
+            else:
+                theorems = list(file_cfg["theorems"])
             eval_files.append(EvalFile(
                 path=file_cfg["path"],
-                theorems=file_cfg["theorems"]))
+                theorems=theorems))
         eval_datasets.append(EvalDataset(
             project=dataset_cfg["project"],
             files=eval_files))

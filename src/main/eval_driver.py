@@ -43,7 +43,7 @@ def eval_project(
         eval_settings: EvalSettings,
         proof_file_suffix: str,
         logger: logging.Logger = None):
-    proof_dump_file_name = f"{eval_settings.proof_dump_file_prefix}{proof_file_suffix}"
+    proof_dump_file_name = f"{eval_settings.proof_dump_dir}{proof_file_suffix}"
     logger.info(f"eval settings: \n{eval_settings.to_json()}")
     with open(proof_dump_file_name, 'w') as f:
         f.write("eval settings: \n" + eval_settings.to_json() + "\n\n")

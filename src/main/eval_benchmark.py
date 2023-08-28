@@ -9,13 +9,14 @@ import hydra
 import logging
 import os
 import typing
+import time
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
 from src.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
-from src.main.config import EvalBenchmark, EvalDataset, EvalSettings, PolicyName, parse_config
+from src.main.config import EvalBenchmark, EvalDataset, EvalSettings, Experiments, PolicyName, parse_config
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofEnv
@@ -44,7 +45,7 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
     logger = logger or logging.getLogger(__name__)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
-        proof_dump_file_name = f"{eval_settings.proof_dump_file_prefix}{path.replace('/', '_')}.txt"
+        proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
         coq_proof_exec_callback = ProofExecutorCallback(
             project_folder=dataset.project,
             file_path=path,
@@ -60,9 +61,10 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
             file.theorems = list(set(file.theorems).intersection(lemmas_to_prove))
         else:
             raise ValueError(f"Invalid theorems: {file.theorems}")
-        logger.info(f"Discovered {len(lemmas_to_prove)} lemmas to prove in {path}")
-        logger.info(f"Lemmas to prove in file {path}: \n{lemmas_to_prove}")
-        for lemma_name in lemmas_to_prove:
+        file.theorems.sort() # sort to ensure reproducibility
+        logger.info(f"Discovered {len(file.theorems)} lemmas to prove in {path}")
+        logger.info(f"Lemmas to prove in file {path}: \n{file.theorems}")
+        for lemma_name in file.theorems:
             logger.info(f"Attempting to prove lemma: {lemma_name}")
             search_guidance_policy : Policy = None
             policy_prompter : PolicyPrompter = None
@@ -108,7 +110,7 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
             logger.info(f"Finished the attempt for proving lemma: {lemma_name} in file {path}")
     pass
 
-def measure_success(proof_results : typing.Dict[str, ProofSearchResult], logger: logging.Logger = None):
+def measure_success(benchmark : EvalBenchmark, proof_results : typing.Dict[str, ProofSearchResult], logger: logging.Logger = None):
     success_count = 0
     for (path, lemma_name), proof_res in proof_results.items():
         if proof_res.proof_found:
@@ -117,19 +119,31 @@ def measure_success(proof_results : typing.Dict[str, ProofSearchResult], logger:
         else:
             logger.info(f"Proof not found for lemma: {lemma_name} in file {path}")
         logger.info(f"Proof/Incomplete proof: \n{proof_res}")
-    logger.info(f"Success rate: {success_count}/{len(proof_results)}")
+    logger.info(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}")
 
-def eval_benchmark(benchmark: EvalBenchmark, eval_settings: EvalSettings, logger: logging.Logger = None):
+def eval_benchmark(experiment: Experiments, logger: logging.Logger = None):
+    benchmark = experiment.benchmark
+    eval_settings = experiment.eval_settings
     logger = logger or logging.getLogger(__name__)
     proof_results : typing.Dict[str, ProofSearchResult] = {}
+    time_now = time.strftime("%Y%m%d-%H%M%S")
+    eval_settings.proof_dump_dir = os.path.join(eval_settings.proof_dump_dir, benchmark.name, time_now)
+    os.makedirs(eval_settings.proof_dump_dir, exist_ok=True)
     for dataset in benchmark.datasets:
         eval_dataset(dataset, eval_settings, proof_results, logger=logger)
-    measure_success(proof_results, logger=logger)
+    measure_success(benchmark, proof_results, logger=logger)
 
 @hydra.main(config_path="config", config_name="experiments", version_base="1.2")
 def main(cfg):
     experiment = parse_config(cfg)
-    eval_benchmark(experiment.benchmark, experiment.eval_settings)
+    os.chdir(root_dir)
+    log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, time.strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "eval.log")
+    logging.basicConfig(filename=log_path, level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info(f"Running Experiment: {experiment.to_json(indent=4)}")
+    eval_benchmark(experiment, logger=logger)
     pass
 
 if __name__ == "__main__":

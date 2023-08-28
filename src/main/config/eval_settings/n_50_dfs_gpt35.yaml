@@ -16,5 +16,5 @@ should_checkpoint: False
 temperature: 0.0
 max_history_messages: 0
 policy_name: Dfs
-proof_dump_file_prefix: .log/proofs/eval_driver/dfs
+proof_dump_dir: .log/proofs/eval_driver/dfs
 use_human_readable_proof_context: True
