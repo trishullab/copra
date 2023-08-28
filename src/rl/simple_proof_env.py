@@ -213,9 +213,11 @@ class ProofEnv(Env):
             is_inference_exhausted=False, 
             longest_success_path=-1)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
-        if dump_file_name is not None and os.path.exists(dump_file_name):
-            with open(dump_file_name, 'a') as f:
-                f.write("\n\n")
+        if dump_file_name is not None:
+            opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'
+            with open(dump_file_name, opening_mode) as f:
+                if opening_mode == 'a':
+                    f.write("\n\n")
                 f.write(str(self.proof_search_res))
 
     def _run_tactic(self, history_idx: int = None):
