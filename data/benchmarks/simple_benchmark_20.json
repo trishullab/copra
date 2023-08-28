@@ -1,0 +1,122 @@
+[
+    {
+        "project_path": "data/test/coq/custom_group_theory/theories",
+        "test_files": [
+            "grpthm.v"
+        ],
+        "test_lemmas":{
+            "grpthm.v": [
+                "algb_identity_sum",
+                "algb_add_comm",
+                "algb_has_identity",
+                "associativity",
+                "algb_has_inverse",
+                "algb_is_closed",
+                "algb_is_abelian_group",
+                "algb_mul_is_closed",
+                "algb_mul_comm",
+                "algb_mul_assoc",
+                "algb_mul_add_distr"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/aime_1983_p1.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/aime_1983_p1.v": [
+                "aime_1983_p1"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/amc12_2001_p5.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/amc12_2001_p5.v": [
+                "amc12_2001_p5"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/mathd_algebra_44_lvl4.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/mathd_algebra_44_lvl4.v": [
+                "mathd_algebra_44"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/mathd_algebra_141_lvl1.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/mathd_algebra_141_lvl1.v": [
+                "mathd_algebra_141"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/mathd_algebra_478_lvl1.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/mathd_algebra_478_lvl1.v": [
+                "mathd_algebra_478"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/mathd_numbertheory_207_lvl2.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/mathd_numbertheory_207_lvl2.v": [
+                "mathd_numbertheory_207"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/NEW_imo_1959_p1.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/NEW_imo_1959_p1.v": [
+                "imo_1959_p1"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/NEW_mathd_numbertheory_551_lvl1.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/NEW_mathd_numbertheory_551_lvl1.v": [
+                "mathd_numbertheory_551"
+            ]
+        }
+    },
+    {
+        "project_path": ".",
+        "test_files": [
+            "data/test/miniF2F-test/numbertheory_4x3m7y3neq2003.v"
+        ],
+        "test_lemmas":{
+            "data/test/miniF2F-test/numbertheory_4x3m7y3neq2003.v": [
+                "numbertheory_4x3m7y3neq2003"
+            ]
+        }
+    }
+]

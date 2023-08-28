@@ -174,6 +174,7 @@ nohup.out
 *.d
 *.coq
 *.coq.conf
+.lia.cache
 
 # Untrack the vscode settings
 .vscode/settings.json
