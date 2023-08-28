@@ -1,0 +1,4 @@
+[submodule "data/benchmarks/CompCert"]
+	path = data/benchmarks/CompCert
+	url = https://github.com/AbsInt/CompCert.git
+    ignore = dirty
