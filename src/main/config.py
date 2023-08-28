@@ -48,6 +48,7 @@ class EvalSettings(object):
     max_history_messages: int = 0
     policy_name: PolicyName = PolicyName.Dfs
     proof_dump_file_prefix: str = ".log/proofs/proof-dump-"
+    use_human_readable_proof_context: bool = True
 
 @dataclass
 class EvalFile(object):
