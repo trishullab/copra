@@ -1,6 +1,7 @@
 Require Import Arith.
 Require Import NPeano.
 
+(* [TODO] [FIX] Nat.prime was not found in the current environment *)
 Theorem mathd_numbertheory_150 :
   forall (n : nat),
     ~ Nat.prime (7 + 30 * n) ->

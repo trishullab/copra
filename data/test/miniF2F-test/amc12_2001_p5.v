@@ -18,7 +18,7 @@
  auto.
  Qed.
  
- Theorem amc12_2001_p5: odd_range_prod 10000 = (fact 10000) / ((2^5000) * (fact 5000)).
+Theorem amc12_2001_p5: odd_range_prod 10000 = (fact 10000) / ((2^5000) * (fact 5000)).
  Proof.
    give_up.
  Admitted.

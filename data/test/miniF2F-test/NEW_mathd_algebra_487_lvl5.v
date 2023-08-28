@@ -1,6 +1,7 @@
 Require Import Reals.
 Open Scope R_scope.
 
+(* [TODO] [FIX] Syntax Error: Lexer: Undefined token =/= *)
 Theorem mathd_algebra_487 :
   forall (a b c d : R),
     b = a^2 ->

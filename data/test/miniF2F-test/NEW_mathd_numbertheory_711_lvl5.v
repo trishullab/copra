@@ -2,6 +2,8 @@ Require Import Arith.
 Require Import NPeano.
 Require Import Nsatz.
 
+
+(* [TODO] FIX lcm reference is not found *)
 Theorem mathd_numbertheory_711 :
   forall (m n : nat),
     0 < m /\ 0 < n ->
