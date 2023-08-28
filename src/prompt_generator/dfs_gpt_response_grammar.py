@@ -167,7 +167,7 @@ ErrorString:;
             text = f"{CoqGPTResponseDfsGrammar.Keywords.ERROR}\n{coq_gpt_response.message}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
         elif coq_gpt_response.action == CoqGptResponseActions.GOALS:
             assert coq_gpt_response.training_data_format is not None
-            text = f"Goals to prove:\n{CoqGPTResponseDfsGrammar.Keywords.GOALS}"
+            text = f"Goals to prove:\n{CoqGPTResponseDfsGrammar.Keywords.GOALS}\n"
             if coq_gpt_response.training_data_format.goal_description is not None:
                 text += f"{CoqGPTResponseDfsGrammar.Keywords.DESCRIPTION}\n{coq_gpt_response.training_data_format.goal_description}\n"
             lines = []

@@ -126,7 +126,10 @@ class ProofEnv(Env):
     def reset(self):
         self.current_proof_depth = 0
         if self._dynamic_proof_executor is not None:
-            self._dynamic_proof_executor.__exit__(None, None, None)
+            try:
+                self._dynamic_proof_executor.__exit__(None, None, None)
+            except Exception:
+                pass
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
         self._dynamic_proof_executor.__enter__()
         self._history.clear()
@@ -369,19 +372,20 @@ class ProofEnv(Env):
             try:
                 self._dynamic_proof_executor.cancel_tactic_till_line(last_tactic_line)
                 self.current_proof_depth -= 1
-            except Exception as e:
+            except Exception:
                 # history = self._history # History helps us to restore the state
-                self.logger.error("Exception occured while backtracking: {}".format(e))
+                self.logger.exception("Exception occured while backtracking")
+                history = copy.deepcopy(self._history)
+                p_tree = copy.deepcopy(self._p_tree)
                 self.reset() # To ensure that everything is fine we start again
-                # # Run all tactics in the history
-                # self._history = history
-                # run_tactic_idx = []
-                # for i in range(history_idx):
-                #     _, action, _, _, _, info = history[i]
-                #     if action.action_type == ProofAction.ActionType.RUN_TACTIC and info.progress == ProgressState.RUNNING:
-                #         run_tactic_idx.append(i)
-                # for i in run_tactic_idx[:-1]:
-                #     self._run_tactic(i) # Run all tactics except the last one which is being backtracked
+                # Run all the current steps in the proof tree
+                self.logger
+                for _, tactic in p_tree.tactics:
+                    self._run_tactics(tactic.proof_steps, self.state, ProofEnvInfo(progress=ProgressState.STARTING))
+                    # No need to capture in history as the history is already captured
+                self._history = history
+                self.logger.warning("Backtracking failed, resetting the environment and running all the tactics again till two-steps before the backtracked step (hence effectively backtracking!)")
+
             if self._dynamic_proof_executor.is_in_proof_mode():
                 env_info.progress = ProgressState.STATE_CHANGED
                 env_info.error_message = "Backtracked successfully"

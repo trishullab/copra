@@ -36,7 +36,8 @@
  
  Ltac by_ln_mult_in H :=
    rewrite ln_mult in H; try apply Nat.mul_pos_pos; auto with arith.
- 
+
+(* [TODO] FIX ln_neq_0 was not found in the current environment *)
  Lemma lt_ln_neq :
    forall x,
      1 < x ->

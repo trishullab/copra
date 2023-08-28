@@ -114,16 +114,23 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
             logger.info(f"Finished the attempt for proving lemma: {lemma_name} in file {path}")
     pass
 
-def measure_success(benchmark : EvalBenchmark, proof_results : typing.Dict[str, ProofSearchResult], logger: logging.Logger = None):
+def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, proof_results : typing.Dict[str, ProofSearchResult], logger: logging.Logger = None):
     success_count = 0
-    for (path, lemma_name), proof_res in proof_results.items():
-        if proof_res.proof_found:
-            success_count += 1
-            logger.info(f"Proof found for lemma: {lemma_name} in file {path}")
-        else:
-            logger.info(f"Proof not found for lemma: {lemma_name} in file {path}")
-        logger.info(f"Proof/Incomplete proof: \n{proof_res}")
-    logger.info(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}")
+    with open(os.path.join(eval_settings.proof_dump_dir, "benchmark_proof_results.txt"), "w") as f:
+        f.write(f"Settings: \n{eval_settings.to_json(indent=4)}\n")
+        f.write(f"Benchmark: \n{benchmark.to_json(indent=4)}\n")
+        for (path, lemma_name), proof_res in proof_results.items():
+            if proof_res.proof_found:
+                success_count += 1
+                logger.info(f"Proof found for lemma: {lemma_name} in file {path}")
+            else:
+                logger.info(f"Proof not found for lemma: {lemma_name} in file {path}")
+            logger.info(f"Proof/Incomplete proof: \n{proof_res}")
+            f.write(f"Lemma: {lemma_name}\n")
+            f.write(f"File: {path}\n")
+            f.write(f"Proof/Incomplete proof: \n{proof_res}\n")
+        logger.info(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}")
+        f.write(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}\n")
 
 def eval_benchmark(experiment: Experiments, logger: logging.Logger = None):
     benchmark = experiment.benchmark
@@ -135,7 +142,7 @@ def eval_benchmark(experiment: Experiments, logger: logging.Logger = None):
     os.makedirs(eval_settings.proof_dump_dir, exist_ok=True)
     for dataset in benchmark.datasets:
         eval_dataset(dataset, eval_settings, proof_results, logger=logger)
-    measure_success(benchmark, proof_results, logger=logger)
+    measure_success(benchmark, eval_settings, proof_results, logger=logger)
 
 @hydra.main(config_path="config", config_name="experiments", version_base="1.2")
 def main(cfg):
