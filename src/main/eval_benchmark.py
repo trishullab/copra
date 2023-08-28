@@ -46,6 +46,10 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
+        with open(proof_dump_file_name, "w") as f:
+            f.write(f"File: {path}\n")
+            f.write(f"Dataset:\n {dataset.to_json(indent=4)}\n")
+            f.write(f"Evaluation Settings:\n {eval_settings.to_json(indent=4)}\n")
         coq_proof_exec_callback = ProofExecutorCallback(
             project_folder=dataset.project,
             file_path=path,
