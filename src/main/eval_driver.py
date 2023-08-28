@@ -2,7 +2,6 @@
 
 import sys
 
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -19,41 +18,7 @@ from src.prompt_generator.prompter import PolicyPrompter
 from src.agent.simple_proof_agent import ProofAgent
 from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from enum import Enum
-
-class PolicyName(Enum):
-    # WARN: Don't make enums dataclasses because deserialization has some weird bug which matches the deserialized enum to all the enum values
-    Dfs = "Dfs"
-    FewShot = "FewShot"
-
-    def __str__(self):
-        return self.value
-
-@dataclass_json
-@dataclass
-class EvalSettings(object):
-    project_folder: str
-    file_path: str
-    use_hammer: bool
-    max_proof_depth: int = 50
-    timeout_in_secs: int = 60
-    proof_retries: int = 1
-    main_prompt: str = "data/prompts/system/coq-proof-agent-with-dfs.md"
-    conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
-    max_tokens_per_action: int = 25
-    max_theorems_in_prompt: int = 3
-    gpt_model_name: str = "gpt-3.5-turbo"
-    max_number_of_episodes: int = 1
-    max_steps_per_episode: int = 50
-    render: bool = False
-    checkpoint_dir: str = ".log/checkpoints"
-    should_checkpoint: bool = False
-    temperature: float = 0.0
-    max_history_messages: int = 0
-    policy_name: PolicyName = PolicyName.Dfs
-    proof_dump_file_prefix: str = ".log/proofs/proof-dump-"
+from src.main.config import EvalSettings
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
     lemmas_to_prove = []

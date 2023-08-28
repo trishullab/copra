@@ -1,0 +1,7 @@
+defaults:
+  - benchmark: simple_benchmark_1
+  - eval_settings: n_50_dfs
+  - override hydra/job_logging: 'disabled'
+
+# To run this experiment, execute the following command:
+# nohup python src/main/python/eval_driver.py benchmark=simple_benchmark_1 eval_settings=n_50_dfs &
