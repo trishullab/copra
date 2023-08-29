@@ -242,6 +242,7 @@ class TheoremProvingTrainer(Trainer):
                     perp = math.exp(loss_val)
                 except:
                     perp = float("inf")
+                self.logger.info(f"Train Perplexity: {perp}, Loss: {loss_val}, Tokens: {token_count}, Step: {self.state.global_step}, Epoch: {self.state.epoch}")
                 self.experiment.log_metric("train_batch_perplexity", perp, epoch=self.state.epoch, step=self.state.global_step)
         if return_outputs:
             return loss, output
@@ -353,7 +354,7 @@ class TheoremProvingTrainer(Trainer):
         # Evaluation
         if self.training_args.do_eval:
             self.logger.info("*** Evaluate ***")
-
+            self.test_dataset.reset_sample_percentage(1.0) # Run evaluation on all examples
             metrics = self.evaluate()
             self.log_metrics("eval", metrics)
             self.save_metrics("eval", metrics)

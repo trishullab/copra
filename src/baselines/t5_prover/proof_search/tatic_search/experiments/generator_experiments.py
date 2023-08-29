@@ -4,6 +4,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
 import hydra
+from src.tools.ray_utils import RayUtils
 from src.baselines.t5_prover.llm_helpers.experiment_config import ExperimentConfig, TheoremProvingExperiment, code_t5_small_trainable_factory, code_t5_base_trainable_factory, code_t5_large_trainable_factory
 from src.baselines.t5_prover.llm_helpers.data_format_layout import DataFormatLayoutTypes
 from src.baselines.t5_prover.llm_helpers.trainable_model import TrainingDataArguments, PaddingPolicy
@@ -39,6 +40,7 @@ def set_cuda_visible_devices(cuda_visible_devices: list):
 def main(cfg):
     os.chdir(root_dir)
     print(cfg)
+    RayUtils.init_ray(num_of_cpus=cfg.ray_max_cpus, object_store_memory_in_gb=cfg.ray_object_store_memory_in_gb, memory_in_gb=cfg.ray_memory_in_gb)
     if cfg.cuda_visible_devices:
         set_cuda_visible_devices(cfg.cuda_visible_devices)
     from torch.multiprocessing import Pool, set_start_method
