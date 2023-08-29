@@ -266,8 +266,7 @@ class CoqRepoBuilder:
             json_text = f.read()
         return CoqRepoBuilder.schema().loads(json_text)
 
-# nohup python3 src/tools/coq_build_tool.py --root_project data/proverbot9001/coq-projects --build_spec data/proverbot9001/coqgym_projs_splits.json --info_file data/compilable_projects_coqgym_build.log.json --option build --projects_to_exclude CompCert &
-# nohup python3 src/tools/coq_build_tool.py --root_project data/proverbot9001/CompCert --build_spec data/proverbot9001/compcert_projs_splits.json --info_file data/compilable_projects_compcert_build.log.json --option build --only_compile_files True &
+# nohup python3 src/tools/coq_build_tool.py --root_project data/benchmarks/CompCert --build_spec data/benchmarks/compcert_projs_splits.json --info_file data/benchmarks/compcert_projs_build.log.json --option build &
 if __name__ == "__main__":
     import time
     os.chdir(root_dir)
