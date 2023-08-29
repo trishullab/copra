@@ -11,6 +11,7 @@ cuda_visible_devices: [3]
 
 
 # Command line arguments
+# nohup python3 src/baselines/t5_prover/proof_search/tatic_search/experiments/generator_experiments.py model=train_code_t5_small_Local_CompCert_750x_150y.yaml cuda_visible_devices=[2,3,4] &
 # nohup python3 src/proof_search/tatic_search/experiments/generator_experiments.py model=train_code_t5_base_Best_Context_Start_MProof_500t_400t_150t cuda_visible_devices=[0] &
 # nohup python3 src/proof_search/tatic_search/experiments/generator_experiments.py model=train_code_t5_base_Local_Context_Start_MProof_500t_400t_150t cuda_visible_devices=[1] &
 # nohup python3 src/proof_search/tatic_search/experiments/generator_experiments.py model=train_code_t5_large_Best_Context_Start_MProof_500t_400t_150t cuda_visible_devices=[2] &

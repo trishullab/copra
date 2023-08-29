@@ -14,16 +14,16 @@ experiment_config:
   test_folder_name: .log/run_data_generation_transforms/data/benchmarks/CompCert/test
   max_sub_part_lens1: [] # 500 + 400 + 150 = 1050, 150 for proof step
   max_sub_part_lens2: []
-  block_size: 900
+  block_size: 1024
   commet_secret_name: test_experiments.json
 
 training_data_args:
-  max_length_x: 750
-  max_length_y: 150
+  max_length_x: 924
+  max_length_y: 100
 
 
 training_args:
-  output_dir: .log/generator_experiments/models/codet5_small/test/x750_y150
-  logging_dir: .log/generator_experiments/logs/codet5_small/test/x750_y150
+  output_dir: .log/generator_experiments/models/codet5_small/compcert/x750_y150
+  logging_dir: .log/generator_experiments/logs/codet5_small/compcert/x750_y150
   per_device_train_batch_size: 2
   per_device_eval_batch_size: 2
