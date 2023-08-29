@@ -122,7 +122,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             self.logger.info("Rate limit reset now.")
 
     def run_prompt(self, request: CoqGptResponse) -> list:
-        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k)
+        max_tokens_in_prompt = self._max_token_per_prompt - self.system_token_count
+        assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
+        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_tokens_in_prompt)
         prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
         prompt_messages = [prompt_message]
         prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)

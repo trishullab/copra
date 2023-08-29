@@ -161,7 +161,9 @@ ErrorString:;
         }
         super(CoqGPTResponseDfsGrammar, self).__init__(CoqGPTResponseDfsGrammar.grammar, CoqGPTResponseDfsGrammar.keywords, recognizers=recognizers)
     
-    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None) -> str:
+    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None) -> str:
+        # Add algorithm for trimming the right amount of goals, theorems and defintions, steps, etc. based on the max_token_cnt
+        char_cnt = max_token_cnt * 4 # 4 is the average length of a token as per OpenAI
         text = ""
         if coq_gpt_response.action == CoqGptResponseActions.ERROR:
             text = f"{CoqGPTResponseDfsGrammar.Keywords.ERROR}\n{coq_gpt_response.message}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
