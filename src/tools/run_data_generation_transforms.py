@@ -299,16 +299,18 @@ class RunDataGenerationTransforms(object):
             self.run_local_transform(pool_size, transform, root, projects, files, use_human_readable, new_output_dir, log_error, save_transform, preserve_temp=self.save_intermidiate_transforms)
         pass
 
+# nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --buffer_size 2500 --pool_size 20 --transform_type LOCAL --dep_depth 0 --output_dir .log/run_data_generation_transforms/data/benchmarks/CompCert --info_file data/benchmarks/compcert_projs_build.log.json > .log/run_data_generation_transforms/local_transform.log 2>&1 &
+
 # nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --save_intermidiate_transforms --buffer_size 10000 --pool_size 15 --transform_type FULL --dep_depth 0 --output_dir data/generated/compcert/full --info_file data/compilable_projects_compcert_build.log.json > .temp_cache/logs/training_data_filter/transforms/generated_compcert_full.log 2>&1 &
 # nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --save_intermidiate_transforms --buffer_size 750 --pool_size 20 --transform_type FULL --dep_depth 0 --output_dir data/generated/compcert/full --info_file data/compilable_projects_compcert_build.log.json > .temp_cache/logs/training_data_filter/transforms/generated_compcert_full.log 2>&1 &
 # nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --save_intermidiate_transforms --buffer_size 500 --pool_size 30 --transform_type FULL --dep_depth 0 --output_dir data/generated/compcert/full --info_file data/compilable_projects_compcert_build.log.json > .temp_cache/logs/training_data_filter/transforms/generated_compcert_full.log 2>&1 &
 # nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --buffer_size 500 --pool_size 15 --transform_type FULL --dep_depth 0 --output_dir data/generated/compcert/full --info_file data/compilable_projects_compcert_build.log.json > .temp_cache/logs/training_data_filter/transforms/generated_compcert_full.log 2>&1 &
-# nohup python3 src/tools/run_data_generation_transforms.py --use_human_readable --buffer_size 50 --pool_size 20 --transform_type FULL --dep_depth 0 --output_dir data/generated_very_small_test/full --info_file data/custom_group_theory/compilable_projects_info.log.json > .temp_cache/logs/training_data_filter/transforms/generated_very_small_test_full.log 2>&1 &
 # nohup python3 src/tools/run_data_generation_transforms.py --pool_size 15 --buffer_size 500 --transform_type BM25 --output_dir data/generated/compcert/bm25 --info_file data/generated/compcert/full > .temp_cache/logs/training_data_filter/generated_compcert_bm25.log 2>&1 &
 # nohup python3 src/tools/run_data_generation_transforms.py --pool_size 3 --buffer_size 50 --transform_type BM25 --output_dir data/generated_very_small_test/bm25 --info_file data/generated_very_small_test/full > .temp_cache/logs/training_data_filter/generated_test_bm25.log 2>&1 &
 if __name__ == "__main__":
     import time
     import argparse
+    os.chdir(root_dir)
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     logging_dir = f".log/run_data_generation_transforms/logs/{current_time}"
     os.makedirs(logging_dir, exist_ok=True)

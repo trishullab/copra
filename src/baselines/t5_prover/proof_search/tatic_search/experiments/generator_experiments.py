@@ -115,13 +115,3 @@ def main(cfg):
 
 if __name__ == "__main__":
     main()
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-    # result = []
-    # with Pool() as pool:
-    #     # for experiment in experiment_setups:
-    #     #     result.append(pool.apply_async(experiment.run))
-
-    #     for r in result:
-    #         r.wait()
-
-# CUDA_VISIBLE_DEVICES="1,3" nohup python3 src/proof_search/tatic_search/experiments/code_t5_generator_experiments.py &

@@ -1,5 +1,5 @@
 {
-    "root": "data/benchmarks/CompCert",
+    "root": "data/benchmarks",
     "compilable_projects": [
         "CompCert"
     ],
