@@ -63,6 +63,20 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self._message_history_token_count.append(message_token_count)
         self._history_token_count += message_token_count
 
+    def _get_prompt_message(self, request: FewShotGptRequest, max_tokens_in_prompt: int) -> str:
+        assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
+        characters_per_token = 5
+        prompt_message_tokens_underlimit = False
+        while not prompt_message_tokens_underlimit and characters_per_token > 0:
+            prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_tokens_in_prompt, characters_per_token)
+            prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
+            prompt_messages = [prompt_message]
+            prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
+            prompt_message_tokens_underlimit = prompt_token_count <= max_tokens_in_prompt
+            characters_per_token -= 1
+        assert prompt_token_count <= max_tokens_in_prompt, f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_tokens_in_prompt}"
+        return prompt_message, prompt_token_count
+
     def _constrain_tokens_in_history(self, prompt_message, prompt_token_count: int, max_tokens_per_action: int) -> list:
         if len(self._message_history) >= self._max_history_messages:
             history_idx = len(self._message_history) - self._max_history_messages
@@ -121,10 +135,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             self.logger.info("Rate limit reset now.")
 
     def run_prompt(self, request: FewShotGptRequest) -> list:
-        prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k)
-        prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
-        prompt_messages = [prompt_message]
-        prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
+        max_tokens_in_prompt = self._max_token_per_prompt - self.system_token_count - self._max_tokens_per_action
+        prompt_message, prompt_token_count = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, self._max_tokens_per_action)
         success = False
         retries = 10
@@ -160,6 +172,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
+                    max_token_per_prompt = self._max_token_per_prompt - self.system_token_count - tokens_to_generate
+                    prompt_message, prompt_token_count = self._get_prompt_message(request, max_token_per_prompt) # Re-generate the prompt message within new token limit
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
                     # temperature = max(max_temp, temperature + temp_factor)
                     # Don't change the temperature for now

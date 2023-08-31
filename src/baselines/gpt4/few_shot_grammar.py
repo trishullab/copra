@@ -82,29 +82,66 @@ String:;
         }
         super(FewShotGptResponseGrammar, self).__init__(FewShotGptResponseGrammar.grammar, FewShotGptResponseGrammar.keywords, recognizers=recognizers)
     
-    def format_as_per_grammar(self, coq_gpt_response: FewShotGptResponse, k: typing.Optional[int] = None) -> str:
-        text = ""
+    def format_as_per_grammar(self, coq_gpt_response: FewShotGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: int = 4) -> str:
         assert coq_gpt_response.theorem is not None
-        text = f"{FewShotGptKeywords.THEOREM}\n{coq_gpt_response.theorem}\n"
-        lines = []
+        char_cnt = max_token_cnt * characters_per_token if max_token_cnt is not None else None # 4 is the average length of a token as per OpenAI
+        text = ""
+        lines_map = {
+            FewShotGptKeywords.THEOREM : [],
+            FewShotGptKeywords.DEFINITIONS : [],
+            FewShotGptKeywords.LEMMAS : []
+        }
+        lines_order = [
+            FewShotGptKeywords.THEOREM,
+            FewShotGptKeywords.DEFINITIONS,
+            FewShotGptKeywords.LEMMAS
+        ]
+        priority_order_lo_hi = [
+            FewShotGptKeywords.LEMMAS,
+            FewShotGptKeywords.DEFINITIONS,
+            FewShotGptKeywords.THEOREM
+        ]
+        new_line = f"{FewShotGptKeywords.THEOREM}\n{coq_gpt_response.theorem}"
+        lines_map[FewShotGptKeywords.THEOREM] = [new_line]
+
         if len(coq_gpt_response.defintions) > 0:
-            lines.append(f"\n{FewShotGptKeywords.DEFINITIONS}")
+            lines_map[FewShotGptKeywords.DEFINITIONS] = [f"\n{FewShotGptKeywords.DEFINITIONS}"]
         for idx, dfn in enumerate(coq_gpt_response.defintions):
             if k is not None and idx >= k:
                 break
-            lines.append(f"{FewShotGptKeywords.DEFINITION} {dfn}")
+            lines_map[FewShotGptKeywords.DEFINITIONS].append(f"{FewShotGptKeywords.DEFINITION} {dfn}")
+
         if len(coq_gpt_response.lemmas) > 0:
-            lines.append(f"\n{FewShotGptKeywords.LEMMAS}")
+            lines_map[FewShotGptKeywords.LEMMAS] = [f"\n{FewShotGptKeywords.LEMMAS}"]
         for idx, lm in enumerate(coq_gpt_response.lemmas):
             if k is not None and idx >= k:
                 break
-            lines.append(f"{FewShotGptKeywords.LEMMA} {lm}")
-        if len(lines) > 0:
-            gls_args = '\n'.join(lines)
-            text += gls_args
+            lines_map[FewShotGptKeywords.LEMMAS].append(f"{FewShotGptKeywords.LEMMA} {lm}")
+        keywords = [keyword for keyword in lines_map.keys()]
+        # Convert all the lines under each keyword to a single string
+        for keyword in keywords:
+            lines_map[keyword] = "\n".join(lines_map[keyword])
+        # Frame the first prompt version without any token limit
+        text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0])
+        
+        # Trim the lines based on the max_token_cnt
+        if char_cnt is not None and len(text) > char_cnt:
+            _idx = 0
+            diff = len(text) - char_cnt
+            while _idx < len(priority_order_lo_hi) and diff > 0:
+                trim_part = priority_order_lo_hi[_idx]
+                if trim_part in lines_map:
+                    lines_map[trim_part] = lines_map[trim_part][:-diff] # Trim everything except the STEPS from the end
+                text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0])
+                diff = len(text) - char_cnt
+                _idx += 1
         text += f"\n\n{FewShotGptKeywords.END}"
-        self.compile(text)
+        # verify that the text is valid as per grammar by compiling it
+        # self.compile(text)
+        if char_cnt is not None and len(text) > char_cnt:
+            text = text[:char_cnt] # Just trim the text from the end because no trimming strategy has worked out
         return text
+
 
 class FewShotGptRequestGrammar(Grammar):
     grammar = f"""

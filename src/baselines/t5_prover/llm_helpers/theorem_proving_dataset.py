@@ -57,7 +57,7 @@ class TheoremProvingDataset(Dataset):
     
     def __len__(self):
         assert self.training_data._meta_loaded, "Cannot get length of dataset before loading!"
-        return len(self.training_data)
+        return int(len(self.training_data) * self.sample_percentage)
     
     def __str__(self) -> str:
         return self.data_folder
@@ -70,6 +70,10 @@ class TheoremProvingDataset(Dataset):
         else:
             shuffled_index = index
         return self.formatter(self.training_data[shuffled_index])
+    
+    def reset_sample_percentage(self, sample_percent: float):
+        assert isinstance(sample_percent, float) and sample_percent > 0.0 and sample_percent <= 1.0, "Sample percent must be a float between 0 and 1"
+        self.sample_percentage = sample_percent
 
 class CustomBatch(object):
     def __init__(self, x, y, should_tokenize_x, should_tokenize_y, max_length_x, max_length_y, padding, truncation):

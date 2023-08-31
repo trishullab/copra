@@ -1,0 +1,7 @@
+name: minicompcert_benchmark_1
+num_files: 1
+datasets:
+  - project: data/benchmarks/CompCert
+    files:
+      - path: cfrontend/Cop.v
+        theorems: "*"

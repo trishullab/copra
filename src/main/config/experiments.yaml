@@ -1,7 +1,8 @@
 defaults:
-  - benchmark: simple_benchmark_1
-  - eval_settings: n_50_dfs_gpt35
+  - benchmark: simple_benchmark_9
+  - eval_settings: n_30_dfs_gpt35
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:
 # nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_10_dfs_gpt35 &
+# nohup python src/main/eval_benchmark.py benchmark=minicompcert_benchmark_1 eval_settings=n_4_few_gpt35 &

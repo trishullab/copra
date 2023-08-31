@@ -20,6 +20,11 @@ class CoqBm25ReRanker(ReRanker):
 
     def rerank(self, query: str, responses: typing.List[str]) -> typing.List[float]:
         tokenized_index_data = [list(CoqExecutor.tokenize(response)) for response in responses]
+        if len(tokenized_index_data) == 0:
+            # print("WARNING: No tokenizable responses found. Returning all 0.0 scores.")
+            # print("Query:", query)
+            # print("Responses:", responses)
+            return [0.0] * len(responses)
         bm25 = BM25Okapi(tokenized_index_data, k1=self.k1, b=self.b)
         query_tokens = list(CoqExecutor.tokenize(query))
         scores = bm25.get_scores(query_tokens)

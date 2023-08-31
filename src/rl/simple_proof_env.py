@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -14,6 +15,7 @@ from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
+from src.tools.training_data_format import TrainingDataFormat
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from dataclasses import dataclass, field
@@ -126,7 +128,10 @@ class ProofEnv(Env):
     def reset(self):
         self.current_proof_depth = 0
         if self._dynamic_proof_executor is not None:
-            self._dynamic_proof_executor.__exit__(None, None, None)
+            try:
+                self._dynamic_proof_executor.__exit__(None, None, None)
+            except Exception:
+                pass
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
         self._dynamic_proof_executor.__enter__()
         self._history.clear()
@@ -200,11 +205,12 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         self.goal_end_time = time.time()
         self.time_taken = self.goal_end_time - self.goal_start_time
+        proof_steps = [TrainingDataFormat(proof_steps=tactic.training_data_format.proof_steps) for _, tactic in self._p_tree]
         self.proof_search_res = ProofSearchResult(
             self._dynamic_proof_executor.main_file, 
             not self._dynamic_proof_executor.is_in_proof_mode(), 
             self._lemma_name_with_stmt, 
-            [tactic.training_data_format for _, tactic in self._p_tree], 
+            proof_steps, 
             self.time_taken, 
             self.inferences_used, 
             possible_failed_paths=-1, 
@@ -232,7 +238,15 @@ class ProofEnv(Env):
         assert all([isinstance(tactic, str) for tactic in tactics])
         # Remove unnecessary spaces, newlines, and tabs
         tactics = [tactic.strip() for tactic in tactics]
-        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
+        try:
+            state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
+        except Exception:
+            self._reset_and_restore_history()
+            next_state = self.state
+            reward = -1.0
+            done = False
+            env_info.progress = ProgressState.FAILED
+            env_info.error_message = self._dynamic_proof_executor.get_last_exception()
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
 
     
@@ -286,8 +300,8 @@ class ProofEnv(Env):
             query = goal.goal
             local_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
             global_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
-            local_scores = self._re_ranker.rerank(query, local_responses)
-            global_scores = self._re_ranker.rerank(query, global_responses)
+            local_scores = self._re_ranker.rerank(query, local_responses) if len(local_responses) > 0 else []
+            global_scores = self._re_ranker.rerank(query, global_responses) if len(global_responses) > 0 else []
             local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
             global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
             local_idx.sort(key=lambda x: x[1], reverse=True)
@@ -369,19 +383,20 @@ class ProofEnv(Env):
             try:
                 self._dynamic_proof_executor.cancel_tactic_till_line(last_tactic_line)
                 self.current_proof_depth -= 1
-            except Exception as e:
+            except Exception:
                 # history = self._history # History helps us to restore the state
-                self.logger.error("Exception occured while backtracking: {}".format(e))
+                self.logger.exception("Exception occured while backtracking")
+                history = copy.deepcopy(self._history)
+                p_tree = copy.deepcopy(self._p_tree)
                 self.reset() # To ensure that everything is fine we start again
-                # # Run all tactics in the history
-                # self._history = history
-                # run_tactic_idx = []
-                # for i in range(history_idx):
-                #     _, action, _, _, _, info = history[i]
-                #     if action.action_type == ProofAction.ActionType.RUN_TACTIC and info.progress == ProgressState.RUNNING:
-                #         run_tactic_idx.append(i)
-                # for i in run_tactic_idx[:-1]:
-                #     self._run_tactic(i) # Run all tactics except the last one which is being backtracked
+                # Run all the current steps in the proof tree
+                self.logger
+                for _, tactic in p_tree.tactics:
+                    self._run_tactics(tactic.proof_steps, self.state, ProofEnvInfo(progress=ProgressState.STARTING))
+                    # No need to capture in history as the history is already captured
+                self._history = history
+                self.logger.warning("Backtracking failed, resetting the environment and running all the tactics again till two-steps before the backtracked step (hence effectively backtracking!)")
+
             if self._dynamic_proof_executor.is_in_proof_mode():
                 env_info.progress = ProgressState.STATE_CHANGED
                 env_info.error_message = "Backtracked successfully"
@@ -405,8 +420,10 @@ class ProofEnv(Env):
             _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
             if self._dynamic_proof_executor.execution_complete:
                 break
-            lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running().strip()
-            lemma_found = lemma_name.startswith(self.lemma_name)
+            lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
+            if lemma_name is not None:
+                lemma_name = lemma_name.strip()
+            lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
             if not lemma_found:
                 _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
                 if self._dynamic_proof_executor.execution_complete:
@@ -416,6 +433,17 @@ class ProofEnv(Env):
             raise Exception(f"Could not find lemma {self.lemma_name}")
         self._lemma_name_with_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running().strip()
         pass
+
+    def _reset_and_restore_history(self):
+        history = copy.deepcopy(self._history)
+        p_tree = copy.deepcopy(self._p_tree)
+        self.reset() # To ensure that everything is fine we start again
+        # Run all the current steps in the proof tree
+        self.logger
+        for _, tactic in p_tree.tactics:
+            self._run_tactics(tactic.proof_steps, self.state, ProofEnvInfo(progress=ProgressState.STARTING))
+            # No need to capture in history as the history is already captured
+        self._history = history
 
 
 if __name__ == "__main__":

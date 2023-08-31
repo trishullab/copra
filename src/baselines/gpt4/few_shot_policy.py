@@ -67,7 +67,8 @@ class FewShotGptPolicy(Policy):
         self._checkpoint_in_file(checkpoint_path)
 
     def __call__(self, state: ProofState) -> ProofAction:
-        assert len(state.training_data_format.start_goals) == 1, "At the begining of the proof there is exactly one goal"
+        # assert len(state.training_data_format.start_goals) == 1, "At the begining of the proof there is exactly one goal"
+        # There can actually be more than one goals at the beginning of the proof
         if not self._asked_for_dfns_and_lms:
             if len(state.training_data_format.all_useful_defns_theorems) == 0:
                 self._asked_for_dfns_and_lms = True

@@ -15,12 +15,12 @@ class GptAccess(object):
         "gpt-3.5-turbo": {
             "token_limit_per_min": 45000, 
             "request_limit_per_min" : 3400, 
-            "max_token_per_prompt" : 4 * 2**10
+            "max_token_per_prompt" : int(3.75*2**10) # less than 4k because additional tokens are added at times
         },
         "gpt-4": {
             "token_limit_per_min": 20000,
             "request_limit_per_min": 100,
-            "max_token_per_prompt": 4 * 2**10
+            "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
         }
     }
     def __init__(self, 
