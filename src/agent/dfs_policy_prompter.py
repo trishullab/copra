@@ -137,7 +137,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         return prompt_message, prompt_token_count
 
     def run_prompt(self, request: CoqGptResponse) -> list:
-        max_tokens_in_prompt = self._max_token_per_prompt - self.system_token_count
+        max_tokens_in_prompt = self._max_token_per_prompt - self.system_token_count - self._max_tokens_per_action
         prompt_message, prompt_token_count = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, self._max_tokens_per_action)
         success = False
@@ -174,10 +174,11 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
-                    max_token_per_prompt = self._max_token_per_prompt - tokens_to_generate
+                    max_token_per_prompt = self._max_token_per_prompt - self.system_token_count - tokens_to_generate
                     prompt_message, prompt_token_count = self._get_prompt_message(request, max_token_per_prompt) # Re-generate the prompt message within new token limit
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
-                    temperature = max(max_temp, temperature + temp_factor)
+                    # temperature = max(max_temp, temperature + temp_factor)
+                    # don't change temperature for now
                 else:
                     self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                     self.logger.debug(f"Response messages: \n{responses}")

@@ -1,0 +1,31 @@
+name: compcert_benchmark
+num_files: 13
+datasets:
+  - project: data/benchmarks/CompCert
+    files:
+      - path: backend/Locations.v
+        theorems: "*"
+      - path: backend/RTL.v
+        theorems: "*"
+      - path: backend/Selectionproof.v
+        theorems: "*"
+      - path: cfrontend/Cop.v
+        theorems: "*"
+      - path: exportclight/Clightdefs.v
+        theorems: "*"
+      - path: MenhirLib/Validator_complete.v
+        theorems: "*"
+      - path: x86/SelectOpproof.v
+        theorems: "*"
+      - path: flocq/Calc/Round.v
+        theorems: "*"
+      - path: flocq/Prop/Mult_error.v
+        theorems: "*"
+      - path: flocq/Core/Zaux.v
+        theorems: "*"
+      - path: lib/Parmov.v
+        theorems: "*"
+      - path: lib/Wfsimpl.v
+        theorems: "*"
+      - path: common/Globalenvs.v
+        theorems: "*"

@@ -17,7 +17,7 @@ from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
 from src.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
-from src.main.config import EvalBenchmark, EvalDataset, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, parse_config
+from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, parse_config
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofEnv
@@ -42,7 +42,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
                 main_executor.run_to_finish_lemma()
     return lemmas_to_prove
 
-def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_results : typing.Dict[str, ProofSearchResult], eval_checkpoint_info: EvalRunCheckpointInfo, logger: logging.Logger = None):
+def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
@@ -52,8 +52,8 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
                 f.write(f"File: {path}\n")
                 f.write(f"Dataset:\n {dataset.to_json(indent=4)}\n")
                 f.write(f"Evaluation Settings:\n {eval_settings.to_json(indent=4)}\n")
-        if path not in eval_checkpoint_info.theorem_maps:
-            eval_checkpoint_info.theorem_maps[path] = []
+        eval_checkpoint_info.add_path_to_maps(path)
+        eval_proof_results.add_path_to_maps(path)
         coq_proof_exec_callback = ProofExecutorCallback(
             project_folder=dataset.project,
             file_path=path,
@@ -118,56 +118,42 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, proof_result
                         with search_guidance_policy:
                             agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
                             agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
-                        proof_results[(path, lemma_name)] = env.proof_search_res
+                        eval_proof_results.add_theorem_to_maps(path, lemma_name, env.proof_search_res)
+                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
                 except:
                     logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
-                    proof_results[(path, lemma_name)] =  ProofSearchResult(
-                        path, 
-                        False,
-                        lemma_name, 
-                        [], 
-                        math.inf, 
-                        -1, 
-                        possible_failed_paths=-1, 
-                        num_of_backtracks=-1, 
-                        is_timeout=False, 
-                        is_inference_exhausted=False, 
-                        longest_success_path=-1)
-                eval_checkpoint_info.theorem_maps[path].append(lemma_name)
-                logger.info(f"Finished the attempt for proving lemma: {lemma_name} in file {path}")
-                with open(eval_checkpoint_info.checkpoint_file, "w") as f:
-                    # Re-write the checkpoint file
-                    f.write(eval_checkpoint_info.to_json(indent=4))
+                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
             else:
                 logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
     pass
 
-def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, proof_results : typing.Dict[str, ProofSearchResult], eval_checkpoint_info: EvalRunCheckpointInfo, logger: logging.Logger = None):
+def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     success_count = 0
-    with open(os.path.join(eval_settings.proof_dump_dir, "benchmark_proof_results.txt"), "w") as f:
-        f.write(f"Settings: \n{eval_settings.to_json(indent=4)}\n")
-        f.write(f"Benchmark: \n{benchmark.to_json(indent=4)}\n")
-        for (path, lemma_name), proof_res in proof_results.items():
-            if proof_res.proof_found:
-                success_count += 1
-                logger.info(f"Proof found for lemma: {lemma_name} in file {path}")
-            else:
-                logger.info(f"Proof not found for lemma: {lemma_name} in file {path}")
-            logger.info(f"Proof/Incomplete proof: \n{proof_res}")
-            f.write(f"Lemma: {lemma_name}\n")
-            f.write(f"File: {path}\n")
-            f.write(f"Proof/Incomplete proof: \n{proof_res}\n")
-        logger.info(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}")
-        f.write(f"Success rate: {success_count}/{len(proof_results)} = {success_count/len(proof_results)} for benchmark: {benchmark.name}\n")
+    proofs_dump_file = os.path.join(eval_settings.proof_dump_dir, "benchmark_proof_results.txt")
+    proof_dump_file_exists = os.path.exists(proofs_dump_file)
+    open_mode = "a" if proof_dump_file_exists else "w"
+    with open(proofs_dump_file, open_mode) as f:
+        if not proof_dump_file_exists:
+            f.write(f"Settings: \n{eval_settings.to_json(indent=4)}\n")
+            f.write(f"Benchmark: \n{benchmark.to_json(indent=4)}\n")
+        for path, proofs in eval_proof_results.theorem_map.items():
+            for lemma_name, proof_res in proofs.items():
+                if proof_res.proof_found:
+                    success_count += 1
+                    logger.info(f"Proof found for lemma: {lemma_name} in file {path}")
+                else:
+                    logger.info(f"Proof not found for lemma: {lemma_name} in file {path}")
+                f.write(f"Lemma: {lemma_name}\n")
+                f.write(f"File: {path}\n")
+                f.write(f"Proof/Incomplete proof: \n{proof_res}\n")
+        logger.info(f"Success rate: {success_count}/{len(eval_proof_results.theorem_map)} = {success_count/len(eval_proof_results.theorem_map)} for benchmark: {benchmark.name}")
+        f.write(f"Success rate: {success_count}/{len(eval_proof_results.theorem_map)} = {success_count/len(eval_proof_results.theorem_map)} for benchmark: {benchmark.name}\n")
 
 def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None):
     trial_cnt = 100
     eval_settings = experiment.eval_settings
     benchmark = experiment.benchmark
     checkpoint_dir = experiment.eval_settings.checkpoint_dir
-    time_now = time.strftime("%Y%m%d-%H%M%S")
-    eval_settings.proof_dump_dir = os.path.join(eval_settings.proof_dump_dir, benchmark.name, time_now)
-    os.makedirs(eval_settings.proof_dump_dir, exist_ok=True)
     eval_settings.checkpoint_dir = os.path.join(checkpoint_dir, benchmark.name, eval_settings.name)
     os.makedirs(eval_settings.checkpoint_dir, exist_ok=True)
     # Load the checkpoint file if it exists
@@ -178,22 +164,34 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         eval_settings.proof_dump_dir = checkpoint_info.proof_dump_dir
         checkpoint_info.logging_dirs.append(log_dir)
     else:
+        time_now = time.strftime("%Y%m%d-%H%M%S")
+        eval_settings.proof_dump_dir = os.path.join(eval_settings.proof_dump_dir, benchmark.name, time_now)
+        os.makedirs(eval_settings.proof_dump_dir, exist_ok=True)
         checkpoint_info = EvalRunCheckpointInfo(
             checkpoint_file=checkpoint_file,
             proof_dump_dir=eval_settings.proof_dump_dir, 
             logging_dirs=[log_dir], 
             theorem_maps={})
+    eval_proof_file = os.path.join(eval_settings.proof_dump_dir, "proof_results.json")
+    if os.path.exists(eval_proof_file):
+        with open(eval_proof_file, "r") as f:
+            eval_proof_results: EvalProofResults = EvalProofResults.from_json(f.read())
+    else:
+        eval_proof_results = EvalProofResults(
+            path=os.path.join(eval_settings.proof_dump_dir, "proof_results.json"),
+            theorem_map={})
     while trial_cnt > 0:
         try:
             logger = logger or logging.getLogger(__name__)
-            proof_results : typing.Dict[str, ProofSearchResult] = {}
             for dataset in benchmark.datasets:
-                eval_dataset(dataset, eval_settings, proof_results, checkpoint_info, logger=logger)
-            measure_success(benchmark, eval_settings, proof_results, checkpoint_info, logger=logger)
+                eval_dataset(dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
+            measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
+            trial_cnt = 0
         except:
             trial_cnt -= 1
             logger.exception(f"Exception occurred. Retrying {trial_cnt} more times.")
             time.sleep(10)
+    logger.info(f"Finished running experiment: \n{experiment.to_json(indent=4)}")
 
 @hydra.main(config_path="config", config_name="experiments", version_base="1.2")
 def main(cfg):

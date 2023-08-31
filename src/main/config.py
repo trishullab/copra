@@ -2,14 +2,14 @@
 
 import sys
 
-from dataclasses_json import dataclass_json
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 from dataclasses import dataclass
+from dataclasses_json import dataclass_json
 from enum import Enum
+from src.rl.proof_tree import ProofSearchResult
 
 class SettingType(Enum):
     Agent = "Agent"
@@ -82,7 +82,32 @@ class EvalRunCheckpointInfo(object):
     checkpoint_file: str
     logging_dirs: typing.List[str]
     proof_dump_dir: str
-    theorem_maps: typing.Dict[str, typing.List[str]]
+    theorem_maps: typing.Dict[str, typing.Dict[str, bool]]
+
+    def add_path_to_maps(self, path: str):
+        if path not in self.theorem_maps:
+            self.theorem_maps[path] = {}
+
+    def add_theorem_to_maps(self, path: str, theorem: str, success: bool):
+        self.theorem_maps[path][theorem] = success
+        with open(self.checkpoint_file, "w") as f:
+            f.write(self.to_json(indent=4))
+    
+@dataclass_json
+@dataclass
+class EvalProofResults(object):
+    path: str
+    theorem_map: typing.Dict[str, typing.Dict[str, ProofSearchResult]]
+
+    def add_path_to_maps(self, path: str):
+        if path not in self.theorem_map:
+            self.theorem_map[path] = {}
+    
+    def add_theorem_to_maps(self, path: str, theorem: str, proof_result: ProofSearchResult):
+        self.theorem_map[path][theorem] = proof_result
+        with open(self.path, "w") as f:
+            f.write(self.to_json(indent=4))
+
 
 def parse_config(cfg):
     eval_settings_cfg = cfg["eval_settings"]
