@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -14,6 +15,7 @@ from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
+from src.tools.training_data_format import TrainingDataFormat
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from dataclasses import dataclass, field
@@ -203,11 +205,12 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         self.goal_end_time = time.time()
         self.time_taken = self.goal_end_time - self.goal_start_time
+        proof_steps = [TrainingDataFormat(proof_steps=tactic.training_data_format.proof_steps) for _, tactic in self._p_tree]
         self.proof_search_res = ProofSearchResult(
             self._dynamic_proof_executor.main_file, 
             not self._dynamic_proof_executor.is_in_proof_mode(), 
             self._lemma_name_with_stmt, 
-            [tactic.training_data_format for _, tactic in self._p_tree], 
+            proof_steps, 
             self.time_taken, 
             self.inferences_used, 
             possible_failed_paths=-1, 
@@ -417,8 +420,10 @@ class ProofEnv(Env):
             _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
             if self._dynamic_proof_executor.execution_complete:
                 break
-            lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running().strip()
-            lemma_found = lemma_name.startswith(self.lemma_name)
+            lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
+            if lemma_name is not None:
+                lemma_name = lemma_name.strip()
+            lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
             if not lemma_found:
                 _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
                 if self._dynamic_proof_executor.execution_complete:

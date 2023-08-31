@@ -21,7 +21,6 @@ from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSe
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofEnv
-from src.rl.proof_search_result import ProofSearchResult
 from src.tools.proof_exec_callback import ProofExecutorCallback
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):

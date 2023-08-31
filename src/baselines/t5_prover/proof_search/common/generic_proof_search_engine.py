@@ -15,8 +15,7 @@ from src.coq_ser_api import CoqExn, ParseError
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.dynamic_proof_exec import DynamicProofExecutor
 from src.tools.training_data_format import TrainingDataFormat
-from src.rl.proof_search_result import ProofSearchResult
-from src.rl.proof_tree import ProofTree
+from src.rl.proof_tree import ProofTree, ProofSearchResult
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
