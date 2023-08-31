@@ -235,7 +235,15 @@ class ProofEnv(Env):
         assert all([isinstance(tactic, str) for tactic in tactics])
         # Remove unnecessary spaces, newlines, and tabs
         tactics = [tactic.strip() for tactic in tactics]
-        state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
+        try:
+            state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
+        except Exception:
+            self._reset_and_restore_history()
+            next_state = self.state
+            reward = -1.0
+            done = False
+            env_info.progress = ProgressState.FAILED
+            env_info.error_message = self._dynamic_proof_executor.get_last_exception()
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
 
     
@@ -289,8 +297,8 @@ class ProofEnv(Env):
             query = goal.goal
             local_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
             global_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
-            local_scores = self._re_ranker.rerank(query, local_responses)
-            global_scores = self._re_ranker.rerank(query, global_responses)
+            local_scores = self._re_ranker.rerank(query, local_responses) if len(local_responses) > 0 else []
+            global_scores = self._re_ranker.rerank(query, global_responses) if len(global_responses) > 0 else []
             local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
             global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
             local_idx.sort(key=lambda x: x[1], reverse=True)
@@ -420,6 +428,17 @@ class ProofEnv(Env):
             raise Exception(f"Could not find lemma {self.lemma_name}")
         self._lemma_name_with_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running().strip()
         pass
+
+    def _reset_and_restore_history(self):
+        history = copy.deepcopy(self._history)
+        p_tree = copy.deepcopy(self._p_tree)
+        self.reset() # To ensure that everything is fine we start again
+        # Run all the current steps in the proof tree
+        self.logger
+        for _, tactic in p_tree.tactics:
+            self._run_tactics(tactic.proof_steps, self.state, ProofEnvInfo(progress=ProgressState.STARTING))
+            # No need to capture in history as the history is already captured
+        self._history = history
 
 
 if __name__ == "__main__":

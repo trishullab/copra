@@ -29,8 +29,7 @@ class PolicyName(Enum):
 @dataclass_json
 @dataclass
 class EvalSettings(object):
-    # project_folder: str
-    # file_path: str
+    name: str
     use_hammer: bool
     setting_type: SettingType = SettingType.Agent
     max_proof_depth: int = 50
@@ -50,7 +49,7 @@ class EvalSettings(object):
     max_history_messages: int = 0
     policy_name: PolicyName = PolicyName.Dfs
     proof_dump_dir: str = ".log/proofs/proof-dump-"
-    use_human_readable_proof_context: bool = True
+    use_human_readable_proof_context: bool = True    
 
 @dataclass_json
 @dataclass
@@ -77,9 +76,18 @@ class Experiments(object):
     eval_settings: EvalSettings
     benchmark: EvalBenchmark
 
+@dataclass_json
+@dataclass
+class EvalRunCheckpointInfo(object):
+    checkpoint_file: str
+    logging_dirs: typing.List[str]
+    proof_dump_dir: str
+    theorem_maps: typing.Dict[str, typing.List[str]]
+
 def parse_config(cfg):
     eval_settings_cfg = cfg["eval_settings"]
     eval_settings = EvalSettings(
+        name=eval_settings_cfg["name"],
         use_hammer=eval_settings_cfg["use_hammer"],
         setting_type=SettingType(eval_settings_cfg["setting_type"]),
         max_proof_depth=eval_settings_cfg["max_proof_depth"],

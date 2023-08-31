@@ -5,3 +5,4 @@ defaults:
 
 # To run this experiment, execute the following command:
 # nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_10_dfs_gpt35 &
+# nohup python src/main/eval_benchmark.py benchmark=minicompcert_benchmark_1 eval_settings=n_4_few_gpt35 &
