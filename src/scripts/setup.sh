@@ -47,3 +47,11 @@ $pip_exe install --user -r requirements.txt
     # Ignore some proofs in CompCert
     # ./src/scripts/patch_compcert.sh
 ) || exit 1
+echo "Building Simple Benchmark..."
+pushd ./data/test/coq/custom_group_theory
+cd theories
+make
+cd ..
+popd
+echo "Building Simple Benchmark done!"
+echo "Setup complete!"
