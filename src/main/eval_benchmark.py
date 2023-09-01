@@ -145,8 +145,9 @@ def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eva
                 f.write(f"Lemma: {lemma_name}\n")
                 f.write(f"File: {path}\n")
                 f.write(f"Proof/Incomplete proof: \n{proof_res}\n")
-        logger.info(f"Success rate: {success_count}/{len(eval_proof_results.theorem_map)} = {success_count/len(eval_proof_results.theorem_map)} for benchmark: {benchmark.name}")
-        f.write(f"Success rate: {success_count}/{len(eval_proof_results.theorem_map)} = {success_count/len(eval_proof_results.theorem_map)} for benchmark: {benchmark.name}\n")
+        total_attempted = sum([len(x) for _, x in eval_proof_results.theorem_map.items()])
+        logger.info(f"Success rate: {success_count}/{total_attempted} = {success_count/total_attempted} for benchmark: {benchmark.name}")
+        f.write(f"Success rate: {success_count}/{total_attempted} = {success_count/total_attempted} for benchmark: {benchmark.name}\n")
 
 def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None):
     trial_cnt = 100
