@@ -3,7 +3,7 @@ num_files: 13
 datasets:
   - project: data/benchmarks/CompCert
   - files:
-      - path: data/benchmarks/CompCert/MenhirLib/Validator_complete.v
+      - path: MenhirLib/Validator_complete.v
         theorems: 
             - complete
             - complete_is_validator
@@ -13,7 +13,7 @@ datasets:
             - is_validator_iterate_lset
             - is_validator_state_has_future_subset
             - is_validator_subset
-      - path: data/benchmarks/CompCert/backend/Locations.v
+      - path: backend/Locations.v
         theorems: 
             - compare
             - diff_dec
@@ -46,7 +46,7 @@ datasets:
             - typealign_pos
             - typealign_typesize
             - typesize_pos
-      - path: data/benchmarks/CompCert/backend/RTL.v
+      - path: backend/RTL.v
         theorems: 
             - exec_Iload'
             - exec_Iop'
@@ -58,7 +58,7 @@ datasets:
             - max_reg_instr_ge
             - max_reg_instr_uses
             - semantics_receptive
-      - path: data/benchmarks/CompCert/backend/Selectionproof.v
+      - path: backend/Selectionproof.v
         theorems: 
             - HF'
             - TransfSelectionLink
@@ -116,7 +116,7 @@ datasets:
             - transf_program_correct
             - transf_program_match
             - wt_prog
-      - path: data/benchmarks/CompCert/cfrontend/Cop.v
+      - path: cfrontend/Cop.v
         theorems: 
             - bool_val_inj
             - bool_val_inject
@@ -141,7 +141,7 @@ datasets:
             - val_inject_vfalse
             - val_inject_vptrofs
             - val_inject_vtrue
-      - path: data/benchmarks/CompCert/common/Globalenvs.v
+      - path: common/Globalenvs.v
         theorems: 
             - add_global_match
             - add_globals_app
@@ -243,10 +243,10 @@ datasets:
             - store_zeros_perm
             - store_zeros_read_as_zero
             - store_zeros_unchanged
-      - path: data/benchmarks/CompCert/exportclight/Clightdefs.v
+      - path: exportclight/Clightdefs.v
         theorems: 
             - build_composite_env'
-      - path: data/benchmarks/CompCert/flocq/Calc/Round.v
+      - path: flocq/Calc/Round.v
         theorems: 
             - cexp_inbetween_float
             - cexp_inbetween_float_loc_Exact
@@ -287,7 +287,7 @@ datasets:
             - truncate_correct_format
             - truncate_correct_partial
             - truncate_correct_partial'
-      - path: data/benchmarks/CompCert/flocq/Core/Zaux.v
+      - path: flocq/Core/Zaux.v
         theorems: 
             - ZOdiv_mod_mult
             - ZOdiv_plus
@@ -335,7 +335,7 @@ datasets:
             - radix_gt_0
             - radix_gt_1
             - radix_val_inj
-      - path: data/benchmarks/CompCert/flocq/Prop/Mult_error.v
+      - path: flocq/Prop/Mult_error.v
         theorems: 
             - F2R_ge
             - mult_bpow_exact_FLT
@@ -344,7 +344,7 @@ datasets:
             - mult_error_FLT_ge_bpow
             - mult_error_FLX
             - mult_error_FLX_aux
-      - path: data/benchmarks/CompCert/lib/Parmov.v
+      - path: lib/Parmov.v
         theorems: 
             - dests_disjoint_append_left
             - dests_disjoint_append_right
@@ -420,10 +420,10 @@ datasets:
             - wf_move_initial_reg_or_temp
             - wf_moves_append
             - wf_moves_cons
-      - path: data/benchmarks/CompCert/lib/Wfsimpl.v
+      - path: lib/Wfsimpl.v
         theorems: 
             - unroll_Fix
-      - path: data/benchmarks/CompCert/x86/SelectOpproof.v
+      - path: x86/SelectOpproof.v
         theorems: 
             - eval_absf
             - eval_absfs
