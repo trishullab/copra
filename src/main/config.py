@@ -49,7 +49,9 @@ class EvalSettings(object):
     max_history_messages: int = 0
     policy_name: PolicyName = PolicyName.Dfs
     proof_dump_dir: str = ".log/proofs/proof-dump-"
-    use_human_readable_proof_context: bool = True    
+    use_human_readable_proof_context: bool = True
+    sample: float = 1.0
+    sample_seed: int = 0xf00    
 
 @dataclass_json
 @dataclass
@@ -132,7 +134,9 @@ def parse_config(cfg):
         max_history_messages=eval_settings_cfg["max_history_messages"],
         policy_name=PolicyName(eval_settings_cfg["policy_name"]),
         proof_dump_dir=eval_settings_cfg["proof_dump_dir"],
-        use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"])
+        use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"],
+        sample=eval_settings_cfg["sample"],
+        sample_seed=eval_settings_cfg["sample_seed"])
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []

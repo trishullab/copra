@@ -2,7 +2,7 @@ name: compcert_benchmark_hard
 num_files: 13
 datasets:
   - project: data/benchmarks/CompCert
-  - files:
+    files:
       - path: MenhirLib/Validator_complete.v
         theorems: 
             - complete

@@ -6,8 +6,8 @@ timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1
 main_prompt: data/prompts/system/coq-proof-agent-with-dfs.md
 conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md
-max_tokens_per_action: 25
-max_theorems_in_prompt: 5
+max_tokens_per_action: 100
+max_theorems_in_prompt: 7
 gpt_model_name: gpt-3.5-turbo
 max_number_of_episodes: 1
 max_steps_per_episode: 30
@@ -19,3 +19,5 @@ max_history_messages: 0
 policy_name: Dfs
 proof_dump_dir: .log/proofs/eval_driver/dfs
 use_human_readable_proof_context: True
+sample: 1.0
+sample_seed: 0xf00

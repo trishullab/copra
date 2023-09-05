@@ -55,6 +55,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self._max_history_messages = max_history_messages
         self._k = k
         self.logger = logger if logger is not None else logging.getLogger(__name__)
+        self._num_api_calls = 0
         pass
 
     def add_to_history(self, message: typing.Any):
@@ -152,7 +153,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         while not success and retries > 0:
             try:
                 self._throttle_if_needed(total_token_count)
-                self.logger.info(f"Requesting {total_token_count} tokens.")
+                self.logger.info(f"Requesting {tokens_to_generate} tokens to generate, {total_token_count} tokens in input.")
                 self.logger.info(f"Prompt Message:\n{prompt_message['content']}")
                 request_start_time = time.time()
                 responses, usage = self._gpt_access.complete_chat(
@@ -180,6 +181,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                 else:
                     self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                     self.logger.debug(f"Response messages: \n{responses}")
+                self._num_api_calls += 1
             except InvalidRequestError as e:
                 self.logger.info("Got an invalid request error. Not retrying.")
                 self.logger.exception(e)
@@ -217,3 +219,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
     
     def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
         pass
+
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "api_calls": self._num_api_calls
+        }

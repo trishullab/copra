@@ -1,4 +1,4 @@
-name: n_4_few_gpt35
+name: n_4_few_gpt4_7_per_cent
 setting_type: Agent
 use_hammer: False
 max_proof_depth: 100
@@ -8,7 +8,7 @@ main_prompt: data/prompts/baseline/simple-prompt.md
 conv_prompt: data/prompts/baseline/simple-prompt-conv.md
 max_tokens_per_action: 250
 max_theorems_in_prompt: 7
-gpt_model_name: gpt-3.5-turbo
+gpt_model_name: gpt-4
 max_number_of_episodes: 1
 max_steps_per_episode: 4
 render: False
@@ -17,7 +17,7 @@ should_checkpoint: False
 temperature: 0.0
 max_history_messages: 0
 policy_name: FewShot
-proof_dump_dir: .log/proofs/eval_driver/few_shot
+proof_dump_dir: .log/proofs/eval_driver/few_shot/gpt4
 use_human_readable_proof_context: True
-sample: 1.0
+sample: 0.07
 sample_seed: 0xf00
