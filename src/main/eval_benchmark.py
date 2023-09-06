@@ -52,7 +52,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
                 main_executor.run_to_finish_lemma()
     return lemmas_to_prove
 
-def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
+def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
@@ -118,6 +118,9 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpo
                     max_history_messages=eval_settings.max_history_messages,
                     gpt_model_name=eval_settings.gpt_model_name,
                     k=eval_settings.max_theorems_in_prompt,
+                    retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
+                    metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
                     logger=logger)
                 search_guidance_policy = FewShotGptPolicy(
                     eval_settings.checkpoint_dir,
@@ -208,7 +211,7 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         try:
             logger = logger or logging.getLogger(__name__)
             for dataset in benchmark.datasets:
-                eval_dataset(dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
+                eval_dataset(benchmark, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
             measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
             trial_cnt = 0
         except:

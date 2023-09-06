@@ -21,3 +21,4 @@ proof_dump_dir: .log/proofs/eval_driver/dfs/gpt4
 use_human_readable_proof_context: True
 sample: 1.0
 sample_seed: 0xf00
+use_example_retrieval: False
