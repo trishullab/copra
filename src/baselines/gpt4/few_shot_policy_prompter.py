@@ -149,13 +149,16 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                         char_cnt_remaining = char_cnt_remaining - len(example_proof)
                     else:
                         char_cnt_remaining = char_cnt_remaining - char_cnt_theorem
-
-                    custom_system_messages.append(
-                        self.agent_grammar.get_openai_main_message_from_string(example_theorem, "system", "example_user")
-                    )
-                    custom_system_messages.append(
-                        self.agent_grammar.get_openai_main_message_from_string(example_proof, "system", "example_assistant")
-                    )
+                    
+                    if len(example_theorem) > 0 and len(example_proof) > 0:
+                        custom_system_messages.append(
+                            self.agent_grammar.get_openai_main_message_from_string(example_theorem, "system", "example_user")
+                        )
+                        custom_system_messages.append(
+                            self.agent_grammar.get_openai_main_message_from_string(example_proof, "system", "example_assistant")
+                        )
+                    else:
+                        break
                 custom_system_message_count = self._gpt_access.num_tokens_from_messages(custom_system_messages)
                 custom_message_tokens_underlimit = custom_system_message_count < max_token_for_examples
                 characters_per_token -= 1
