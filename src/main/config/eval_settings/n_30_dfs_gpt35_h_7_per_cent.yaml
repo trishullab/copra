@@ -1,6 +1,6 @@
-name: n_30_dfs_gpt35
+name: n_30_dfs_gpt35_h_7_per_cent
 setting_type: Agent
-use_hammer: False
+use_hammer: True
 max_proof_depth: 30
 timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1
@@ -19,6 +19,6 @@ max_history_messages: 0
 policy_name: Dfs
 proof_dump_dir: .log/proofs/eval_driver/dfs
 use_human_readable_proof_context: True
-sample: 1.0
+sample: 0.07
 sample_seed: 0xf00
 use_example_retrieval: False

@@ -49,7 +49,10 @@ class EvalSettings(object):
     max_history_messages: int = 0
     policy_name: PolicyName = PolicyName.Dfs
     proof_dump_dir: str = ".log/proofs/proof-dump-"
-    use_human_readable_proof_context: bool = True    
+    use_human_readable_proof_context: bool = True
+    sample: float = 1.0
+    sample_seed: int = 0xf00
+    use_example_retrieval: bool = False
 
 @dataclass_json
 @dataclass
@@ -69,6 +72,10 @@ class EvalBenchmark(object):
     name: str
     num_files: int
     datasets: typing.List[EvalDataset]
+    few_shot_data_path_for_retrieval: str = None
+    few_shot_metadata_filename_for_retrieval: str = None
+    dfs_data_path_for_retrieval: str = None
+    dfs_metadata_filename_for_retrieval: str = None
 
 @dataclass_json
 @dataclass
@@ -132,7 +139,10 @@ def parse_config(cfg):
         max_history_messages=eval_settings_cfg["max_history_messages"],
         policy_name=PolicyName(eval_settings_cfg["policy_name"]),
         proof_dump_dir=eval_settings_cfg["proof_dump_dir"],
-        use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"])
+        use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"],
+        sample=eval_settings_cfg["sample"],
+        sample_seed=eval_settings_cfg["sample_seed"],
+        use_example_retrieval=eval_settings_cfg["use_example_retrieval"])
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []
@@ -154,5 +164,9 @@ def parse_config(cfg):
     benchmark = EvalBenchmark(
         name=benchmark_cfg["name"],
         num_files=benchmark_cfg["num_files"],
-        datasets=eval_datasets)
+        datasets=eval_datasets,
+        few_shot_data_path_for_retrieval=benchmark_cfg["few_shot_data_path_for_retrieval"],
+        few_shot_metadata_filename_for_retrieval=benchmark_cfg["few_shot_metadata_filename_for_retrieval"],
+        dfs_data_path_for_retrieval=benchmark_cfg["dfs_data_path_for_retrieval"],
+        dfs_metadata_filename_for_retrieval=benchmark_cfg["dfs_metadata_filename_for_retrieval"])
     return Experiments(eval_settings=eval_settings, benchmark=benchmark)

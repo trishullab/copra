@@ -201,11 +201,12 @@ class ProofEnv(Env):
         self.logger.info("-"*50)
         pass
 
-    def dump_proof(self, dump_file_name: str = None):
+    def dump_proof(self, dump_file_name: str = None, additional_info: typing.Dict[str, typing.Any] = None):
         assert self._loaded, "Env not loaded, call reset() first"
         self.goal_end_time = time.time()
         self.time_taken = self.goal_end_time - self.goal_start_time
         proof_steps = [TrainingDataFormat(proof_steps=tactic.training_data_format.proof_steps) for _, tactic in self._p_tree]
+        additional_info = additional_info if additional_info is not None else {}
         self.proof_search_res = ProofSearchResult(
             self._dynamic_proof_executor.main_file, 
             not self._dynamic_proof_executor.is_in_proof_mode(), 
@@ -217,7 +218,8 @@ class ProofEnv(Env):
             num_of_backtracks=-1, 
             is_timeout=False, 
             is_inference_exhausted=False, 
-            longest_success_path=-1)
+            longest_success_path=-1,
+            additional_info=additional_info)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
         if dump_file_name is not None:
             opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'

@@ -192,47 +192,9 @@ String:;
         return f"{FewShotGptKeywords.PROOF}\n{coq_gpt_request.proof_string}"
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
-        message, finish_reason = message_response
-        if finish_reason != "stop":            
-            # do a greedy correction to ensure that the message is parsable
-            idx = len(message)
-            exceptions = []
-            message_seems_fixable = True
-            try:
-                # trim any unwanted keywords at the end
-                idx = message.rfind('[')
-                if idx < 0:
-                    raise Exception("No opening bracket found, message is not parsable")
-                close_idx = message.rfind(']', idx, len(message))
-                if close_idx < 0:
-                    message = message[:idx]
-                else:
-                    idx = len(message)
-            except Exception:
-                message_seems_fixable = False
-                pass
-            if message_seems_fixable:    
-                attempt = 0
-                while idx >= 0:
-                    try:
-                        parsable_message = message[:idx] + f"\n{FewShotGptKeywords.QED}"
-                        self.compile(parsable_message)
-                        break
-                    except Exception as e:
-                        exceptions.append(e)
-                        idx = message.rfind('[', 0, idx)
-                    attempt += 1
-                if idx >= 0:
-                    message = parsable_message
-                else:
-                    raise exceptions[0]
-                result : FewShotGptRequest = self.run(message, None)
-            else:
-                message += f"\n{FewShotGptKeywords.QED}"
-                result : FewShotGptRequest = self.run(message, None)
-        else:
-            message += f"\n{FewShotGptKeywords.QED}"
-            result : FewShotGptRequest = self.run(message, None)            
+        message, _ = message_response
+        message += f"\n{FewShotGptKeywords.QED}"
+        result : FewShotGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
     

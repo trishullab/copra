@@ -2,6 +2,7 @@
 
 import sys
 
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -11,16 +12,18 @@ import os
 import time
 from openai.error import InvalidRequestError
 import logging
+from src.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAction
 from src.gpts.gpt_access import GptAccess
 from src.rl.proof_action import ProofAction
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponseGrammar
+from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
 
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
+    _cache: typing.Dict[str, typing.Any] = {}
     def __init__(self, 
             main_sys_prompt_path: str, 
             example_conv_prompt_path: str,
@@ -31,6 +34,9 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             gpt_model_name: str = "gpt-3.5-turbo",
             secret_filepath: str = ".secrets/openai_key.json",
             k : typing.Optional[int] = None,
+            retrieve_prompt_examples: bool = True,
+            training_data_path: typing.Optional[str] = None,
+            metadata_filename: typing.Optional[str] = None,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
@@ -49,13 +55,45 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self.num_sequences = num_sequences
         self.system_token_count = self._gpt_access.num_tokens_from_messages(self.system_messages)
         self._max_tokens_per_action = max_tokens_per_action
+        max_token_limit = self._max_token_per_prompt - self._max_tokens_per_action
+        assert max_token_limit > 0, f"Max token per prompt {self._max_token_per_prompt} is less than max token per action {self._max_tokens_per_action}"
+        assert self.system_token_count < max_token_limit, f"System token count {self.system_token_count} is greater or equal to the max token per prompt {max_token_limit}"
         self._history_token_count = 0
         self._message_history = []
+        self._custom_system_messages = []
         self._message_history_token_count = []
         self._max_history_messages = max_history_messages
         self._k = k
+        self._retrieve_prompt_examples = retrieve_prompt_examples
         self.logger = logger if logger is not None else logging.getLogger(__name__)
+        self._num_api_calls = 0
+        self._training_data_path = training_data_path
+        self._metadata_filename = metadata_filename
+        if self._retrieve_prompt_examples:
+            assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
+            assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
+            assert os.path.exists(self._training_data_path), f"Training data path {self._training_data_path} doesn't exists"
+            self._init_retriever()
         pass
+
+    def _init_retriever(self):
+        if FewShotGptPolicyPrompter._cache.get(self._training_data_path, None) is not None:
+            # Use BM25 from cache if loaded once
+            self.logger.info("Using cached BM25 retriever ....")
+            self.retriever = FewShotGptPolicyPrompter._cache[self._training_data_path]
+        else:
+            self.retriever = CoqBM25TrainingDataRetriever(
+                self._training_data_path,
+                self._metadata_filename,
+                k1=1.2,
+                b=0.8,
+                epsilon=0.1,
+                logger=self.logger)
+            FewShotGptPolicyPrompter._cache[self._training_data_path] = self.retriever
+            self.logger.info("Loading training data for BM25 retriever ....")
+            self.retriever.load()
+            self.logger.info("Loaded training data for BM25 retriever!")
+        self._retrieval_count = 2
 
     def add_to_history(self, message: typing.Any):
         message_token_count = self._gpt_access.num_tokens_from_messages([message])
@@ -63,59 +101,124 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self._message_history_token_count.append(message_token_count)
         self._history_token_count += message_token_count
 
-    def _get_prompt_message(self, request: FewShotGptRequest, max_tokens_in_prompt: int) -> str:
+    def _get_prompt_message(self, request: FewShotGptResponse, max_tokens_in_prompt: int):
         assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
         characters_per_token = 5
         prompt_message_tokens_underlimit = False
+        if self._retrieve_prompt_examples:
+            dfs_with_score = self.retriever.find_relevant_training_data(request.theorem, num_results=self._retrieval_count)
+            max_token_for_examples = int(0.25 * max_tokens_in_prompt)
+            max_token_for_problem = max_tokens_in_prompt - max_token_for_examples
+            retrieved_examples = [dfs for _, dfs in dfs_with_score]
+        else:
+            max_token_for_examples = 0
+            max_token_for_problem = max_tokens_in_prompt
+            retrieved_examples = [] 
+        # Also return the custom system messages here
+        custom_system_messages = []
+        custom_system_message_count = 0
+        if self._retrieve_prompt_examples:
+            custom_message_tokens_underlimit = False
+            characters_per_token = 5
+            while not custom_message_tokens_underlimit and characters_per_token > 0:
+                example_theorems = [
+                    retrieved_example.start_goals[0].goal
+                    for retrieved_example in retrieved_examples
+                ]
+                example_theorems = [
+                    self.coq_gpt_response_grammar.format_as_per_grammar(
+                        FewShotGptResponse(theorem=theorem), 
+                        self._k, 
+                        max_token_for_examples, 
+                        characters_per_token)
+                    for theorem in example_theorems
+                ]
+                example_proofs = [
+                    retrieved_example.proof_steps[0]
+                    for retrieved_example in retrieved_examples
+                ]
+                custom_system_messages = []
+                char_cnt_remaining = max_token_for_examples * characters_per_token
+                for example_theorem, example_proof in zip(example_theorems, example_proofs):
+                    char_cnt_theorem = len(example_theorem) + len(example_proof)
+                    if  char_cnt_theorem > char_cnt_remaining:
+                        # Trim the examples if they are too long
+                        example_theorem = example_theorem[:char_cnt_remaining]
+                        char_cnt_remaining = char_cnt_remaining - len(example_theorem)
+                        example_proof = example_proof[:char_cnt_remaining]
+                        char_cnt_remaining = char_cnt_remaining - len(example_proof)
+                    else:
+                        char_cnt_remaining = char_cnt_remaining - char_cnt_theorem
+                    
+                    if len(example_theorem) > 0 and len(example_proof) > 0:
+                        custom_system_messages.append(
+                            self.agent_grammar.get_openai_main_message_from_string(example_theorem, "system", "example_user")
+                        )
+                        custom_system_messages.append(
+                            self.agent_grammar.get_openai_main_message_from_string(example_proof, "system", "example_assistant")
+                        )
+                    else:
+                        break
+                custom_system_message_count = self._gpt_access.num_tokens_from_messages(custom_system_messages)
+                custom_message_tokens_underlimit = custom_system_message_count < max_token_for_examples
+                characters_per_token -= 1
+        if custom_system_message_count > max_token_for_examples:
+            # Drop the custom system messages if the prompt message is too long
+            custom_system_messages = []
+            custom_system_message_count = 0
+            max_token_for_problem = max_tokens_in_prompt
+        characters_per_token = 5
         while not prompt_message_tokens_underlimit and characters_per_token > 0:
-            prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_tokens_in_prompt, characters_per_token)
+            prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
             prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
             prompt_messages = [prompt_message]
             prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
-            prompt_message_tokens_underlimit = prompt_token_count <= max_tokens_in_prompt
+            prompt_message_tokens_underlimit = prompt_token_count < max_token_for_problem
             characters_per_token -= 1
-        assert prompt_token_count <= max_tokens_in_prompt, f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_tokens_in_prompt}"
-        return prompt_message, prompt_token_count
+        assert prompt_token_count <= max_token_for_problem, f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_token_for_problem}"
+        assert prompt_token_count + custom_system_message_count <= max_tokens_in_prompt, f"Prompt token count {prompt_token_count} + custom system message token count {custom_system_message_count} is greater than max token per prompt {max_tokens_in_prompt}"
+        return prompt_message, prompt_token_count, custom_system_messages, custom_system_message_count
 
-    def _constrain_tokens_in_history(self, prompt_message, prompt_token_count: int, max_tokens_per_action: int) -> list:
+    def _constrain_tokens_in_history(self, prompt_message, custom_example_system_messages : typing.List[dict[str, str]], custom_system_message_count: int, prompt_token_count: int, max_tokens_per_action: int) -> list:
         if len(self._message_history) >= self._max_history_messages:
             history_idx = len(self._message_history) - self._max_history_messages
         else:
             history_idx = 0
         if history_idx < len(self._message_history):
             # There is no point in checking the token count if there is no history to be maintained
-            total_token_count = self.system_token_count + self._history_token_count + prompt_token_count
+            total_token_count = self.system_token_count + self._history_token_count + prompt_token_count + custom_system_message_count
             max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
             assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
             tokens_shredded = False
             remove_cnt  = 0
             history_count = self._history_token_count
-            while total_token_count >= max_token_per_prompt and history_idx < len(self._message_history):
+            while total_token_count > max_token_per_prompt and history_idx < len(self._message_history):
                 self.logger.warning(f"Tokens exceeded removing history at index {history_idx}: {total_token_count} >= {max_token_per_prompt}")
                 history_count -= self._message_history_token_count[history_idx]
-                total_token_count = self.system_token_count + history_count + prompt_token_count
+                total_token_count = self.system_token_count + history_count + prompt_token_count + custom_system_message_count
                 history_idx += 1
                 tokens_shredded = True
                 remove_cnt += 1
             if remove_cnt % 2 == 1 and history_idx < len(self._message_history):
                 history_count -= self._message_history_token_count[history_idx]
-                total_token_count = self.system_token_count + history_count + prompt_token_count
+                total_token_count = self.system_token_count + history_count + prompt_token_count + custom_system_message_count
                 history_idx += 1
             if tokens_shredded:
                 self.logger.warning(f"Shredded tokens from history. New total token count: {total_token_count}, max token per prompt: {max_token_per_prompt}, history token count: {self._history_token_count}, prompt token count: {prompt_token_count}")
             if total_token_count >= max_token_per_prompt:
                 self.logger.warning(f"Total token count {total_token_count} is still greater than max token per prompt {max_token_per_prompt}.")
         else:
-            total_token_count = self.system_token_count + prompt_token_count
+            total_token_count = self.system_token_count + prompt_token_count + custom_system_message_count
         if history_idx > 0:
             for idx in range(min(history_idx, len(self._message_history))):
                 self._history_token_count -= self._message_history_token_count[idx]
         self._message_history = self._message_history[history_idx:]
         self._message_history_token_count = self._message_history_token_count[history_idx:]
+        self._custom_system_messages = custom_example_system_messages
         self._message_history.append(prompt_message)
         self._message_history_token_count.append(prompt_token_count)
-        self._history_token_count += prompt_token_count
-        messages = self.system_messages + self._message_history
+        self._history_token_count += prompt_token_count + custom_system_message_count
+        messages = self.system_messages + self._custom_system_messages + self._message_history
         return messages, total_token_count
     
     def _throttle_if_needed(self, total_token_count: int):
@@ -136,8 +239,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
 
     def run_prompt(self, request: FewShotGptRequest) -> list:
         max_tokens_in_prompt = self._max_token_per_prompt - self.system_token_count - self._max_tokens_per_action
-        prompt_message, prompt_token_count = self._get_prompt_message(request, max_tokens_in_prompt)
-        messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, self._max_tokens_per_action)
+        prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_tokens_in_prompt)
+        messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, self._max_tokens_per_action)
         success = False
         retries = 10
         time_to_sleep = 60
@@ -152,7 +255,11 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         while not success and retries > 0:
             try:
                 self._throttle_if_needed(total_token_count)
-                self.logger.info(f"Requesting {total_token_count} tokens.")
+                self.logger.info(f"Requesting {tokens_to_generate} tokens to generate, {total_token_count} tokens in input.")
+                if len(custom_system_msg) > 0:
+                    self.logger.info(f"Example prompt messages:")
+                    for idx, msg in enumerate(custom_system_msg):
+                        self.logger.info(f"Example {idx + 1} [{msg['role'], msg['name']}] :\n{msg['content']}")
                 self.logger.info(f"Prompt Message:\n{prompt_message['content']}")
                 request_start_time = time.time()
                 responses, usage = self._gpt_access.complete_chat(
@@ -167,19 +274,24 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                 self.logger.debug(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
                 reason = usage["reason"]
                 self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
-                success = reason != "length"
+                success = reason != "length" or tokens_to_generate >= upper_bound
                 if not success:
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     max_token_per_prompt = self._max_token_per_prompt - self.system_token_count - tokens_to_generate
-                    prompt_message, prompt_token_count = self._get_prompt_message(request, max_token_per_prompt) # Re-generate the prompt message within new token limit
-                    messages, total_token_count = self._constrain_tokens_in_history(prompt_message, prompt_token_count, tokens_to_generate)
+                    prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_token_per_prompt) # Re-generate the prompt message within new token limit
+                    messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, tokens_to_generate)
                     # temperature = max(max_temp, temperature + temp_factor)
                     # Don't change the temperature for now
                 else:
-                    self.logger.debug(f"Got a valid response. Reason: \n{reason}")
-                    self.logger.debug(f"Response messages: \n{responses}")
+                    if tokens_to_generate >= upper_bound:
+                        self.logger.warning(f"Retried {retries} times but still got an incomplete response. Reason: {reason}.")
+                        self.logger.info(f"Maxed out response: \n{responses}")
+                    else:
+                        self.logger.debug(f"Got a valid response. Reason: \n{reason}")
+                        self.logger.debug(f"Response messages: \n{responses}")
+                self._num_api_calls += 1
             except InvalidRequestError as e:
                 self.logger.info("Got an invalid request error. Not retrying.")
                 self.logger.exception(e)
@@ -217,3 +329,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
     
     def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
         pass
+
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "api_calls": self._num_api_calls
+        }

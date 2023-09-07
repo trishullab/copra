@@ -125,6 +125,13 @@ class TrainingData(MergableCollection):
         self.logger.info(f"Finished loading {len(files_to_load)} files")
         self._is_loaded = True
     
+    def unload(self):
+        assert self.is_readonly, "Training data is not loadable"
+        if self._is_loaded:
+            self._is_loaded = False
+            # Reload the metadata
+            self.load_meta()
+
     def merge(self, __o: object, new_lemma_ref_idx: typing.List[int] = None):
         assert isinstance(__o, TrainingDataFormat) or \
         isinstance(__o, TrainingData), "other must be a TrainingDataFormat or TrainingDataMetadata"

@@ -42,6 +42,7 @@ class FewShotGptPolicy(Policy):
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         self._asked_for_dfns_and_lms = False
         self._asked_for_proof = False
+        self._num_api_calls = 0
     
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
@@ -117,3 +118,8 @@ class FewShotGptPolicy(Policy):
         os.path.exists(checkpoint_path), f"Checkpoint file {checkpoint_path} does not exist"
         with open(checkpoint_path, 'w') as f:
             f.write(self._proof_q_tree.serialize())
+    
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "queries": self._policy_prompter.get_efficiency_info()["api_calls"],
+        }

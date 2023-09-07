@@ -27,50 +27,62 @@ class RayUtils(object):
         transform_outputs: typing.Callable[[typing.List[typing.Any]], None],
         prepare_next: typing.Callable[[int], typing.List[typing.Any]],
         create_remotes: typing.Callable[[typing.List[typing.Any]], typing.List[typing.Any]],
-        logger: logging.Logger = None
+        logger: logging.Logger = None,
+        turn_off_logging: bool = False
     ):
         logger = logger or logging.getLogger(__name__)
         idx = 0
         next_batch = prepare_next(max_parallel)
-        logger.info(f"Loading next_batch: {len(next_batch)}, max_parallel: {max_parallel}")
+        if not turn_off_logging:
+            logger.info(f"Loading next_batch: {len(next_batch)}, max_parallel: {max_parallel}")
         assert len(next_batch) <= max_parallel, f"next_batch: {len(next_batch)}, max_parallel: {max_parallel}"
         process = psutil.Process()
-        logger.info(f"[Process Id = {process.pid}] [After Next Batch] Memory used: {process.memory_info().rss/2**30} GiB")
+        if not turn_off_logging:
+            logger.info(f"[Process Id = {process.pid}] [After Next Batch] Memory used: {process.memory_info().rss/2**30} GiB")
         remotes = create_remotes(next_batch)
         process = psutil.Process()
-        logger.info(f"[Process Id = {process.pid}] [After Create] Memory used: {process.memory_info().rss/2**30} GiB")
-        logger.info(f"Created remotes: {len(remotes)}")
+        if not turn_off_logging:
+            logger.info(f"[Process Id = {process.pid}] [After Create] Memory used: {process.memory_info().rss/2**30} GiB")
+            logger.info(f"Created remotes: {len(remotes)}")
         diff_remotes = len(remotes)
         while idx < num_objects or len(remotes) > 0:
             idx += diff_remotes
             idx = min(idx, num_objects)
-            logger.info(f"Waiting for idx: {idx}, num_objects: {num_objects}, len(remotes): {len(remotes)}")
+            if not turn_off_logging:
+                logger.info(f"Waiting for idx: {idx}, num_objects: {num_objects}, len(remotes): {len(remotes)}")
             ready, remotes = ray.wait(remotes)
             if len(ready) > 0:
-                logger.info(f"Got ready: {len(ready)}")
+                if not turn_off_logging:
+                    logger.info(f"Got ready: {len(ready)}")
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After Ready] Memory used: {process.memory_info().rss/2**30} GiB")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After Ready] Memory used: {process.memory_info().rss/2**30} GiB")
                 results = ray.get(ready)
                 transform_outputs(results)
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After Transform] Memory used: {process.memory_info().rss/2**30} GiB")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After Transform] Memory used: {process.memory_info().rss/2**30} GiB")
                 next_batch = prepare_next(len(results))
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After Next Batch] Memory used: {process.memory_info().rss/2**30} GiB")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After Next Batch] Memory used: {process.memory_info().rss/2**30} GiB")
                 assert len(next_batch) <= len(results), f"next_batch: {len(next_batch)}, ready: {len(results)}"
                 new_remotes = create_remotes(next_batch)
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After Create] Memory used: {process.memory_info().rss/2**30} GiB")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After Create] Memory used: {process.memory_info().rss/2**30} GiB")
                 remotes.extend(new_remotes)
                 diff_remotes = len(new_remotes)
                 # Delete results to free up memory
                 del results
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After Delete] Memory used: {process.memory_info().rss/2**30} GiB")
-                logger.info(f"Running GC collect")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After Delete] Memory used: {process.memory_info().rss/2**30} GiB")
+                    logger.info(f"Running GC collect")
                 gc.collect()
                 process = psutil.Process()
-                logger.info(f"[Process Id = {process.pid}] [After GC] Memory used: {process.memory_info().rss/2**30} GiB")
+                if not turn_off_logging:
+                    logger.info(f"[Process Id = {process.pid}] [After GC] Memory used: {process.memory_info().rss/2**30} GiB")
             else:
                 diff_remotes = 0
 

@@ -1,0 +1,75 @@
+name: compcert_benchmark_hard_7_per_cent
+num_files: 13
+few_shot_data_path_for_retrieval: .log/tools/coq_raw_proofs/data/benchmarks/CompCert/2023-09-06-03-44-06/CompCert/train
+few_shot_metadata_filename_for_retrieval: single.meta.json
+dfs_data_path_for_retrieval: .log/run_data_generation_transforms/data/benchmarks/CompCert/train
+dfs_metadata_filename_for_retrieval: local.meta.json
+datasets:
+  - project: data/benchmarks/CompCert
+    files:
+      - path: MenhirLib/Validator_complete.v
+        theorems: 
+            - is_validator_forall_state_has_future
+      - path: backend/Locations.v
+        theorems:
+            - guo
+            - lt_not_eq
+            - typealign_typesize
+      - path: backend/RTL.v
+        theorems:
+            - max_reg_instr_uses
+      - path: backend/Selectionproof.v
+        theorems: 
+            - HF'
+            - get_helpers_correct
+            - sel_builtin_arg_correct
+            - sel_builtin_args_correct
+      - path: cfrontend/Cop.v
+        theorems:
+            - cast_bool_bool_val
+            - eq_int_type
+      - path: common/Globalenvs.v
+        theorems:
+            - add_globals_unique_preserves
+            - alloc_global_exists
+            - alloc_globals_initialized
+            - find_def_not_fresh
+            - find_funct_find_funct_ptr
+            - store_init_data_list_charact
+            - store_init_data_list_neutral
+            - store_init_data_list_nextblock
+      - path: exportclight/Clightdefs.v
+        theorems: 
+            - build_composite_env'
+      - path: flocq/Calc/Round.v
+        theorems:
+            - inbetween_float_NE
+            - inbetween_int_DN_sign
+            - round_trunc_any_correct'
+      - path: flocq/Core/Zaux.v
+        theorems:
+            - Zcompare_spec
+            - Zdiv_eucl_unique
+            - Zeven_Zpower_odd
+            - Zpower_gt_id
+      - path: flocq/Prop/Mult_error.v
+        theorems: 
+            - mult_error_FLT_ge_bpow
+      - path: lib/Parmov.v
+        theorems: 
+            - dests_disjoint_append_right
+            - dtransitions_correctness
+            - dtransitions_preserve_wf_state
+            - in_dests
+            - transition_preserves_wf
+            - update_commut
+      - path: lib/Wfsimpl.v
+        theorems: 
+            - unroll_Fix
+      - path: x86/SelectOpproof.v
+        theorems:
+            - eval_compu
+            - eval_intuoffloat
+            - eval_mulimm_base
+            - eval_negfs
+            - eval_singleofintu

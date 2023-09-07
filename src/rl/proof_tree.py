@@ -63,6 +63,7 @@ class ProofSearchResult(object):
     is_timeout: bool
     is_inference_exhausted: bool
     longest_success_path: int
+    additional_info: typing.Dict[str, typing.Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
         try:
@@ -78,6 +79,7 @@ StepsUsed: {self.inferences_taken}
 SearchTimeInSecs: {self.proof_time_in_secs}
 NumberOfBacktracks: {self.num_of_backtracks}
 PossibleFailedPaths: {self.possible_failed_paths}
+AdditionalInfo: {self.additional_info}
 """
             all_proof_steps = "\n    ".join(lines[:-1]) if len(lines) > 1 else ""
             last_line = (lines[-1] if lines[-1] == "Qed." else f"    {lines[-1]}\n") if len(lines) > 0 else ""

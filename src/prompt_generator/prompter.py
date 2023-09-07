@@ -19,3 +19,6 @@ class PolicyPrompter(ABC):
     @abstractmethod
     def parse_response(self, response: str) -> typing.Any:
         pass
+
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {}

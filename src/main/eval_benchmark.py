@@ -8,9 +8,10 @@ if root_dir not in sys.path:
 import hydra
 import logging
 import os
-import typing
+import random
 import time
 import math
+import typing
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
@@ -22,6 +23,16 @@ from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
+
+def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
+    def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
+        return info["queries"] >= max_query_limit
+    return _check_query_limit_reached
+
+def query_limit_info_message(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], str]:
+    def _query_limit_info_message(steps: int, info: typing.Dict[str, typing.Any]):
+        return f"Step {info['queries']}/{max_query_limit} (Actual steps: {steps})"
+    return _query_limit_info_message
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
     lemmas_to_prove = []
@@ -41,7 +52,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
                 main_executor.run_to_finish_lemma()
     return lemmas_to_prove
 
-def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
+def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
@@ -68,9 +79,15 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpo
             file.theorems = list(set(file.theorems).intersection(lemmas_to_prove))
         else:
             raise ValueError(f"Invalid theorems: {file.theorems}")
-        file.theorems.sort() # sort to ensure reproducibility
         logger.info(f"Discovered {len(file.theorems)} lemmas to prove in {path}")
         logger.info(f"Lemmas to prove in file {path}: \n{file.theorems}")
+        if eval_settings.sample < 1.0:
+            sample_size = math.ceil(len(file.theorems) * eval_settings.sample)
+            logger.info(f"Sampling {sample_size} lemmas from {len(file.theorems)} lemmas in file {path}")
+            random.seed(eval_settings.sample_seed)
+            file.theorems = list(random.sample(file.theorems, sample_size))
+            logger.info(f"Sampled lemmas to prove in file {path}: \n{file.theorems}")
+        file.theorems.sort() # sort to ensure reproducibility
         for lemma_name in file.theorems:
             logger.info(f"Attempting to prove lemma: {lemma_name}")
             search_guidance_policy : Policy = None
@@ -101,6 +118,9 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpo
                     max_history_messages=eval_settings.max_history_messages,
                     gpt_model_name=eval_settings.gpt_model_name,
                     k=eval_settings.max_theorems_in_prompt,
+                    retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
+                    metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
                     logger=logger)
                 search_guidance_policy = FewShotGptPolicy(
                     eval_settings.checkpoint_dir,
@@ -116,7 +136,14 @@ def eval_dataset(dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpo
                     with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, logger=logger) as env:
                         with search_guidance_policy:
                             agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
-                            agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
+                            agent.run_episodes_till_stop(
+                                env,
+                                episodes=eval_settings.max_number_of_episodes,
+                                render=eval_settings.render,
+                                stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
+                                policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode)
+                            )
+                            # agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
                         eval_proof_results.add_theorem_to_maps(path, lemma_name, env.proof_search_res)
                     eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
                 except:
@@ -184,7 +211,7 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         try:
             logger = logger or logging.getLogger(__name__)
             for dataset in benchmark.datasets:
-                eval_dataset(dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
+                eval_dataset(benchmark, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
             measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
             trial_cnt = 0
         except:

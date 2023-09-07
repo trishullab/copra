@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -11,6 +12,7 @@ from enum import Enum
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from abc import ABC, abstractmethod
+from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
@@ -141,16 +143,11 @@ class TreeSearchAlgorithm(ABC):
     def estimate_q_value(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo) -> float:
         pass
 
-class GptPolicyPrompter(ABC):
-    @abstractmethod
-    def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
-        pass
-
 class GptGuidedTreeSearchPolicy(Policy):
     def __init__(self, 
         checkpoint_dir: str, 
         checkpoint_filename: str,
-        policy_prompter: GptPolicyPrompter,
+        policy_prompter: PolicyPrompter,
         tree_search_algorithm: TreeSearchAlgorithm, 
         checkpoint_on_exit: bool = True):
         assert tree_search_algorithm is not None, "Tree search algorithm cannot be None"
@@ -213,6 +210,11 @@ class GptGuidedTreeSearchPolicy(Policy):
             # No need to update if the proof is done
             self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
 
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "queries": self._policy_prompter.get_efficiency_info()["api_calls"]
+        }
+
     def clone(self) -> 'GptGuidedTreeSearchPolicy':
         guid = str(uuid.uuid4())
         checkpoint_filename_without_ext, ext = os.path.splitext(self.checkpoint_filename)
@@ -225,3 +227,4 @@ class GptGuidedTreeSearchPolicy(Policy):
         os.path.exists(checkpoint_path), f"Checkpoint file {checkpoint_path} does not exist"
         with open(checkpoint_path, 'w') as f:
             f.write(self._proof_q_tree.serialize())
+        

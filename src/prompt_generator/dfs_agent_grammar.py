@@ -96,11 +96,18 @@ String:;
             main_content = f.read()
         return self.get_openai_main_message_from_string(main_content, role)
 
-    def get_openai_main_message_from_string(self, content: str, role: str = "system"):
-        return {
-            'role': role,
-            'content': content
-        }
+    def get_openai_main_message_from_string(self, content: str, role: str = "system", name: str = None):
+        if name is None:
+            return {
+                'role': role,
+                'content': content
+            }
+        else:
+            return {
+                'role': role,
+                'name': name,
+                'content': content
+            }
 
     def parse_openai_messages(self, messages: list, role: str = "assistant"):
         assert isinstance(messages, list), f"Messages must be a list. Got {type(messages)}"

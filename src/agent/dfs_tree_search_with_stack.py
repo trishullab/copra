@@ -83,6 +83,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
     def __init__(self):
         self._action_queue : deque = deque()
         self._search_stack : typing.List[DFSTreeNode] = []
+        self._num_nodes_visited = 0
         pass
 
     def reset(self):
@@ -186,6 +187,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert last_node.state_action_pair.state == state, "The last node's current state should be the current state"
             assert last_node.info.progress == ProgressState.FAILED, "The last node's progress should be FAILED"
             assert last_node.info.error_message is not None, "The last node's error message should not be None"
+            self._num_nodes_visited += 1
             return TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT,
                     last_node.state_action_pair.state, summary = PromptSummary(
                         last_node.incorrect_actions,
@@ -202,6 +204,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert len(last_node.incorrect_actions) == 0, "The last node's incorrect actions should be empty"
             assert last_node.info.progress != ProgressState.FAILED, "The last node's progress should not be FAILED"
             assert last_node.info.error_message is None, "The last node's error message should be None"
+            self._num_nodes_visited += 1
             return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT,
                     last_node.next_state_action_pair.state, summary = PromptSummary(
                         last_node.incorrect_actions,

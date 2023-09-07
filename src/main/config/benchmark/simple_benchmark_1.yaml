@@ -1,5 +1,9 @@
 name: simple_benchmark_1
 num_files: 1
+few_shot_data_path_for_retrieval: .log/tools/coq_raw_proofs/data/test/coq/custom_group_theory/2023-09-06-03-32-37/theories/train
+few_shot_metadata_filename_for_retrieval: single.meta.json
+dfs_data_path_for_retrieval: .log/run_data_generation_transforms/data/test/custom_group_theory/train
+dfs_metadata_filename_for_retrieval: local.meta.json
 datasets:
   - project: data/test/coq/custom_group_theory/theories
     files:

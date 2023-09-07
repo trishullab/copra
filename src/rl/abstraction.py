@@ -137,6 +137,9 @@ class Policy(ABC):
     def clone(self):
         pass
 
+    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
+        return {}
+
 class Agent(ABC):
     def __init__(self):
         pass
@@ -156,4 +159,10 @@ class Agent(ABC):
 
     @abstractmethod
     def run(self, env: Env, episodes: int, max_steps_per_episode: int, render: bool):
+        pass
+
+    @abstractmethod
+    def run_episodes_till_stop(self, env: Env, episodes: int, render: bool, 
+        stop_policy: typing.Callable[[int, typing.Dict[str, typing.Any]], bool], 
+        policy_info_message: typing.Callable[[int, typing.Dict[str, typing.Any]], str]):
         pass
