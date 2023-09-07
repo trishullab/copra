@@ -96,7 +96,7 @@ String:;
     def generate_message_from_gpt_request(self, coq_gpt_request: CoqGptRequest) -> str:
         if coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
             args = '\n'.join(coq_gpt_request.args)
-            return f"{CoqGptRequestActions.RUN_TACTIC}{args}\n{CoqGPTRequestGrammar.end}"
+            return f"{CoqGptRequestActions.RUN_TACTIC}\n{args}\n{CoqGPTRequestGrammar.end}"
         elif coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
             return f"{CoqGptRequestActions.GET_DFNS_THMS}\n{CoqGPTRequestGrammar.end}"
         else:
