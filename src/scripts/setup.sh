@@ -16,6 +16,20 @@ conda_bin=$(conda info | grep "active env location" | cut -d ':' -f 2 | tr -d '[
 pip_exe="$conda_bin/bin/pip"
 ls -l $pip_exe
 echo "Installing dependencies..."
+echo "Installing Elan (Lean version manager) ..."
+# # For Lean:
+# # https://leanprover-community.github.io/install/debian_details.html
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
+echo "Installed Elan (Lean version manager) successfully!"
+echo "Installing Lean (lean:3.42.1) ..."
+elan toolchain install leanprover-community/lean:3.42.1
+elan override set leanprover-community/lean:3.42.1
+echo "Installed Lean (lean:3.42.1) successfully!"
+# # For installing leanproject
+echo "Installing leanproject..."
+$pip_exe install --user mathlibtools
+echo "Installed leanproject successfully!"
+echo "Installing OCaml (opam)..."
 opam init -a --compiler=4.07.1
 eval `opam config env`
 opam update
