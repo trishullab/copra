@@ -79,10 +79,12 @@ echo "Building Lean's projects ..."
 (
     # Build Lean's projects
     echo "Building miniF2F..."
-    echo "This may take a while... (don't underestimate the time taken to build mathlib, meanwhile you can take a coffee break!)"
+    echo "This may take a while... (don't underestimate the time taken to build miniF2F, meanwhile you can take a coffee break!)"
     pushd ./data/benchmarks
     set -euv
     cd miniF2F
+    leanpkg configure
+    leanproject get-mathlib-cache # This allows us to use .olean files from mathlib without building them again
     leanproject build
     popd
     echo "miniF2F built successfully!"
