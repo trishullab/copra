@@ -29,3 +29,5 @@ openai==0.27.8
 tiktoken==0.4.0
 psutil==5.9.5
 accelerate==0.20.3
+urllib3==2.0.4
+mathlibtools==1.3.2

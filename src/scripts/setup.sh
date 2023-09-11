@@ -3,14 +3,15 @@ if [[ ! -d "src/scripts" ]]; then
     echo "Please run this script from the root of the repository, cannot find src/scripts"
     exit 1
 fi
-# Assume that conda is activated
 # Don't run without activating conda
 # Check if Conda is activated
 conda_status=$(conda info | grep "active environment" | cut -d ':' -f 2 | tr -d '[:space:]')
 if [[ $conda_status == "None" ]] || [[ $conda_status == "base" ]]; then
-    echo "Please activate conda before running this script"
+    echo "Please activate conda environment before running this script"
     exit 1
 fi
+echo "Setting up Copra ..."
+echo "[NOTE] The installation needs manual intervention on some steps. Please choose the appropriate option when prompted."
 conda install pip
 conda_bin=$(conda info | grep "active env location" | cut -d ':' -f 2 | tr -d '[:space:]')
 pip_exe="$conda_bin/bin/pip"
@@ -25,10 +26,10 @@ echo "Installing Lean (lean:3.42.1) ..."
 elan toolchain install leanprover-community/lean:3.42.1
 elan override set leanprover-community/lean:3.42.1
 echo "Installed Lean (lean:3.42.1) successfully!"
-# # For installing leanproject
-echo "Installing leanproject..."
-$pip_exe install --user mathlibtools
-echo "Installed leanproject successfully!"
+# # # For installing leanproject
+# echo "Installing leanproject..."
+# $pip_exe install --user mathlibtools
+# echo "Installed leanproject successfully!"
 echo "Installing OCaml (opam)..."
 opam init -a --compiler=4.07.1
 eval `opam config env`
@@ -46,9 +47,14 @@ opam install -y coq-dpdgraph
 # Python dependencies
 echo "Installing Python dependencies..."
 $pip_exe install --user -r requirements.txt
+echo "Clone all git submodules..."
+git submodule update --init --recursive
+echo "Cloned all git submodules successfully!"
+echo "Building Coq projects..."
 (
     # Build CompCert
     echo "Building CompCert..."
+    echo "This may take a while... (don't underestimate the time taken to build CompCert, meanwhile you can take a coffee break!)"
     pushd ./data/benchmarks
     set -euv
     cd CompCert
@@ -61,11 +67,33 @@ $pip_exe install --user -r requirements.txt
     # Ignore some proofs in CompCert
     # ./src/scripts/patch_compcert.sh
 ) || exit 1
-echo "Building Simple Benchmark..."
+echo "Building Coq's Simple Benchmark..."
 pushd ./data/test/coq/custom_group_theory
 cd theories
 make
 cd ..
 popd
-echo "Building Simple Benchmark done!"
-echo "Setup complete!"
+echo "Building Coq's Simple Benchmark done!"
+echo "Coq's Setup complete!"
+echo "Building Lean's projects ..."
+(
+    # Build Lean's projects
+    echo "Building miniF2F..."
+    echo "This may take a while... (don't underestimate the time taken to build miniF2F, meanwhile you can take a coffee break!)"
+    pushd ./data/benchmarks
+    set -euv
+    cd miniF2F
+    leanpkg configure
+    leanproject get-mathlib-cache # This allows us to use .olean files from mathlib without building them again
+    leanproject build
+    popd
+    echo "miniF2F built successfully!"
+) || exit 1
+echo "Building Lean's Simple Benchmark..."
+pushd ./data/test/lean_proj
+leanproject build
+popd
+echo "Building Lean's Simple Benchmark done!"
+echo "Building Lean's projects done!"
+echo "Lean's Setup complete!"
+echo "Copra Setup complete!"
