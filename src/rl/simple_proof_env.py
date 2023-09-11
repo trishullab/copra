@@ -55,9 +55,12 @@ class ProofEnv(Env):
         lemma_name: str,
         retrieval_strategy: ProofEnvReRankStrategy = ProofEnvReRankStrategy.BM25,
         max_proof_depth: int = 10,
+        always_retrieve_thms: bool = False,
         logger : logging.Logger = None):
         assert isinstance(dynamic_proof_executor_callback, ProofExecutorCallback)
         assert isinstance(lemma_name, str)
+        assert isinstance(max_proof_depth, int)
+        assert isinstance(always_retrieve_thms, bool)
         self.dynamic_proof_executor_callback = dynamic_proof_executor_callback
         self._dynamic_proof_executor : DynamicProofExecutor = None
         self._loaded = False
@@ -70,6 +73,7 @@ class ProofEnv(Env):
         self._possible_failure_paths = 0
         self._success_path_length = 0
         self._num_cycles = 0
+        self._always_retrieve_thms = always_retrieve_thms
         self.retrieve_strategy = retrieval_strategy
         if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
             self._re_ranker = CoqBm25ReRanker()
@@ -104,7 +108,11 @@ class ProofEnv(Env):
                 use_fallback = False
         if use_fallback:
             # This gets the state from the Coq interface itself
-            current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
+            if self._always_retrieve_thms:
+                proof_state, _, _, _ = self._get_current_dfns_thms(ProofEnvInfo(progress=ProgressState.STARTING))
+                current_goals = proof_state.training_data_format
+            else:
+                current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
         state = ProofState(current_goals) # always make a copy of goals to avoid side effects
@@ -292,47 +300,15 @@ class ProofEnv(Env):
             current_proof_state = state
         return (state, current_proof_state, reward, done, env_info)
 
-    def _get_thms(self, history_idx: int = None):
-        assert self._loaded, "Env not loaded, call reset() first"
-        history_idx = len(self._history) - 1 if history_idx is None else history_idx
-        state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
-        assert action.action_type == ProofAction.ActionType.GET_THMS, "Action must be of type GET_THMS"
-        relevant_thms = self._dynamic_proof_executor.get_all_relevant_thms()
-        for goal in relevant_thms.start_goals:
-            query = goal.goal
-            local_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
-            global_responses = [str(relevant_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
-            local_scores = self._re_ranker.rerank(query, local_responses) if len(local_responses) > 0 else []
-            global_scores = self._re_ranker.rerank(query, global_responses) if len(global_responses) > 0 else []
-            local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
-            global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
-            local_idx.sort(key=lambda x: x[1], reverse=True)
-            global_idx.sort(key=lambda x: x[1], reverse=True)
-            local_responses = [goal.possible_useful_theorems_local[idx] for idx, _ in local_idx]
-            global_responses = [goal.possible_useful_theorems_external[idx] for idx, _ in global_idx]
-            sum_local_scores = sum([score for _, score in local_idx]) + 1e-6
-            sum_global_scores = sum([score for _, score in global_idx]) + 1e-6
-            for i in range(len(local_responses)):
-                local_responses[i].score = local_idx[i][1]/sum_local_scores
-            for i in range(len(global_responses)):
-                global_responses[i].score = global_idx[i][1]/sum_global_scores
-            goal.possible_useful_theorems_local = local_responses
-            goal.possible_useful_theorems_external = global_responses
-        current_proof_state = ProofState(relevant_thms)
-        current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
-        reward = 0.0
-        done = self.done
-        env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
-        env_info.error_message = None
-        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
-        pass
-
     def _get_dfns_thms(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
         history_idx = len(self._history) - 1 if history_idx is None else history_idx
         state, action, current_proof_state, reward, done, env_info = self._history[history_idx]
         assert action.action_type == ProofAction.ActionType.GET_DFNS_THMS, "Action must be of type GET_DFNS_THMS"
+        current_proof_state, reward, done, env_info = self._get_current_dfns_thms(env_info)
+        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
 
+    def _get_current_dfns_thms(self, env_info : ProofEnvInfo):
         relevant_defns_thms = self._dynamic_proof_executor.get_all_relevant_defns_and_thms()
         for goal in relevant_defns_thms.start_goals:
             query = goal.goal
@@ -368,11 +344,11 @@ class ProofEnv(Env):
             goal.possible_useful_theorems_external = global_responses
         current_proof_state = ProofState(relevant_defns_thms)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
-        reward = 0.0
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
         env_info.error_message = None
-        self._history[history_idx] = (state, action, current_proof_state, reward, done, env_info)
+        reward = 0.0
+        return current_proof_state, reward, done, env_info
 
     def _backtrack(self, history_idx: int = None):
         assert self._loaded, "Env not loaded, call reset() first"
