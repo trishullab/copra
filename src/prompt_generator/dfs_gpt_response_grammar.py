@@ -161,9 +161,9 @@ ErrorString:;
         }
         super(CoqGPTResponseDfsGrammar, self).__init__(CoqGPTResponseDfsGrammar.grammar, CoqGPTResponseDfsGrammar.keywords, recognizers=recognizers)
     
-    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: int = 4) -> str:
+    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: float = 4.0) -> str:
         # Add algorithm for trimming the right amount of goals, theorems and defintions, steps, etc. based on the max_token_cnt
-        char_cnt = max_token_cnt * characters_per_token if max_token_cnt is not None else None # 4 is the average length of a token as per OpenAI
+        char_cnt = int(max_token_cnt * characters_per_token) if max_token_cnt is not None else None # 4 is the average length of a token as per OpenAI
         text = ""
         if coq_gpt_response.action == CoqGptResponseActions.ERROR:
             text = f"{CoqGPTResponseDfsGrammar.Keywords.ERROR}\n{coq_gpt_response.message}\n{CoqGPTResponseDfsGrammar.Keywords.END}"
@@ -263,7 +263,7 @@ ErrorString:;
             for keyword in keywords:
                 lines_map[keyword] = "\n".join(lines_map[keyword])
             # Frame the first prompt version without any token limit
-            text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0])
+            text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0]) + f"\n{CoqGPTResponseDfsGrammar.Keywords.END}"
             
             # Trim the lines based on the max_token_cnt
             if char_cnt is not None and len(text) > char_cnt:
@@ -276,16 +276,17 @@ ErrorString:;
                             lines_map[trim_part] = lines_map[trim_part][-diff:]
                         else:
                             lines_map[trim_part] = lines_map[trim_part][:-diff] # Trim everything except the STEPS from the end
-                    text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0])
+                    text = "\n".join([lines_map[keyword] for keyword in lines_order if keyword in lines_map if len(lines_map[keyword]) > 0]) + f"\n{CoqGPTResponseDfsGrammar.Keywords.END}"
                     diff = len(text) - char_cnt
                     _idx += 1
-            text += f"\n{CoqGPTResponseDfsGrammar.Keywords.END}"
         else:
             raise Exception(f"Invalid action {coq_gpt_response.action}")
         # verify that the text is valid as per grammar by compiling it
         # self.compile(text)
-        if char_cnt is not None and len(text) > char_cnt:
-            text = text[:char_cnt] # Just trim the text from the end because no trimming strategy has worked out
+        if char_cnt is not None:
+            assert len(text) <= char_cnt, f"Text length {len(text)} is greater than the max token count {char_cnt}. Possibly too few characters per token." +\
+            f" characters_per_token = {characters_per_token}, max_token_cnt = {max_token_cnt}"
+            # text = text[:char_cnt] # Just trim the text from the end because no trimming strategy has worked out
         return text
     
 

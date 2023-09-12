@@ -53,6 +53,7 @@ class EvalSettings(object):
     sample: float = 1.0
     sample_seed: int = 0xf00
     use_example_retrieval: bool = False
+    always_use_useful_theorem_retrieval: bool = False
 
 @dataclass_json
 @dataclass
@@ -142,7 +143,8 @@ def parse_config(cfg):
         use_human_readable_proof_context=eval_settings_cfg["use_human_readable_proof_context"],
         sample=eval_settings_cfg["sample"],
         sample_seed=eval_settings_cfg["sample_seed"],
-        use_example_retrieval=eval_settings_cfg["use_example_retrieval"])
+        use_example_retrieval=eval_settings_cfg["use_example_retrieval"],
+        always_use_useful_theorem_retrieval=eval_settings_cfg["always_use_useful_theorem_retrieval"])
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []

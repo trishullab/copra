@@ -1,6 +1,6 @@
 defaults:
   - benchmark: simple_benchmark_9
-  - eval_settings: n_4_few_gpt35
+  - eval_settings: n_10_dfs_gpt35_always_retrieve
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:

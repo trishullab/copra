@@ -159,11 +159,23 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
 
     def _get_prompt_message(self, request: CoqGptResponse, max_tokens_in_prompt: int) -> str:
         assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
-        if self._retrieve_prompt_examples:
-            dfs_with_score = self.retriever.find_relevant_training_data(request.theorem, num_results=self._retrieval_count)
+        retrieve_prompt_examples = self._retrieve_prompt_examples and len(request.training_data_format.start_goals) > 0
+        if retrieve_prompt_examples:
+            dfs_with_score = self.retriever.find_relevant_training_data(
+                request.training_data_format.start_goals[0].goal, # Just focus on the first goal for now
+                num_results=self._retrieval_count)
+            # Sort by score
+            dfs_with_score = sorted(dfs_with_score, key=lambda x: x[1], reverse=True)
             max_token_for_examples = int(0.25 * max_tokens_in_prompt)
             max_token_for_problem = max_tokens_in_prompt - max_token_for_examples
             retrieved_examples = [dfs for _, dfs in dfs_with_score]
+            # Remove any useful theorems and relevant definitions
+            for ex in retrieved_examples:
+                for goal in ex.start_goals:
+                    goal.possible_useful_theorems_external = []
+                    goal.possible_useful_theorems_local = []
+                    goal.relevant_defns = []
+                ex.all_useful_defns_theorems = []
         else:
             max_token_for_examples = 0
             max_token_for_problem = max_tokens_in_prompt
@@ -171,11 +183,45 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         # Also return the custom system messages here
         custom_system_messages = []
         custom_system_message_count = 0
-        characters_per_token = 5
-        if self._retrieve_prompt_examples:
-            custom_message_tokens_underlimit = False
-            characters_per_token = 5
-            while not custom_message_tokens_underlimit and characters_per_token > 0:
+        characters_per_token = 5.0
+        if retrieve_prompt_examples:
+            full_example_theorems = [
+                self.coq_gpt_response_grammar.format_as_per_grammar(
+                    CoqGptResponse(training_data_format=tdf), 
+                    self._k, 
+                    max_token_cnt=None, 
+                    characters_per_token=characters_per_token)
+                for tdf in retrieved_examples
+            ]
+            full_example_proofs = [
+                self.coq_gpt_request_grammar.generate_message_from_gpt_request(
+                    CoqGptRequest(CoqGptRequestActions.RUN_TACTIC, args=retrieved_example.proof_steps))
+                for retrieved_example in retrieved_examples
+            ]
+            example_char_cnt = sum([len(theorem) + len(proof) for theorem, proof in zip(full_example_theorems, full_example_proofs)])
+            full_example_messages = []
+            for theorem, proof in zip(full_example_theorems, full_example_proofs):
+                theorem_message = self.agent_grammar.get_openai_main_message_from_string(theorem, "system", "example_user")
+                proof_message = self.agent_grammar.get_openai_main_message_from_string(proof, "system", "example_assistant")
+                full_example_messages.append(theorem_message)
+                full_example_messages.append(proof_message)
+            example_token_cnt = self._gpt_access.num_tokens_from_messages(full_example_messages)
+            characters_per_token = example_char_cnt / example_token_cnt
+            expected_char_per_token = example_char_cnt / max_token_for_examples
+            assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
+            assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+            custom_system_messages = full_example_messages
+            retries = 10
+            while characters_per_token < expected_char_per_token and retries > 0:
+                decrement_factor = 0.2
+                while decrement_factor > 1e-4:
+                    characters_per_token = expected_char_per_token - decrement_factor
+                    if characters_per_token < 0:
+                        decrement_factor /= 2
+                    else:
+                        break
+                if characters_per_token < 0:
+                    characters_per_token = 1.0
                 example_theorems = [
                     self.coq_gpt_response_grammar.format_as_per_grammar(
                         CoqGptResponse(training_data_format=tdf), 
@@ -186,49 +232,69 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 ]
                 example_proofs = [
                     self.coq_gpt_request_grammar.generate_message_from_gpt_request(
-                        CoqGptRequest(CoqGptRequestActions.RUN_TACTIC, args=retrieved_example.proof_steps)
-                    )
+                        CoqGptRequest(CoqGptRequestActions.RUN_TACTIC, args=retrieved_example.proof_steps))
                     for retrieved_example in retrieved_examples
                 ]
                 custom_system_messages = []
-                char_cnt_remaining = max_token_for_examples * characters_per_token
+                token_cnt_till_now = 0
+                example_char_cnt = 0
                 for example_theorem, example_proof in zip(example_theorems, example_proofs):
-                    char_cnt_theorem = len(example_theorem) + len(example_proof)
-                    if  char_cnt_theorem > char_cnt_remaining:
-                        # Trim the examples if they are too long
-                        example_theorem = example_theorem[:char_cnt_remaining]
-                        char_cnt_remaining = char_cnt_remaining - len(example_theorem)
-                        example_proof = example_proof[:char_cnt_remaining]
-                        char_cnt_remaining = char_cnt_remaining - len(example_proof)
-                    else:
-                        char_cnt_remaining = char_cnt_remaining - char_cnt_theorem
-                    
-                    if len(example_theorem) > 0 and len(example_proof) > 0:
-                        custom_system_messages.append(
-                            self.agent_grammar.get_openai_main_message_from_string(example_theorem, "system", "example_user")
-                        )
-                        custom_system_messages.append(
-                            self.agent_grammar.get_openai_main_message_from_string(example_proof, "system", "example_assistant")
-                        )
-                    else:
+                    theorem_message = self.agent_grammar.get_openai_main_message_from_string(example_theorem, "system", "example_user")
+                    proof_message = self.agent_grammar.get_openai_main_message_from_string(example_proof, "system", "example_assistant")
+                    token_cnt = self._gpt_access.num_tokens_from_messages([theorem_message, proof_message])
+                    if token_cnt_till_now + token_cnt >= max_token_for_examples:
                         break
-                custom_system_message_count = self._gpt_access.num_tokens_from_messages(custom_system_messages)
-                custom_message_tokens_underlimit = custom_system_message_count < max_token_for_examples
-                characters_per_token -= 1
+                    else:
+                        example_char_cnt += len(example_theorem) + len(example_proof)
+                        token_cnt_till_now += token_cnt
+                        custom_system_messages.append(theorem_message)
+                        custom_system_messages.append(proof_message)
+                retries -= 1
+                example_token_cnt = self._gpt_access.num_tokens_from_messages(custom_system_messages)
+                characters_per_token = example_char_cnt / example_token_cnt
+                expected_char_per_token = example_char_cnt / max_token_for_examples
+                assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
+                assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+            custom_system_message_count = self._gpt_access.num_tokens_from_messages(custom_system_messages)
         if custom_system_message_count > max_token_for_examples:
             # Drop the custom system messages if the prompt message is too long
             custom_system_messages = []
             custom_system_message_count = 0
             max_token_for_problem = max_tokens_in_prompt
- 
-        characters_per_token = 5
-        while not prompt_message_tokens_underlimit and characters_per_token > 0:
+
+        characters_per_token = 5.0
+        full_prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_cnt=None, characters_per_token=characters_per_token)
+        prompt_char_cnt = len(full_prompt_message)
+        full_prompt_message = self.agent_grammar.get_openai_main_message_from_string(full_prompt_message, "system", "example_user")
+        prompt_token_count = self._gpt_access.num_tokens_from_messages([full_prompt_message])
+        characters_per_token = prompt_char_cnt / prompt_token_count
+        expected_char_per_token = prompt_char_cnt / max_token_for_problem
+        assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
+        assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+        retries = 10
+        prompt_message = full_prompt_message
+        prompt_messages = [full_prompt_message]
+        while characters_per_token < expected_char_per_token and retries > 0:
+            decrement_factor = 0.2
+            while decrement_factor > 1e-4:
+                characters_per_token = expected_char_per_token - decrement_factor
+                if characters_per_token < 0:
+                    decrement_factor /= 2
+                else:
+                    break
+            if characters_per_token < 0:
+                characters_per_token = 1.0
             prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
-            prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
+            prompt_char_cnt = len(prompt_message)
+            prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "system", "example_user")
             prompt_messages = [prompt_message]
             prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
-            prompt_message_tokens_underlimit = prompt_token_count < max_token_for_problem
-            characters_per_token -= 1
+            retries -= 1
+            characters_per_token = prompt_char_cnt / prompt_token_count
+            expected_char_per_token = prompt_char_cnt / max_token_for_problem
+            assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
+            assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+        prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
         assert prompt_token_count <= max_token_for_problem, f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_token_for_problem}"
         assert prompt_token_count + custom_system_message_count <= max_tokens_in_prompt, f"Prompt token count {prompt_token_count} + custom system message token count {custom_system_message_count} is greater than max token per prompt {max_tokens_in_prompt}"
         return prompt_message, prompt_token_count, custom_system_messages, custom_system_message_count
@@ -238,7 +304,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, self._max_tokens_per_action)
         success = False
-        retries = 20
+        retries = 10
         time_to_sleep = 60
         exp_factor = 1.25
         tokens_factor = 1.25
@@ -252,6 +318,10 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             try:
                 self._throttle_if_needed(total_token_count)
                 self.logger.info(f"Requesting {tokens_to_generate} tokens to generate, {total_token_count} tokens in input.")
+                if len(custom_system_msg) > 0:
+                    self.logger.info(f"Example prompt messages:")
+                    for idx, msg in enumerate(custom_system_msg):
+                        self.logger.info(f"Example {idx + 1} [{msg['role'], msg['name']}] :\n{msg['content']}")
                 self.logger.info(f"Prompt Message:\n{prompt_message['content']}")
                 request_start_time = time.time()
                 responses, usage = self._gpt_access.complete_chat(
@@ -266,7 +336,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 self.logger.debug(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
                 reason = usage["reason"]
                 self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
-                success = reason != "length"
+                success = reason != "length" or tokens_to_generate >= upper_bound
                 if not success:
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
@@ -277,8 +347,12 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                     # temperature = max(max_temp, temperature + temp_factor)
                     # don't change temperature for now
                 else:
-                    self.logger.debug(f"Got a valid response. Reason: \n{reason}")
-                    self.logger.debug(f"Response messages: \n{responses}")
+                    if tokens_to_generate >= upper_bound:
+                        self.logger.warning(f"Retried {retries} times but still got an incomplete response. Reason: {reason}.")
+                        self.logger.info(f"Maxed out response: \n{responses}")
+                    else:
+                        self.logger.debug(f"Got a valid response. Reason: \n{reason}")
+                        self.logger.debug(f"Response messages: \n{responses}")
                 self._num_api_calls += 1
             except InvalidRequestError as e:
                 self.logger.info("Got an invalid request error. Not retrying.")

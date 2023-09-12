@@ -259,7 +259,6 @@ class ProofEnv(Env):
             env_info.error_message = self._dynamic_proof_executor.get_last_exception()
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
 
-    
     def _run_tactics(self, tactics: typing.List[str], state: ProofState, action: ProofAction, env_info: ProofEnvInfo):
         env_info = copy.deepcopy(env_info)
         tactic_line_num, ran_successfully = self._dynamic_proof_executor.run_tactics(tactics)

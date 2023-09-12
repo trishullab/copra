@@ -101,7 +101,11 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                     gpt_model_name=eval_settings.gpt_model_name,
                     temperature=eval_settings.temperature,
                     max_history_messages=eval_settings.max_history_messages,
-                    k=eval_settings.max_theorems_in_prompt) # k is the number of theorems to consider at each step
+                    k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                    retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                    metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                    logger=logger)
                 dfs_tree_search = DFSTreeSearch()
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
                     eval_settings.checkpoint_dir, 
@@ -133,7 +137,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
 
             if lemma_name not in eval_checkpoint_info.theorem_maps[path]:
                 try:
-                    with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, logger=logger) as env:
+                    with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
                         with search_guidance_policy:
                             agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
                             agent.run_episodes_till_stop(
