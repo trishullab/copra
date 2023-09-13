@@ -296,7 +296,11 @@ class ProofEnv(Env):
         else:
             env_info.progress = ProgressState.FAILED
             env_info.error_message = self._dynamic_proof_executor.get_last_exception()
-            current_proof_state = state
+            current_proof_state = copy.deepcopy(state)
+            # There is a special case of the first tactic failing, in which case there is no reset
+            # So always decide the reset based on whether the history is empty or not
+            # Clone the current_proof_state always to avoid side effects
+            current_proof_state.was_reset = len(self._history) == 0
         return (state, current_proof_state, reward, done, env_info)
 
     def _get_dfns_thms(self, history_idx: int = None):

@@ -23,6 +23,7 @@ from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
+from src.tools.ray_utils import RayUtils
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -231,11 +232,13 @@ def main(cfg):
     log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, time.strftime("%Y%m%d-%H%M%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "eval.log")
-    logging.basicConfig(filename=log_path, level=logging.INFO)
+    logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger = logging.getLogger(__name__)
+    logger.info(f"Pid: {os.getpid()}")
     logger.info(f"Running Experiment: {experiment.to_json(indent=4)}")
     eval_benchmark(experiment, log_dir, logger=logger)
     pass
 
 if __name__ == "__main__":
+    RayUtils.init_ray(num_of_cpus=20, object_store_memory_in_gb=50, memory_in_gb=1)
     main()

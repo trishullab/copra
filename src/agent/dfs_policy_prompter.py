@@ -4,7 +4,7 @@ import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-
+import copy
 import typing
 import os
 import time
@@ -35,6 +35,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             secret_filepath: str = ".secrets/openai_key.json",
             k : typing.Optional[int] = None,
             retrieve_prompt_examples: bool = True,
+            single_goal_per_prompt: bool = False,
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
             logger = None):
@@ -66,6 +67,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._num_api_calls = 0
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
+        self._single_goal_per_prompt = single_goal_per_prompt
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -183,7 +185,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         # Also return the custom system messages here
         custom_system_messages = []
         custom_system_message_count = 0
-        characters_per_token = 5.0
+        characters_per_token = 4.0
         if retrieve_prompt_examples:
             full_example_theorems = [
                 self.coq_gpt_response_grammar.format_as_per_grammar(
@@ -207,21 +209,14 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 full_example_messages.append(proof_message)
             example_token_cnt = self._gpt_access.num_tokens_from_messages(full_example_messages)
             characters_per_token = example_char_cnt / example_token_cnt
-            expected_char_per_token = example_char_cnt / max_token_for_examples
             assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
-            assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
             custom_system_messages = full_example_messages
-            retries = 10
-            while characters_per_token < expected_char_per_token and retries > 0:
-                decrement_factor = 0.2
-                while decrement_factor > 1e-4:
-                    characters_per_token = expected_char_per_token - decrement_factor
-                    if characters_per_token < 0:
-                        decrement_factor /= 2
-                    else:
-                        break
-                if characters_per_token < 0:
-                    characters_per_token = 1.0
+            retries = 50
+            decrement_factor = 0.2
+            characters_per_token = example_char_cnt / max_token_for_examples
+            characters_per_token -= decrement_factor
+            assert (characters_per_token < 0 and example_token_cnt > max_token_for_examples) or characters_per_token > 0, f"Characters per token is {characters_per_token} for {example_char_cnt} characters and {example_token_cnt} tokens, and max token for examples is {max_token_for_examples}"
+            while example_token_cnt > max_token_for_examples and retries > 0 and characters_per_token > 0:
                 example_theorems = [
                     self.coq_gpt_response_grammar.format_as_per_grammar(
                         CoqGptResponse(training_data_format=tdf), 
@@ -249,12 +244,13 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                         token_cnt_till_now += token_cnt
                         custom_system_messages.append(theorem_message)
                         custom_system_messages.append(proof_message)
+                if example_char_cnt == 0:
+                    break # no examples selected
                 retries -= 1
+                characters_per_token -= decrement_factor
                 example_token_cnt = self._gpt_access.num_tokens_from_messages(custom_system_messages)
-                characters_per_token = example_char_cnt / example_token_cnt
-                expected_char_per_token = example_char_cnt / max_token_for_examples
-                assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
-                assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+                if example_token_cnt > max_token_for_examples:
+                    self.logger.warning(f"Example token count {example_token_cnt} is greater than max token per example {max_token_for_examples}. Retrying with {characters_per_token} characters per token.")
             custom_system_message_count = self._gpt_access.num_tokens_from_messages(custom_system_messages)
         if custom_system_message_count > max_token_for_examples:
             # Drop the custom system messages if the prompt message is too long
@@ -262,38 +258,30 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             custom_system_message_count = 0
             max_token_for_problem = max_tokens_in_prompt
 
-        characters_per_token = 5.0
+        characters_per_token = 4.0
         full_prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_cnt=None, characters_per_token=characters_per_token)
         prompt_char_cnt = len(full_prompt_message)
         full_prompt_message = self.agent_grammar.get_openai_main_message_from_string(full_prompt_message, "system", "example_user")
         prompt_token_count = self._gpt_access.num_tokens_from_messages([full_prompt_message])
         characters_per_token = prompt_char_cnt / prompt_token_count
-        expected_char_per_token = prompt_char_cnt / max_token_for_problem
-        assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
-        assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
-        retries = 10
+        decrement_factor = 0.1
+        characters_per_token -= decrement_factor
+        retries = 50
         prompt_message = full_prompt_message
         prompt_messages = [full_prompt_message]
-        while characters_per_token < expected_char_per_token and retries > 0:
-            decrement_factor = 0.2
-            while decrement_factor > 1e-4:
-                characters_per_token = expected_char_per_token - decrement_factor
-                if characters_per_token < 0:
-                    decrement_factor /= 2
-                else:
-                    break
-            if characters_per_token < 0:
-                characters_per_token = 1.0
+        assert (characters_per_token < 0 and prompt_token_count > max_token_for_problem) or characters_per_token > 0, f"Characters per token is {characters_per_token} for {prompt_char_cnt} characters and {prompt_token_count} tokens, and max token for problem is {max_token_for_problem}"
+        while prompt_token_count > max_token_for_problem and retries > 0 and characters_per_token > 0:
             prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
             prompt_char_cnt = len(prompt_message)
             prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "system", "example_user")
             prompt_messages = [prompt_message]
             prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
             retries -= 1
-            characters_per_token = prompt_char_cnt / prompt_token_count
-            expected_char_per_token = prompt_char_cnt / max_token_for_problem
-            assert characters_per_token > 0, f"Characters per token is {characters_per_token}"
-            assert expected_char_per_token > 0, f"Expected characters per token is {expected_char_per_token}"
+            characters_per_token -= decrement_factor
+            if prompt_token_count > max_token_for_problem:
+                self.logger.warning(f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_token_for_problem}. Retrying with {characters_per_token} characters per token.")
+            assert prompt_char_cnt > 0, f"Prompt message is empty. Please decrease max_tokens_per_action. Current value: {self._max_tokens_per_action}"
+
         prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
         assert prompt_token_count <= max_token_for_problem, f"Prompt token count {prompt_token_count} is greater than max token per prompt {max_token_for_problem}"
         assert prompt_token_count + custom_system_message_count <= max_tokens_in_prompt, f"Prompt token count {prompt_token_count} + custom system message token count {custom_system_message_count} is greater than max token per prompt {max_tokens_in_prompt}"
@@ -406,16 +394,19 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         last_step = None if last_action is None else self.coq_gpt_request_grammar.parse_request_to_args([last_action.original_message["content"]])[0]
         qinfo: ProofQInfo = prompt_summary.state_info.qinfo
         env_info = qinfo.proof_env_info if qinfo is not None else None
-        incorrect_actions = prompt_summary.incorrect_actions
+        incorrect_actions = copy.deepcopy(prompt_summary.incorrect_actions)
+        # don't show the last action as incorrect becuase it has already been shown as incorrect
+        if len(incorrect_actions) > 0 and last_action in incorrect_actions:
+            incorrect_actions.remove(last_action)
         incorrect_steps = [action.original_message["content"] for action in incorrect_actions]
         incorrect_steps = self.coq_gpt_request_grammar.parse_request_to_args(incorrect_steps)
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT:
-            assert len(incorrect_actions) == 0, "There are some incorrect steps. We cannot go to the next action with incorrect steps."
+            # assert len(incorrect_actions) == 0, "There are some incorrect steps. We cannot go to the next action with incorrect steps."
             gpt_response = CoqGptResponse(CoqGptResponseActions.GOALS,
                 success=True,
                 steps=steps,
                 last_step=last_step,
-                incorrect_steps=[],
+                incorrect_steps=incorrect_steps,
                 error_message=None,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT:
