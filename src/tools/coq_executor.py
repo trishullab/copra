@@ -56,6 +56,7 @@ class CoqExecutor:
         self.coq = SerapiInstance(["sertop", "--implicit"], None, self.project_root,
                              use_hammer=self.use_hammer,
                              log_outgoing_messages=None,
+                             timeout=self.timeout_in_sec,
                              use_human_readable_str=self.use_human_readable_proof_context)
         self.coq.quiet = self.suppress_error_log
         if self.main_file_iter is None:

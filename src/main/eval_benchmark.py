@@ -2,6 +2,7 @@
 
 import sys
 
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -12,6 +13,7 @@ import random
 import time
 import math
 import typing
+import multiprocessing
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
@@ -21,6 +23,7 @@ from src.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
 from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, parse_config
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
+from src.rl.proof_tree import ProofSearchResult
 from src.rl.simple_proof_env import ProofEnv
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
@@ -73,6 +76,24 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
             use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
             suppress_error_log=True,
             logger=logger)
+        def _get_all_lemmas(ret_dict):
+            try:
+                ret_dict["lemmas"] = get_all_lemmas(coq_proof_exec_callback)
+            except:
+                logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
+        manager = multiprocessing.Manager()
+        return_dict = manager.dict()
+        file_time_out = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50
+        p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict,))
+        p.start()
+        p.join(file_time_out)
+        if p.is_alive():
+            p.kill()
+            p.join()
+        p.close()
+        if "lemmas" not in return_dict:
+            logger.info(f"Failed to get all lemmas in file: {path}, moving on to the next file.")
+            continue
         lemmas_to_prove = set(get_all_lemmas(coq_proof_exec_callback))
         if isinstance(file.theorems, str) and file.theorems == "*":
             file.theorems = list(lemmas_to_prove)
@@ -90,6 +111,19 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
             logger.info(f"Sampled lemmas to prove in file {path}: \n{file.theorems}")
         file.theorems.sort() # sort to ensure reproducibility
         for lemma_name in file.theorems:
+            no_proof_res = ProofSearchResult(
+                None, 
+                False, 
+                lemma_name, 
+                [], 
+                -1, 
+                -1, 
+                possible_failed_paths=-1, 
+                num_of_backtracks=-1, 
+                is_timeout=False, 
+                is_inference_exhausted=False, 
+                longest_success_path=-1,
+                additional_info={})
             logger.info(f"Attempting to prove lemma: {lemma_name}")
             search_guidance_policy : Policy = None
             policy_prompter : PolicyPrompter = None
@@ -138,23 +172,49 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                 raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
 
             if lemma_name not in eval_checkpoint_info.theorem_maps[path]:
-                try:
-                    with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
-                        with search_guidance_policy:
-                            agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
-                            agent.run_episodes_till_stop(
-                                env,
-                                episodes=eval_settings.max_number_of_episodes,
-                                render=eval_settings.render,
-                                stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
-                                policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode)
-                            )
-                            # agent.run(env, episodes=eval_settings.max_number_of_episodes, max_steps_per_episode=eval_settings.max_steps_per_episode, render=eval_settings.render)
-                        eval_proof_results.add_theorem_to_maps(path, lemma_name, env.proof_search_res)
-                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
-                except:
-                    logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
+                manager = multiprocessing.Manager()
+                return_dict = manager.dict()
+                def _run_prover(ret_dict):
+                    try:
+                        with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
+                            with search_guidance_policy:
+                                agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
+                                agent.run_episodes_till_stop(
+                                    env,
+                                    episodes=eval_settings.max_number_of_episodes,
+                                    render=eval_settings.render,
+                                    stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
+                                    policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode)
+                                )
+                            proof_res = env.proof_search_res
+                            ret_dict["proof_res"] = proof_res
+                            ret_dict["attempted_success"] = True
+                    except:
+                        logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
+                        ret_dict["attempted_success"] = False
+                # Run the prover with a timeout
+                timeout = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25
+                logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
+                p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
+                p.start()
+                p.join(timeout)
+                if p.is_alive():
+                    p.kill()
+                    p.join()
+                p.close()
+                if "attempted_success" not in return_dict:
+                    logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
+                    eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
                     eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                elif not return_dict["attempted_success"]:
+                    logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                    eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
+                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                else:
+                    logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                    eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
+                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
+                return_dict.clear()
             else:
                 logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
     pass
@@ -183,7 +243,7 @@ def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eva
         f.write(f"Success rate: {success_count}/{total_attempted} = {success_count/total_attempted} for benchmark: {benchmark.name}\n")
 
 def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None):
-    trial_cnt = 100
+    trial_cnt = 1
     eval_settings = experiment.eval_settings
     benchmark = experiment.benchmark
     checkpoint_dir = experiment.eval_settings.checkpoint_dir
