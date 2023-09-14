@@ -104,6 +104,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                     max_history_messages=eval_settings.max_history_messages,
                     k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
                     retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    num_goal_per_prompt=eval_settings.num_goal_per_prompt,
                     training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
                     metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
                     logger=logger)

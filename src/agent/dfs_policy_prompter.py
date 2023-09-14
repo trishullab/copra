@@ -35,7 +35,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             secret_filepath: str = ".secrets/openai_key.json",
             k : typing.Optional[int] = None,
             retrieve_prompt_examples: bool = True,
-            single_goal_per_prompt: bool = False,
+            num_goal_per_prompt: typing.Optional[int] = None,
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
             logger = None):
@@ -67,7 +67,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._num_api_calls = 0
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
-        self._single_goal_per_prompt = single_goal_per_prompt
+        self._num_goal_per_prompt = num_goal_per_prompt
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -161,7 +161,11 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
 
     def _get_prompt_message(self, request: CoqGptResponse, max_tokens_in_prompt: int) -> str:
         assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
-        retrieve_prompt_examples = self._retrieve_prompt_examples and len(request.training_data_format.start_goals) > 0
+        retrieve_prompt_examples = self._retrieve_prompt_examples and request.training_data_format is not None and len(request.training_data_format.start_goals) > 0
+        if self._num_goal_per_prompt is not None and request.training_data_format is not None and len(request.training_data_format.start_goals) > 0:
+            num_goals = max(min(self._num_goal_per_prompt, len(request.training_data_format.start_goals)), 1)
+            request = copy.deepcopy(request)
+            request.training_data_format.start_goals = request.training_data_format.start_goals[:num_goals]
         if retrieve_prompt_examples:
             dfs_with_score = self.retriever.find_relevant_training_data(
                 request.training_data_format.start_goals[0].goal, # Just focus on the first goal for now

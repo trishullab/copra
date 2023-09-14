@@ -54,6 +54,7 @@ class EvalSettings(object):
     sample_seed: int = 0xf00
     use_example_retrieval: bool = False
     always_use_useful_theorem_retrieval: bool = False
+    num_goal_per_prompt: typing.Optional[int] = None
 
 @dataclass_json
 @dataclass
@@ -144,7 +145,8 @@ def parse_config(cfg):
         sample=eval_settings_cfg["sample"],
         sample_seed=eval_settings_cfg["sample_seed"],
         use_example_retrieval=eval_settings_cfg["use_example_retrieval"],
-        always_use_useful_theorem_retrieval=eval_settings_cfg["always_use_useful_theorem_retrieval"])
+        always_use_useful_theorem_retrieval=eval_settings_cfg["always_use_useful_theorem_retrieval"],
+        num_goal_per_prompt=eval_settings_cfg["num_goal_per_prompt"])
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []

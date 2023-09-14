@@ -123,11 +123,6 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert not new_node.state_action_pair <= new_node.next_state_action_pair, "The next state should not be harder than the current state"
             current_node_is_correct = True
 
-        if new_node.info.progress == ProgressState.FAILED:
-            if state not in self._bad_state_action_map:
-                self._bad_state_action_map[state] = set()
-            self._bad_state_action_map[state].add(action)
-
         if new_node.state_action_pair.state in self._bad_state_action_map:
             # include the incorrect actions discovered for the same state in the past
             new_node.incorrect_actions = list(self._bad_state_action_map[new_node.state_action_pair.state])
@@ -137,13 +132,20 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         if last_node is None or last_node.next_state_action_pair.state != FailedProofState:
             if last_node is not None:
                 new_node.actions_till_now = last_node.actions_till_now + [last_node.action]
-            self._search_stack.append(new_node)
+            if last_node is None and state in self._bad_state_action_map and action in self._bad_state_action_map[state]:
+                self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
+            else:
+                self._search_stack.append(new_node)
+            if new_node.info.progress == ProgressState.FAILED:
+                if state not in self._bad_state_action_map:
+                    self._bad_state_action_map[state] = set()
+                self._bad_state_action_map[state].add(action)
         elif current_node_is_correct:
             assert last_node.next_state_action_pair.state == FailedProofState, "The last node's next state should be FailedProofState"
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
             # Pop the failed node from the stack
             self._search_stack.pop()
-            if action == last_node.next_state_action_pair.action:
+            if action == last_node.next_state_action_pair.action or action in last_node.incorrect_actions:
                 last_node = self._search_stack[-1] if len(self._search_stack) > 0 else None
                 if action.action_type == ProofAction.ActionType.RUN_TACTIC:
                     # Add backtracking if the last action was a tactic
@@ -174,6 +176,10 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     new_node.actions_till_now = last_node.actions_till_now + [last_node.action]
                 # Add the new node to the stack
                 self._search_stack.append(new_node)
+                if new_node.info.progress == ProgressState.FAILED:
+                    if state not in self._bad_state_action_map:
+                        self._bad_state_action_map[state] = set()
+                    self._bad_state_action_map[state].add(action)
         else:
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
             assert last_node.next_state_action_pair.state == FailedProofState, "The last node's next state should be FailedProofState"
