@@ -1,0 +1,52 @@
+name: compcert_benchmark_hard_1
+num_files: 2
+few_shot_data_path_for_retrieval: .log/tools/coq_raw_proofs/data/benchmarks/CompCert/2023-09-06-03-44-06/CompCert/train
+few_shot_metadata_filename_for_retrieval: single.meta.json
+dfs_data_path_for_retrieval: .log/run_data_generation_transforms/data/benchmarks/CompCert/train
+dfs_metadata_filename_for_retrieval: local.meta.json
+datasets:
+  - project: data/benchmarks/CompCert
+    files:
+      - path: MenhirLib/Validator_complete.v
+        theorems: 
+            - complete
+            - complete_is_validator
+            - is_validator_forall_items
+            - is_validator_forall_lookahead_set
+            - is_validator_forall_state_has_future
+            - is_validator_iterate_lset
+            - is_validator_state_has_future_subset
+            - is_validator_subset
+      - path: backend/Locations.v
+        theorems: 
+            - compare
+            - diff_dec
+            - diff_not_eq
+            - diff_outside_interval
+            - diff_sym
+            - disjoint_cons_right
+            - disjoint_notin
+            - disjoint_sym
+            - eq
+            - getpair_exten
+            - gpo
+            - gso
+            - gss
+            - gss_reg
+            - gss_typed
+            - guo
+            - gus
+            - in_notin_diff
+            - index_inj
+            - lt_not_eq
+            - lt_trans
+            - norepet_dec
+            - notin_dec
+            - notin_disjoint
+            - notin_iff
+            - notin_not_in
+            - outside_interval_diff
+            - same_not_diff
+            - typealign_pos
+            - typealign_typesize
+            - typesize_pos

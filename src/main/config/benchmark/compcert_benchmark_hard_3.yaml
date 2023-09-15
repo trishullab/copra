@@ -1,0 +1,92 @@
+name: compcert_benchmark_hard_3
+num_files: 2
+few_shot_data_path_for_retrieval: .log/tools/coq_raw_proofs/data/benchmarks/CompCert/2023-09-06-03-44-06/CompCert/train
+few_shot_metadata_filename_for_retrieval: single.meta.json
+dfs_data_path_for_retrieval: .log/run_data_generation_transforms/data/benchmarks/CompCert/train
+dfs_metadata_filename_for_retrieval: local.meta.json
+datasets:
+  - project: data/benchmarks/CompCert
+    files:
+      - path: backend/Selectionproof.v
+        theorems: 
+            - HF'
+            - TransfSelectionLink
+            - call_cont_commut
+            - classify_call_correct
+            - classify_stmt_nolabel
+            - classify_stmt_sound_1
+            - classify_stmt_sound_2
+            - classify_stmt_wt
+            - eval_binop_lessdef
+            - eval_condexpr_of_expr
+            - eval_condition_of_expr
+            - eval_load
+            - eval_sel_binop
+            - eval_sel_known_builtin
+            - eval_sel_select
+            - eval_sel_unop
+            - eval_select_safe_exprs
+            - eval_store
+            - eval_unop_lessdef
+            - expr_is_addrof_ident_correct
+            - find_label_commut
+            - functions_translated
+            - get_helpers_correct
+            - helper_functions_declared_linkorder
+            - helper_functions_preserved
+            - if_conversion_base_nolabel
+            - if_conversion_correct
+            - if_conversion_nolabel
+            - lookup_helper_correct
+            - lookup_helper_correct_1
+            - match_is_call_cont
+            - record_globdefs_sound
+            - sel_builtin_arg_correct
+            - sel_builtin_args_correct
+            - sel_builtin_correct
+            - sel_builtin_default_correct
+            - sel_builtin_nolabel
+            - sel_expr_correct
+            - sel_exprlist_correct
+            - sel_final_states
+            - sel_initial_states
+            - sel_select_opt_correct
+            - sel_step_correct
+            - sel_switch_correct
+            - sel_switch_correct_rec
+            - sel_switch_int_correct
+            - sel_switch_long_correct
+            - senv_preserved
+            - set_locals_lessdef
+            - set_params_lessdef
+            - set_var_lessdef
+            - sig_function_translated
+            - stackspace_function_translated
+            - transf_program_correct
+            - transf_program_match
+            - wt_prog
+      - path: cfrontend/Cop.v
+        theorems: 
+            - bool_val_inj
+            - bool_val_inject
+            - cast_bool_bool_val
+            - cast_int_int_idem
+            - cast_val_casted
+            - cast_val_is_casted
+            - classify_binarith_arithmetic_conversion
+            - eq_int_type
+            - sem_binarith_inject
+            - sem_binary_operation_inj
+            - sem_binary_operation_inject
+            - sem_cast_inj
+            - sem_cast_inject
+            - sem_cmp_inj
+            - sem_cmp_ptr_inj
+            - sem_shift_inject
+            - sem_unary_operation_inj
+            - sem_unary_operation_inject
+            - typeconv_integer_promotion
+            - val_casted_has_type
+            - val_inject_vfalse
+            - val_inject_vptrofs
+            - val_inject_vtrue

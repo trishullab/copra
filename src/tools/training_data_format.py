@@ -51,7 +51,7 @@ class Goal(object):
             return False
         hyp1_set = set(self.hypotheses)
         hyp2_set = set(__o.hypotheses)
-        return hyp1_set.difference(hyp2_set) == set() and hyp2_set.difference(hyp1_set) == set()
+        return hyp1_set.difference(hyp2_set) == set() and hyp2_set.difference(hyp1_set) == set() and len(self.hypotheses) == len(__o.hypotheses)
     
     def __le__(self, __o: object) -> bool:
         # To goal 'a' is less (hard) than goal 'b' iff all hypotheses of 'b' are also hypotheses of 'a'
@@ -227,10 +227,24 @@ class TrainingDataFormat(object):
             if goal.goal in goals_b:
                 goals_b[goal.goal].append(goal)
         
-        # Create new goals with combined hypotheses
-        goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
-        goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
-        return all([goal_a == goal_b for goal_a, goal_b in zip(goals_a, goals_b)])
+        # Assert that goal_a keys are exactly the same as goal_b keys
+        assert set(goals_a.keys()) == set(goals_b.keys()), "keys of goals_a and goals_b must be exactly the same"
+
+        for key in goals_a:
+            if len(goals_a[key]) != len(goals_b[key]):
+                return False
+            for g_a in goals_a[key]:
+                if g_a not in goals_b[key]:
+                    return False
+            for g_b in goals_b[key]:
+                if g_b not in goals_a[key]:
+                    return False
+        return True
+                
+        # # Create new goals with combined hypotheses
+        # goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
+        # goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
+        # return all([goal_a == goal_b for goal_a, goal_b in zip(goals_a, goals_b)])
     
     def __le__(self, __o: object) -> bool:
         # TrainingDataFormat 'a' is less (hard) than TrainingDataFormat 'b' iff all goals in 'a' are subset of goals in 'b'
@@ -238,7 +252,7 @@ class TrainingDataFormat(object):
             raise TypeError(f"Cannot compare TrainingDataFormat with {type(__o)}")
         goal_set_a = set([goal.goal for goal in self.start_goals])
         goal_set_b = set([goal.goal for goal in __o.start_goals])
-        a_is_subset_of_b = goal_set_a.issubset(goal_set_b)
+        a_is_subset_of_b = goal_set_a <= goal_set_b
         if not a_is_subset_of_b:
             return False
         else:
@@ -257,13 +271,34 @@ class TrainingDataFormat(object):
             for goal in __o.start_goals:
                 if goal.goal in goals_b:
                     goals_b[goal.goal].append(goal)
+
+            for key in goals_a:
+                # Clearly goals in a are present in goals in b
+                if len(goals_a[key]) > len(goals_b[key]):
+                    return False
+            # For all the goals in a which are matching b goals
+            # The number of such goals in a is always less than that of b
+            # So b is harder as we have more goals to prove
+            for key in goals_a:
+                for g_a in goals_a[key]:
+                    for g_b in goals_b[key]:
+                        if g_a > g_b:
+                            return False
+            return True
+            # for key in goals_a:
+            #     for g_a in goals_a[key]:
+            #         if g_a not in goals_b[key]:
+            #             return False
+            #     for g_b in goals_b[key]:
+            #         if g_b not in goals_a[key]:
+            #             return False
             
-            # Create new goals with combined hypotheses
-            goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
-            goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
+            # # Create new goals with combined hypotheses
+            # goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
+            # goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
  
-            a_less_harder_than_b = all([g_a <= g_b for g_a, g_b in zip(goals_a, goals_b)])
-            return a_less_harder_than_b
+            # a_less_harder_than_b = all([g_a <= g_b for g_a, g_b in zip(goals_a, goals_b)])
+            # return a_less_harder_than_b
     
     def __ge__(self, __o: object) -> bool:
         # TrainingDataFormat 'a' is more (hard) than TrainingDataFormat 'b' iff all goals in 'b' are subset of goals in 'a'
@@ -271,7 +306,7 @@ class TrainingDataFormat(object):
             raise TypeError(f"Cannot compare TrainingDataFormat with {type(__o)}")
         goal_set_a = set([goal.goal for goal in self.start_goals])
         goal_set_b = set([goal.goal for goal in __o.start_goals])
-        b_is_subset_of_a = goal_set_b.issubset(goal_set_a)
+        b_is_subset_of_a = goal_set_b <= goal_set_a
         if not b_is_subset_of_a:
             return False
         else:
@@ -290,11 +325,25 @@ class TrainingDataFormat(object):
                 if goal.goal in goals_b:
                     goals_b[goal.goal].append(goal)
 
-            goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
-            goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
+            for key in goals_b:
+                # Clearly goals in a are present in goals in b
+                if len(goals_a[key]) < len(goals_b[key]):
+                    return False
+            # For all the goals in a which are matching b goals
+            # The number of such goals in a is always less than that of b
+            # So b is harder as we have more goals to prove
+            for key in goals_b:
+                for g_b in goals_b[key]:
+                    for g_a in goals_a[key]:
+                        if g_a < g_b:
+                            return False
+            return True
 
-            b_less_harder_than_a = all([g_a >= g_b for g_a, g_b in zip(goals_a, goals_b)])
-            return b_less_harder_than_a
+            # goals_a = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_a.items()]
+            # goals_b = [Goal(list([h for goal in value for h in goal.hypotheses]), key) for key, value in goals_b.items()]
+
+            # b_less_harder_than_a = all([g_a >= g_b for g_a, g_b in zip(goals_a, goals_b)])
+            # return b_less_harder_than_a
     
     def __lt__(self, __o: object) -> bool:
         return self != __o and self <= __o

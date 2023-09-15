@@ -22,3 +22,5 @@ use_human_readable_proof_context: True
 sample: 0.07
 sample_seed: 0xf00
 use_example_retrieval: False
+always_use_useful_theorem_retrieval: False
+num_goal_per_prompt:

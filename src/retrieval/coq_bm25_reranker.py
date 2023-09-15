@@ -54,7 +54,7 @@ class CoqBM25TrainingDataRetriever(object):
         self.metadata_filename = metadata_filename
         self._loaded = False
         self.logger = logger if logger is not None else logging.getLogger(__name__)
-        self.training_data = TrainingData(self.data_folder, self.metadata_filename, logger=self.logger)
+        self.training_data = TrainingData(self.data_folder, self.metadata_filename, logger=self.logger, max_parallelism=20)
     
     @property
     def is_loaded(self) -> bool:
@@ -64,12 +64,23 @@ class CoqBM25TrainingDataRetriever(object):
         self.training_data.load()
         # Go over all training data goals and tokenize them
         # If there are more than one goals then just pick the first one
+        self.logger.info(f"Enumerating all training data...")
         self.all_training_data = [data for data in self.training_data if len(data.start_goals) > 0]
+        self.logger.info(f"Found {len(self.all_training_data)} training data.")
+        self.logger.info(f"Extracting all goals...")
         self.all_goals = [data.start_goals[0].goal for data in self.all_training_data]
+        self.logger.info(f"Found {len(self.all_goals)} goals.")
+        # Unload the training data
+        self.logger.info(f"Unloading training data...")
         self.training_data.unload()
+        self.logger.info(f"Training data unloaded.")
         # Tokenize all goals
+        self.logger.info(f"Tokenizing {len(self.all_goals)} goals...")
         self._tokenized_goals = [list(CoqExecutor.tokenize(goal)) for goal in self.all_goals]
+        self.logger.info(f"Tokenization complete.")
+        self.logger.info(f"Initializing BM25 with k1={self.k1}, b={self.b}, epsilon={self.epsilon}")
         self.bm25 = BM25Okapi(self._tokenized_goals, k1=self.k1, b=self.b, epsilon=self.epsilon)
+        self.logger.info(f"BM25 initialized.")
         self._loaded = True
     
     def find_relevant_training_data(self, query: str, num_results: int = 1) -> typing.List[typing.Tuple[float, TrainingDataFormat]]:
