@@ -32,6 +32,7 @@ class SyncLeanServer:
         self.messages : List[Message] = []
         self.cwd = cwd
         self.current_tasks : List[Task] = []
+        self._exit_receiver = False    
 
     def __enter__(self):
         self.start()
@@ -52,7 +53,6 @@ class SyncLeanServer:
             universal_newlines = True)
         self.thread = threading.Thread(target=self.receiver)
         self.thread.start()
-        self._exit_receiver = False    
 
 
     def send(self, request: Request) -> Optional[CommandResponse]:
