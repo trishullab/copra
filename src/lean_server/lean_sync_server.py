@@ -32,7 +32,8 @@ class SyncLeanServer:
         self.messages : List[Message] = []
         self.cwd = cwd
         self.current_tasks : List[Task] = []
-        self._exit_receiver = False    
+        self._exit_receiver = False
+        self._lock = threading.Lock() # This is needed for safety of dictionary access   
 
     def __enter__(self):
         self.start()
@@ -66,15 +67,22 @@ class SyncLeanServer:
         if self.debug_bytes:
             print(f'Sending {json_request.encode()}')
 
+        # First create the event
+        response_event = Event()
+        with self._lock:
+            self.response_events[self.seq_num] = response_event
+
+        # Then send the request
         self.process.stdin.write(json_request)
         self.process.stdin.flush()
 
-        response_event = Event()
-        self.response_events[self.seq_num] = response_event
+        # Wait for the response
         response_event.wait()
-        self.response_events.pop(self.seq_num)
 
-        response = self.responses.pop(self.seq_num)
+        # Get the response
+        with self._lock:
+            self.response_events.pop(self.seq_num)
+            response = self.responses.pop(self.seq_num)
 
         if isinstance(response, OkResponse):
             return response.to_command_response(request.command)
@@ -99,8 +107,10 @@ class SyncLeanServer:
                     self.messages = response.msgs  # Storing messages
                 elif isinstance(response, OkResponse) or isinstance(response, ErrorResponse):
                     seq_num = response.seq_num
-                    self.responses[seq_num] = response
-                    self.response_events[seq_num].set()
+                    with self._lock:
+                        # seq_num will be in the dictionary because we created the event before sending the request
+                        self.responses[seq_num] = response
+                        self.response_events[seq_num].set()
             else:
                 # sleep for a bit to avoid busy waiting
                 time.sleep(0.02)
