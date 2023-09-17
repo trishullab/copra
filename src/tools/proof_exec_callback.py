@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import logging
 from src.tools.coq_context_helper import CoqContextHelper
 from src.tools.coq_executor import CoqExecutor
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 
 class ProofExecutorCallback(object):
     def __init__(self,

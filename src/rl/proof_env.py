@@ -13,7 +13,7 @@ from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json

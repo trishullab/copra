@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from src.rl.q_tree import QTreeStateInfo
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
 from src.rl.simple_proof_env import ProofEnvInfo, ProgressState

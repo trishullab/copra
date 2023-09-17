@@ -14,7 +14,7 @@ from src.baselines.t5_prover.llm_helpers.base_model import BeamSearchParameters,
 from src.baselines.t5_prover.llm_helpers.data_format_layout import DataFormatLayoutTypes
 from src.baselines.t5_prover.proof_search.common.dataset_prover import ProverConfig, ProverExperiment
 from src.baselines.t5_prover.proof_search.tatic_search.provers.local_context_prover import LocalTacticGenerationEngine
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 
 global_store = {}
 

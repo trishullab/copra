@@ -14,7 +14,7 @@ import copy
 import math
 from src.rl.proof_tree import ProofSearchResult, ProofTree
 from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 from src.tools.training_data_format import TrainingDataFormat
 
 class TacticGenerationEngineParams(object):

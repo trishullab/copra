@@ -11,7 +11,7 @@ import os
 import logging
 import math
 from src.tools.training_data_format import TrainingDataFormat, TrainingDataCollection
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 from src.baselines.t5_prover.llm_helpers.cuda_context import CudaContext
 from src.baselines.t5_prover.llm_helpers.code_t5_helper import CodeT5Helper
 from src.baselines.t5_prover.llm_helpers.base_model import DecodingParameters, BeamSearchParameters, NucleusSamplingParameters
