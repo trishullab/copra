@@ -20,18 +20,18 @@ datasets:
           - abs_cond_Zopp
           - cond_Zopp_Zlt_bool
           - iter_nat_S
-      #   - path: common/Globalenvs.v
-      #     theorems: 
-      #     - shift_symbol_address
-      #     - shift_symbol_address_32
-      #     - shift_symbol_address_64
-      #     - find_funct_find_funct_ptr
-      #     - find_funct_ptr_iff
-      #     - find_var_info_iff
-      #     - global_addresses_distinct
-      #     - genv_next_add_globals
-      #     - genv_public_add_globals
-      #     - alloc_globals_app
+      - path: common/Globalenvs.v
+        theorems: 
+        - shift_symbol_address
+        - shift_symbol_address_32
+        - shift_symbol_address_64
+        - find_funct_find_funct_ptr
+        - find_funct_ptr_iff
+        - find_var_info_iff
+        - global_addresses_distinct
+        - genv_next_add_globals
+        - genv_public_add_globals
+        - alloc_globals_app
       #     # The ones below were not successfully proved by proverbot
       #     # - add_global_match
       #     # - add_globals_app

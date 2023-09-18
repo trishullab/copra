@@ -147,7 +147,7 @@ class Lean3Executor(object):
         self.curr_lemma : typing.Optional[str] = None
         self.lean_error_messages = []
         self._proof_running = False
-        self._context = ""
+        self._file_content = ""
         self.local_file_lemmas: typing.OrderedDict[str, typing.List[str]] = OrderedDict()
 
     def __enter__(self):
@@ -388,18 +388,27 @@ class Lean3Executor(object):
 
     def _set_context_to_run(self, stmt: str) -> str:
         # Now add this new line to the context
-        if len(self._context) > 0:
+        if len(self._file_content) > 0:
             # First create a context of all the lines executed so far
-            self._context += "\n" + stmt.strip()
+            self._file_content += "\n" + stmt.strip()
         else:
-            self._context = stmt.strip()
+            self._file_content = stmt.strip()
+    
+    def _check_matching_end(self, file_content: str) -> bool:
+        # The file_content must end with a matching end
+        # TODO: This is a hack, since we are not tokenizing if there are variables which have suffix or prefix
+        # of begin or end, then this won't be correct. But this is a rare case, so we can ignore it for now
+        if not file_content.endswith("end"):
+            return False # no need to check if we are no where near a closing of a proof
+        return file_content.count("begin") == file_content.count("end")
+        
 
     def _run_stmt_on_lean_server(self, idx : int, stmt: str):
         original_idx = idx
         self._set_context_to_run(stmt)
-        context = self._context
+        content = self._file_content
         if not self._proof_running:
-            last_thm_details = Lean3Executor.theorem_match.findall(context)
+            last_thm_details = Lean3Executor.theorem_match.findall(content)
         else:
             last_thm_details = []
         if last_thm_details:
@@ -420,27 +429,26 @@ class Lean3Executor(object):
                 self.curr_lemma_name, self.curr_lemma = thm_name, thm_value
         if self._proof_running:
             col = 0
-            if self.proof_context is None:
-                context = context.rstrip("")
-                context += Lean3Executor.proof_context_generation_tactic
+            content = content.rstrip()
+            matching_end = self._check_matching_end(content)
+            if self.proof_context is None and not matching_end:
+                content += Lean3Executor.proof_context_generation_tactic
                 idx += 2
-            elif self.proof_context != ProofContext.empty():
-                context = context.rstrip("")
-                context = context.rstrip(",")
-                context += Lean3Executor.proof_context_intermediate_tactic
+            elif self.proof_context != ProofContext.empty() and not matching_end:
+                content = content.rstrip(",")
+                content += Lean3Executor.proof_context_intermediate_tactic
                 idx += 2
             else:
-                context = context.rstrip("")
-                col = len(stmt)
+                col = len(stmt) # Some tried to close the proof
                 idx += 1
-            self.lean_server.full_sync(self.main_file, context)
+            self.lean_server.full_sync(self.main_file, content)
             next_proof_context_str = self.lean_server.state(self.main_file, idx, col)
             prev_proof_context = self.proof_context
             self.proof_context = self._parse_proof_context(next_proof_context_str)
             # This can simply happen because the we are not pointing at the end of an atomic unit of tactic execution
             if self.proof_context is None and prev_proof_context is not None:
                 # Only focus on messages related to the current lemma
-                if len(self.lean_server.messages) > 0:
+                if len(self.lean_server.messages) > 0 and not matching_end:
                     # We might be in the middle of an atomic unit
                     # So we don't need to give up proof context
                     self.proof_context = prev_proof_context
@@ -460,13 +468,12 @@ class Lean3Executor(object):
                 self.curr_lemma_name, self.curr_lemma = None, None
         pass
 
-
     def _parse_proof_context(self, proof_context_str: str) -> ProofContext:
         if self.use_human_readable_proof_context:
             return self._parse_proof_context_human_readable(proof_context_str)
         else:
             raise NotImplementedError("Parsing of non-human readable proof context is not implemented")
-        
+    
     def _parse_proof_context_human_readable(self, proof_context_str: str) -> ProofContext:
         if len(proof_context_str) == 0 and Lean3Executor.proof_context_separator not in proof_context_str:
             return None
@@ -549,13 +556,21 @@ class LeanCustomFileExec:
     def __exit__(self, exc_type, exc_value, traceback):
         self.lean_exec.__exit__(exc_type, exc_value, traceback)
     
-    def run_in_loop(self):
-        print("In> Press 'Enter' for running next line and 'c' + 'Enter' to cancel the last command and 're-run'.", end="")
+    def run_in_loop(self, opt: str = None):
+        print("In> Press 'Enter' for running next line, \n" + 
+              "'c' + 'Enter' to cancel the last command and 're-run', \n" +
+              "'e' + 'Enter' to run over all lines one-by-one. ", end="")
         last_stmt = None
+        run_all = False
         while True:
             try:
-                opt = input()
-                if opt == "c" and last_stmt is not None:
+                if not run_all:
+                    if opt is None or opt != "e":
+                        opt = input()
+                    if opt == "e":
+                        run_all = True
+                        print("Running all lines one-by-one")
+                elif opt == "c" and last_stmt is not None:
                     if self.lean_exec.is_in_proof_mode():
                         print(f"Goals before cancelling")
                         print(self.lean_exec.proof_context.all_goals)
@@ -594,5 +609,9 @@ if __name__ == "__main__":
     # with CoqStdInOutExecutor() as coq_exec:
     #     coq_exec.run_in_loop()
     os.chdir(root_dir)
-    with LeanCustomFileExec("data/test/lean_proj/src/simple.lean", "data/test/lean_proj") as lean_exec:
-        lean_exec.run_in_loop()
+    # project = "data/test/lean_proj"
+    project = "data/benchmarks/miniF2F"
+    # file = "data/test/lean_proj/src/simple.lean"
+    file = "data/benchmarks/miniF2F/lean/src/test.lean"
+    with LeanCustomFileExec(file, project) as lean_exec:
+        lean_exec.run_in_loop(opt='e')
