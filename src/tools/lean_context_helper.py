@@ -23,37 +23,37 @@ class Lean3ContextHelper(object):
     def __enter__(self):
         self.search_executor.__enter__()
         self.search_executor.run_to_finish()
-        search_exec_local_lemmas_discovered_so_far = [lemma.split(':')[0].strip() if ':' in lemma else lemma.split()[0].strip() for lemma in self.search_executor.coq.local_lemmas]
+        search_exec_local_lemmas_discovered_so_far = [lemma for lemma in self.search_executor.local_file_lemmas]
         self.search_exec_local_lemmas_discovered_so_far = set([l for l in search_exec_local_lemmas_discovered_so_far if len(l) > 0])
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):
         self.search_executor.__exit__(exc_type, exc_value, traceback)
 
-    def _get_local_lemmas_discovered_so_far_set(self, coq_executor: Lean3Executor):
-        local_lemmas_discovered_so_far = [lemma.split(':')[0].strip() if ':' in lemma else lemma.split()[0].strip() for lemma in coq_executor.coq.local_lemmas[:-1]]
+    def _get_local_lemmas_discovered_so_far_set(self, lean_executor: Lean3Executor):
+        local_lemmas_discovered_so_far = [lemma for lemma in lean_executor.local_file_lemmas][:-1]
         local_lemmas_discovered_so_far = set([l for l in local_lemmas_discovered_so_far if len(l) > 0])
         return local_lemmas_discovered_so_far
 
-    def _search_exact_with_diff(self, coq_executor: Lean3Executor, tok: str):
+    def _search_exact_with_diff(self, lean_executor: Lean3Executor, tok: str):
         exact_search_res = self.search_executor.search_exact(tok)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
+        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(lean_executor)
         diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
         # Remove future lemmas which are yet to be discovered
         exact_search_res = [res for res in exact_search_res if res[0] not in diff]
         return exact_search_res
 
-    def _search_defn_with_diff(self, coq_executor: Lean3Executor, name: str, match_until: typing.Tuple[str, ...], max_search_res: typing.Optional[int] = None):
+    def _search_defn_with_diff(self, lean_executor: Lean3Executor, name: str, match_until: typing.Tuple[str, ...], max_search_res: typing.Optional[int] = None):
         search_defn_res = self.search_executor.search_defn(name, match_until, max_search_res=max_search_res)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
+        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(lean_executor)
         diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
         # Remove future lemmas which are yet to be discovered
         search_defn_res = [res for res in search_defn_res if res[0] not in diff]
         return search_defn_res
 
-    def _get_all_type_matching_defns_with_diff(self, coq_executor: Lean3Executor, tok: str):
+    def _get_all_type_matching_defns_with_diff(self, lean_executor: Lean3Executor, tok: str):
         exact_search_res = self.search_executor.get_all_type_matching_defns(tok)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
+        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(lean_executor)
         diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
         # Remove future lemmas which are yet to be discovered
         exact_search_res = [res for res in exact_search_res if res[0] not in diff]
@@ -101,40 +101,33 @@ class Lean3ContextHelper(object):
                 changed_goals[goal.goal] -= 1
         return changed_goals_idx
 
-    def get_focussed_goals(self, coq_executor: Lean3Executor) -> List[Goal]:
+    def get_focussed_goals(self, lean_executor: Lean3Executor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
-        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in coq_executor.coq.proof_context.fg_goals]
+        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in lean_executor.proof_context.fg_goals]
     
-    def get_unfocussed_goals(self, coq_executor: Lean3Executor) -> List[Goal]:
+    def get_unfocussed_goals(self, lean_executor: Lean3Executor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
-        other_goals = coq_executor.coq.proof_context.bg_goals + coq_executor.coq.proof_context.shelved_goals + coq_executor.coq.proof_context.given_up_goals
+        other_goals = lean_executor.proof_context.bg_goals + lean_executor.proof_context.shelved_goals + lean_executor.proof_context.given_up_goals
         return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in other_goals]
 
-    def get_local_lemmas(self, coq_executor: Lean3Executor, logger: logging.Logger = None) -> List[typing.Tuple[str, str]]:
+    def get_local_lemmas(self, lean_executor: Lean3Executor, logger: logging.Logger = None) -> List[typing.Tuple[str, str]]:
         # Since LOCAL retrieval is not intelligent enough to filter out the useless lemmas, we will not filter out the useless lemmas here, and let the model learn it
         logger = logger if logger is not None else self.logger
         lemmas = []
-        for lemma in coq_executor.coq.local_lemmas[:-1]:
-            lemma_split = lemma.split(':') if ':' in lemma else lemma.split()
-            lemma_name = ""
-            if len(lemma_split) > 0:
-                lemma_name = lemma_split[0].strip()
-            lemma_val = lemma_split[-1].strip()
-            if lemma_val.endswith('.'):
-                lemma_val = lemma_val[:-1]
+        for lemma_name, lemma_val in lean_executor.local_file_lemmas[:-1]:
             if len(lemma_name) > 0:
                 lemmas.append((lemma_name, lemma_val))
         return lemmas
 
-    def set_relevant_defns_in_training_data_point(self, training_data_point: TrainingDataFormat, coq_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None):
+    def set_relevant_defns_in_training_data_point(self, training_data_point: TrainingDataFormat, lean_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None):
         logger = logger if logger is not None else self.logger
         depth = self.depth if depth is None else depth
         unique_defns = {defn: idx for idx, defn in enumerate(training_data_point.all_useful_defns_theorems)}
         for idx, goal in enumerate(training_data_point.start_goals):
             current_depth = 0
             query = training_data_point.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
-            possible_variables = self._get_variables_in_hyp(goal.hypotheses, coq_executor)
-            query_toks = set(coq_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
+            possible_variables = self._get_variables_in_hyp(goal.hypotheses, lean_executor)
+            query_toks = set(lean_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
             stack = [(current_depth, tok) for tok in query_toks if tok not in possible_variables]
             toks_executed = set()
             depth_map = {}
@@ -148,14 +141,14 @@ class Lean3ContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val in self._search_exact_with_diff(coq_executor, tok):
+                for defn, denf_val in self._search_exact_with_diff(lean_executor, tok):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                         useful_defns_maps[defn] = denf_val
                     else:
                         depth_map[defn] = current_depth
                         useful_defns_maps[defn] = denf_val
-                    for stmt_tok in coq_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
+                    for stmt_tok in lean_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
                         if stmt_tok not in toks_executed:
                             stack.append((current_depth + 1, stmt_tok))
             useful_defns = [(defn, defn_val, Lean3ContextHelper.max_relevance_score/(depth_map[defn] + 1)) for defn, defn_val in useful_defns_maps.items()]
@@ -168,7 +161,7 @@ class Lean3ContextHelper(object):
             useful_defns = [LemmaRefWithScore(unique_defns[defn], score) for defn, _, score in useful_defns]
             goal.relevant_defns = useful_defns
 
-    def set_all_type_matched_query_result(self, training_data_point: TrainingDataFormat, coq_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None):
+    def set_all_type_matched_query_result(self, training_data_point: TrainingDataFormat, lean_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None):
         # Use the hypothesis to find the definition
         # Recursively find the definition of the definition to a fixed depth
         # dump useful_hyps and current stmt into a stack
@@ -178,8 +171,8 @@ class Lean3ContextHelper(object):
         for idx, goal in enumerate(training_data_point.start_goals):
             current_depth = 0
             query = training_data_point.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
-            possible_variables = self._get_variables_in_hyp(goal.hypotheses, coq_executor)
-            query_toks = set(coq_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
+            possible_variables = self._get_variables_in_hyp(goal.hypotheses, lean_executor)
+            query_toks = set(lean_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
             stack = [(current_depth, tok) for tok in query_toks if tok not in possible_variables]
             toks_executed = set()
             depth_map = {}
@@ -193,14 +186,14 @@ class Lean3ContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val in self._get_all_type_matching_defns_with_diff(coq_executor, tok):
+                for defn, denf_val in self._get_all_type_matching_defns_with_diff(lean_executor, tok):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                     else:
                         depth_map[defn] = current_depth
                         useful_defns_maps[defn] = denf_val
                     if current_depth + 1 <= depth or full_depth:
-                        for stmt_tok in coq_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
+                        for stmt_tok in lean_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
                             if stmt_tok not in toks_executed:
                                 stack.append((current_depth + 1, stmt_tok))
             useful_theorems = [(defn, defn_val, Lean3ContextHelper.max_relevance_score/(depth_map[defn] + 1)) for defn, defn_val in useful_defns_maps.items()]
@@ -223,13 +216,13 @@ class Lean3ContextHelper(object):
             goal.possible_useful_theorems_external = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_external_theorems if score <= Lean3ContextHelper.max_relevance_score]
             goal.possible_useful_theorems_local = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_local_theorems if score <= Lean3ContextHelper.max_relevance_score]
 
-    def set_useful_defns_theorems_for_training_data_generation(self, current_stmt: str, training_data_point: TrainingDataFormat, coq_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None, max_search_res: typing.Optional[int] = None):
+    def set_useful_defns_theorems_for_training_data_generation(self, current_stmt: str, training_data_point: TrainingDataFormat, lean_executor: Lean3Executor, logger: logging.Logger = None, depth: int = None, max_search_res: typing.Optional[int] = None):
         # Use the hypothesis to find the definition
         # Recursively find the definition of the definition to a fixed depth
         # dump useful_hyps and current stmt into a stack
         logger = logger if logger is not None else self.logger
         depth = self.depth if depth is None else depth
-        current_stmt_toks = tuple(coq_executor.get_tokens_in_given_stmt(current_stmt, ignore_first_token=True)) 
+        current_stmt_toks = tuple(lean_executor.get_tokens_in_given_stmt(current_stmt, ignore_first_token=True)) 
         unique_thms = {defn: idx for idx, defn in enumerate(training_data_point.all_useful_defns_theorems)}
         changed_goal_idx = set(self._get_changed_goal_idx(training_data_point))
         for idx, goal in enumerate(training_data_point.start_goals):
@@ -237,8 +230,8 @@ class Lean3ContextHelper(object):
             #     continue
             current_depth = 0
             query = training_data_point.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
-            possible_variables = self._get_variables_in_hyp(goal.hypotheses, coq_executor)
-            query_toks = set(coq_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
+            possible_variables = self._get_variables_in_hyp(goal.hypotheses, lean_executor)
+            query_toks = set(lean_executor.get_tokens_in_given_stmt(query, ignore_first_token=False))
             stack = [(current_depth, tok) for tok in query_toks if tok not in possible_variables]
             toks_executed = set()
             depth_map = {}
@@ -252,7 +245,7 @@ class Lean3ContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val, is_used in self._search_defn_with_diff(coq_executor, tok, current_stmt_toks, max_search_res=max_search_res):
+                for defn, denf_val, is_used in self._search_defn_with_diff(lean_executor, tok, current_stmt_toks, max_search_res=max_search_res):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                         old_val, was_used_earlier = useful_defns_maps[defn]
@@ -266,7 +259,7 @@ class Lean3ContextHelper(object):
                         depth_map[defn] = current_depth
                         useful_defns_maps[defn] = (denf_val, is_used)
                     if current_depth + 1 <= depth or full_depth:
-                        for stmt_tok in coq_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
+                        for stmt_tok in lean_executor.get_tokens_in_given_stmt(denf_val, ignore_first_token=False):
                             if stmt_tok not in toks_executed:
                                 stack.append((current_depth + 1, stmt_tok))
             useful_theorems = [(defn, defn_val, 1.0 if is_used else Lean3ContextHelper.max_relevance_score/(depth_map[defn] + 1)) for defn, (defn_val, is_used) in useful_defns_maps.items()]
@@ -297,8 +290,8 @@ class Lean3ContextHelper(object):
             goal.possible_useful_theorems_local = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_local_theorems if score <= Lean3ContextHelper.max_relevance_score]
             goal.possible_useful_theorems_external = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_external_theorems if score <= Lean3ContextHelper.max_relevance_score]
 
-    def set_local_thms_dfns(self, training_data_point: TrainingDataFormat, coq_executor: Lean3Executor, logger: logging.Logger = None):
-        local_lemmas = self.get_local_lemmas(coq_executor, logger)
+    def set_local_thms_dfns(self, training_data_point: TrainingDataFormat, lean_executor: Lean3Executor, logger: logging.Logger = None):
+        local_lemmas = self.get_local_lemmas(lean_executor, logger)
         unique_thms = {defn.lemma_name: idx for idx, defn in enumerate(training_data_point.all_useful_defns_theorems)}
         useful_local_theorems = []
         for defn, defn_val in local_lemmas:

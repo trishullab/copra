@@ -16,8 +16,9 @@ from src.rl.simple_proof_env import ProofAction, ProofEnvInfo, ProofState
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
 
 class DFSTreeSearch(TreeSearchAlgorithm):
-    def __init__(self):
+    def __init__(self, language: ProofAction.Language = ProofAction.Language.COQ):
         self._action_queue : deque = deque()
+        self.language = language
         pass
 
     def reset(self):
@@ -136,8 +137,8 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             #   1.2.1 Check if the node is 'Failed', if 'Failed' go to parent node and generate the summary of the path taken to reach the parent node. 
             #         Along with the failure summary.
             #   1.2.2 If the node is NOT 'Failed', then return then simply backtrack to the parent node.
-        last_action : ProofAction = ProofAction(ProofAction.ActionType.NONE)
-        old_actions : typing.List[ProofAction] = [ProofAction(ProofAction.ActionType.NONE)]
+        last_action : ProofAction = ProofAction(ProofAction.ActionType.NONE, self.language)
+        old_actions : typing.List[ProofAction] = [ProofAction(ProofAction.ActionType.NONE, self.language)]
         stack = [(tree.root, old_actions)]
         found_leaf_node = False
         leaf_node = None

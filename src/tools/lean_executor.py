@@ -14,6 +14,7 @@ import re
 from collections import OrderedDict
 from src.tools.lean_parse_utils import LeanLineByLineReader
 from src.lean_server.lean_sync_server import SyncLeanServer
+from src.lean_server.commands import Message
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):
@@ -107,16 +108,15 @@ class Lean3Executor(object):
         "∘n", "∘f", "∘fi", "∘nf", "∘fn", "∘n1f", "∘1nf", "∘f1n", "∘fn1",
         "^c", "≃c", "≅c", "×c", "×f", "×n", "+c", "+f", "+n", "ℕ₋₂"
     }
-    theorem_regex = r"((theorem ([\w+|\d+]*))|example)([\S|\s]*?):=[\S|\s]*?(begin|by|calc)"
+    theorem_regex = r"(((theorem ([\w+|\d+]*))|example)([\S|\s]*?):=[\S|\s]*?)(begin|by|calc)"
     proof_context_separator = "⊢"
     proof_context_regex = r"((\d+) goals)*([\s|\S]*?)\n\n"
     goal_regex = rf"([\s|\S]*?){proof_context_separator}([\s|\S]*)"
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
     goal_match = re.compile(goal_regex, re.MULTILINE)
-    proof_context_generation_tactic = "\nsorry,\nend"
-    proof_context_intermediate_tactic = ",\nsorry,\nend"
-    proof_state_running_message = "tactic failed, there are"
+    proof_context_generation_tactic = "\nend"
+    proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
@@ -124,8 +124,8 @@ class Lean3Executor(object):
             "Either main_file or proof_step_iter must be provided"
         assert main_file is None or proof_step_iter is None, \
             "Only one of main_file or proof_step_iter must be provided"
-        assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".v")), \
-            "main_file must be a valid path to a '.v' file"
+        assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".lean")), \
+            "main_file must be a valid path to a '.lean' file"
         assert project_root is None or (os.path.exists(project_root) and os.path.isdir(project_root)), \
             "project_root must be a valid path to a directory"
         assert not use_hammer, "Hammer is not supported for Lean3"
@@ -145,10 +145,13 @@ class Lean3Executor(object):
         self.proof_context : ProofContext = None
         self.curr_lemma_name : typing.Optional[str] = None
         self.curr_lemma : typing.Optional[str] = None
-        self.lean_error_messages = []
+        self.lean_error_messages : typing.List[Message] = []
         self._proof_running = False
         self._file_content = ""
-        self.local_file_lemmas: typing.OrderedDict[str, typing.List[str]] = OrderedDict()
+        self.local_file_lemmas: typing.OrderedDict[str, str] = OrderedDict()
+        self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
+        self._proof_start_idx: typing.Optional[int] = None
+        self._import_end_idx: typing.Optional[int] = None
 
     def __enter__(self):
         lean_cmd = f"lean --server --memory={self._max_memory_in_mib}" + (" --quiet" if self.suppress_error_log else "")
@@ -258,8 +261,14 @@ class Lean3Executor(object):
                 stmt = next(self.main_file_iter)
             except StopIteration:
                 return
+            idx = len(self._lines_executed)
+            self._set_content_to_run(stmt)
+            if stmt.startswith("theorem") and self._import_end_idx is None:
+                self._import_end_idx = idx
             self.current_stmt = stmt
             self.line_num += 1
+            self._set_content_to_run(stmt)
+            self._lines_executed.append(stmt)
 
     def run_lemma_without_executing(self):
         while True:
@@ -382,11 +391,11 @@ class Lean3Executor(object):
             return None
         else:
             try:
-                return self.curr_lemma
+                return self.local_theorem_lemma_description[self.curr_lemma_name]
             except:
                 return None
 
-    def _set_context_to_run(self, stmt: str) -> str:
+    def _set_content_to_run(self, stmt: str) -> str:
         # Now add this new line to the context
         if len(self._file_content) > 0:
             # First create a context of all the lines executed so far
@@ -401,21 +410,23 @@ class Lean3Executor(object):
         if not file_content.endswith("end"):
             return False # no need to check if we are no where near a closing of a proof
         return file_content.count("begin") == file_content.count("end")
-        
 
     def _run_stmt_on_lean_server(self, idx : int, stmt: str):
-        original_idx = idx
-        self._set_context_to_run(stmt)
+        self._set_content_to_run(stmt)
         content = self._file_content
+        if stmt.startswith("theorem") and self._import_end_idx is None:
+            self._import_end_idx = idx - 1
         if not self._proof_running:
             last_thm_details = Lean3Executor.theorem_match.findall(content)
         else:
             last_thm_details = []
         if last_thm_details:
             # We might have found a new theorem
-            _, _, thm_name, thm_value, _ = last_thm_details[-1]
+            full_thm_stmt, _, _, thm_name, thm_value, _ = last_thm_details[-1]
+            full_thm_stmt = full_thm_stmt.strip()
             thm_name = thm_name.strip()
             thm_value = thm_value.strip()
+            thm_value = thm_value.lstrip(":")
             if thm_name in self.local_file_lemmas:
                 # We have already discovered this theorem
                 # The state got added probably because of the end of a proof
@@ -423,28 +434,48 @@ class Lean3Executor(object):
                 self.proof_context = None
                 self._proof_running = False
                 self.curr_lemma_name, self.curr_lemma = None, None
+                self._proof_start_idx = None
             else:
+                self.local_theorem_lemma_description[thm_name] = full_thm_stmt
                 self.local_file_lemmas[thm_name] = thm_value
                 self._proof_running = True
                 self.curr_lemma_name, self.curr_lemma = thm_name, thm_value
+                self._proof_start_idx = idx
         if self._proof_running:
-            col = 0
             content = content.rstrip()
+            assert self._proof_start_idx is not None
             matching_end = self._check_matching_end(content)
-            if self.proof_context is None and not matching_end:
+            if not matching_end:
                 content += Lean3Executor.proof_context_generation_tactic
-                idx += 2
-            elif self.proof_context != ProofContext.empty() and not matching_end:
-                content = content.rstrip(",")
-                content += Lean3Executor.proof_context_intermediate_tactic
-                idx += 2
-            else:
-                col = len(stmt) # Some tried to close the proof
-                idx += 1
+            col = len(stmt)
+            idx += 1
             self.lean_server.full_sync(self.main_file, content)
             next_proof_context_str = self.lean_server.state(self.main_file, idx, col)
             prev_proof_context = self.proof_context
             self.proof_context = self._parse_proof_context(next_proof_context_str)
+            relevant_messages = []
+            for msg in self.lean_server.messages:
+                if msg.text.startswith(Lean3Executor.proof_state_running_message):
+                    # This is a case when there more subgoals to be solved
+                    new_proof_context = self._parse_proof_context(msg.text[len(Lean3Executor.proof_state_running_message):])
+                    if self.proof_context == ProofContext.empty():
+                        # But this is not focussed goal
+                        self.proof_context = ProofContext(
+                            fg_goals=[],
+                            bg_goals=new_proof_context.fg_goals,
+                            shelved_goals=new_proof_context.shelved_goals,
+                            given_up_goals=new_proof_context.given_up_goals
+                        )
+                    else:
+                        self.proof_context = new_proof_context
+                elif self._proof_start_idx <= msg.pos_line <= idx:
+                    relevant_messages.append(msg)
+
+            if len(relevant_messages) > 0:
+                # There might be some errors on the current line
+                self.lean_error_messages = copy.deepcopy(relevant_messages)
+            else:
+                self.lean_error_messages = []
             # This can simply happen because the we are not pointing at the end of an atomic unit of tactic execution
             if self.proof_context is None and prev_proof_context is not None:
                 # Only focus on messages related to the current lemma
@@ -452,20 +483,70 @@ class Lean3Executor(object):
                     # We might be in the middle of an atomic unit
                     # So we don't need to give up proof context
                     self.proof_context = prev_proof_context
-
-                relevant_messages = []
-                for msg in self.lean_server.messages:
-                    if original_idx <= msg.pos_line <= idx:
-                        relevant_messages.append(msg)
-                if len(relevant_messages) > 0:
-                    # There might be some errors on the current line
-                    self.lean_error_messages = copy.deepcopy(relevant_messages)
-                else:
-                    self.lean_error_messages = []
             if prev_proof_context is not None and self.proof_context is None:
                 # We have finished a proof
                 self._proof_running = False
                 self.curr_lemma_name, self.curr_lemma = None, None
+                self._proof_start_idx = None
+        pass
+
+    def _skip_to_theorem(self, theorem: str):
+        found_thm = False
+        while not found_thm:
+            try:
+                stmt = next(self.main_file_iter)
+            except StopIteration:
+                if not self.suppress_error_log:
+                    logger.error(f"Could not find theorem '{theorem}' in the file '{self.main_file}'")
+                    raise Exception(f"Could not find theorem '{theorem}' in the file '{self.main_file}'")
+                return
+            self.current_stmt = stmt
+            self.line_num += 1
+            idx = len(self._lines_executed)
+            if stmt.startswith("theorem") and self._import_end_idx is None:
+                self._import_end_idx = idx - 1
+            file_content = self._file_content
+            # Now add this new line to the context
+            if len(file_content) > 0:
+                # First create a context of all the lines executed so far
+                file_content += "\n" + stmt.strip()
+            else:
+                file_content = stmt.strip()
+            last_thm_details = Lean3Executor.theorem_match.findall(file_content)
+            if last_thm_details:
+                # We might have found a new theorem
+                full_thm_stmt, _, _, thm_name, thm_value, _ = last_thm_details[-1]
+                full_thm_stmt = full_thm_stmt.strip()
+                thm_name = thm_name.strip()
+                thm_value = thm_value.strip()
+                thm_value = thm_value.lstrip(":")
+                if thm_name not in self.local_file_lemmas:
+                    if theorem != thm_name:
+                        self.local_theorem_lemma_description[thm_name] = full_thm_stmt
+                        self.local_file_lemmas[thm_name] = thm_value
+                    else:
+                        found_thm = True
+            if found_thm:
+                # Capture the proof context
+                assert self._import_end_idx is not None
+                # Remove all the theorems before the current theorem
+                self._lines_executed = self._lines_executed[:self._import_end_idx + 1]
+                self._lines_executed.append(full_thm_stmt)
+                # Reset the file content to completely ignore the previous theorems
+                self._file_content = '\n'.join(self._lines_executed)
+                # Now change the idx
+                idx = len(self._lines_executed)
+                self.line_num = idx
+                # Remove all the theorems discovered before the current theorem
+                self.local_file_lemmas.clear()
+                self.local_theorem_lemma_description.clear()
+                self._run_stmt_on_lean_server(idx, stmt)
+                self._lines_executed.append(stmt)
+                self.line_num += 1 # This needs to be reset because the begin was ignored
+            else:
+                # Now run the lines till the theorem is found
+                self._set_content_to_run(stmt)
+                self._lines_executed.append(stmt)
         pass
 
     def _parse_proof_context(self, proof_context_str: str) -> ProofContext:

@@ -32,119 +32,43 @@ datasets:
         - genv_next_add_globals
         - genv_public_add_globals
         - alloc_globals_app
-      #     # The ones below were not successfully proved by proverbot
-      #     # - add_global_match
-      #     # - add_globals_app
-      #     # - add_globals_ensures
-      #     # - add_globals_match
-      #     # - add_globals_norepet_ensures
-      #     # - add_globals_preserves
-      #     # - add_globals_unique_ensures
-      #     # - add_globals_unique_preserves
-      #     # - advance_next_le
-      #     # - alloc_global_exists
-      #     # - alloc_global_initialized
-      #     # - alloc_global_neutral
-      #     # - alloc_global_nextblock
-      #     # - alloc_global_perm
-      #     # - alloc_global_unchanged
-      #     # - alloc_globals_initialized
-      #     # - alloc_globals_match
-      #     # - alloc_globals_neutral
-      #     # - alloc_globals_nextblock
-      #     # - alloc_globals_perm
-      #     # - alloc_globals_unchanged
-      #     # - block_is_volatile_below
-      #     # - find_def_inversion
-      #     # - find_def_match
-      #     # - find_def_not_fresh
-      #     # - find_def_symbol
-      #     # - find_funct_inv
-      #     # - find_funct_inversion
-      #     # - find_funct_match
-      #     # - find_funct_prop
-      #     # - find_funct_ptr_inversion
-      #     # - find_funct_ptr_match
-      #     # - find_funct_ptr_not_fresh
-      #     # - find_funct_ptr_prop
-      #     # - find_funct_ptr_transf
-      #     # - find_funct_ptr_transf_partial
-      #     # - find_funct_transf
-      #     # - find_funct_transf_partial
-      #     # - find_invert_symbol
-      #     # - find_symbol_exists
-      #     # - find_symbol_inversion
-      #     # - find_symbol_match
-      #     # - find_symbol_not_fresh
-      #     # - find_symbol_transf
-      #     # - find_symbol_transf_partial
-      #     # - find_var_info_match
-      #     # - find_var_info_not_fresh
-      #     # - globalenv_public
-      #     # - globalenvs_match
-      #     # - in_norepet_unique
-      #     # - init_mem_characterization
-      #     # - init_mem_characterization_2
-      #     # - init_mem_characterization_gen
-      #     # - init_mem_exists
-      #     # - init_mem_genv_next
-      #     # - init_mem_inversion
-      #     # - init_mem_match
-      #     # - init_mem_transf
-      #     # - init_mem_transf_partial
-      #     # - initmem_inject
-      #     # - invert_find_symbol
-      #     # - load_store_init_data_invariant
-      #     # - read_as_zero_unchanged
-      #     # - senv_match
-      #     # - senv_transf
-      #     # - senv_transf_partial
-      #     # - store_init_data_aligned
-      #     # - store_init_data_exists
-      #     # - store_init_data_list_aligned
-      #     # - store_init_data_list_charact
-      #     # - store_init_data_list_exists
-      #     # - store_init_data_list_free_idents
-      #     # - store_init_data_list_loadbytes
-      #     # - store_init_data_list_match
-      #     # - store_init_data_list_neutral
-      #     # - store_init_data_list_nextblock
-      #     # - store_init_data_list_perm
-      #     # - store_init_data_list_unchanged
-      #     # - store_init_data_loadbytes
-      #     # - store_init_data_neutral
-      #     # - store_init_data_perm
-      #     # - store_init_data_unchanged
-      #     # - store_zeros
-      #     # - store_zeros_exists
-      #     # - store_zeros_loadbytes
-      #     # - store_zeros_neutral
-      #     # - store_zeros_nextblock
-      #     # - store_zeros_perm
-      #     # - store_zeros_read_as_zero
-      #     # - store_zeros_unchanged
+      - path: lib/Parmov.v
+        theorems: 
+          - update_same
+          - update_o
+          - update_ident
+          - dests_disjoint_sym
+          - dests_disjoint_cons_right
+          - is_mill_cons
+          - move_no_temp_append
+          - notin_dests_cons
+          - exec_seq_app
+          - env_equiv_sym
+          - env_equiv_trans
+          - parmove2_wf_moves
+          - no_overlap_sym
+          - pairwise_disjoint_norepet
+          - disjoint_temps_not_temp
+          - mu_is_mill
+          - no_overlap_pairwise
+          - weak_exec_seq_match
+      - path: x86/SelectOpproof.v
+        theorems:
+          - eval_addrstack
+          - eval_mulhs
+          - eval_mulhu
+          - eval_negf
+          - eval_absf
+          - eval_negfs
+          - eval_absfs
+          - eval_compf
+          - eval_compfs
+          - eval_singleoffloat
+          - eval_floatofsingle
+          - eval_intoffloat
+          - eval_intofsingle
 # Below are the theorems that were successfully proved by proverbot
 # We will include them in the benchmark for the next round
-    # - path: lib/Parmov.v
-    #   theorems: 
-    #     - update_same
-    #     - update_o
-    #     - update_ident
-    #     - dests_disjoint_sym
-    #     - dests_disjoint_cons_right
-    #     - is_mill_cons
-    #     - move_no_temp_append
-    #     - notin_dests_cons
-    #     - exec_seq_app
-    #     - env_equiv_sym
-    #     - env_equiv_trans
-    #     - parmove2_wf_moves
-    #     - no_overlap_sym
-    #     - pairwise_disjoint_norepet
-    #     - disjoint_temps_not_temp
-    #     - mu_is_mill
-    #     - no_overlap_pairwise
-    #     - weak_exec_seq_match
     # - path: x86/SelectOpproof.v
     #   theorems:
     #     - eval_addrstack

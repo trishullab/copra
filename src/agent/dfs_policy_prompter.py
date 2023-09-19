@@ -38,6 +38,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             num_goal_per_prompt: typing.Optional[int] = None,
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
+            language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
@@ -68,6 +69,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
         self._num_goal_per_prompt = num_goal_per_prompt
+        self.language = language
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -377,9 +379,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS)
+                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
             elif coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
-                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
+                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=coq_gpt_request.args)
             else:
                 raise Exception(f"Invalid action {coq_gpt_request.action}")
             action.original_message = open_ai_message
@@ -426,9 +428,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 error_message=env_info.error_message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
-            return ProofAction(ProofAction.ActionType.BACKTRACK)
+            return ProofAction(ProofAction.ActionType.BACKTRACK, self.language)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:
-            return ProofAction(ProofAction.ActionType.EXIT)
+            return ProofAction(ProofAction.ActionType.EXIT, self.language)
         else:
             raise Exception(f"Invalid action type {tree_search_action.action_type}")
         success = False

@@ -25,6 +25,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
             max_tokens_per_action: int = 50,
             gpt_model_name: str = "gpt-3.5-turbo",
             secret_filepath: str = ".secrets/openai_key.json",
+            language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
@@ -46,6 +47,7 @@ class CoqGptPolicyPrompter(PolicyPrompter):
         self._history_token_count = 0
         self._message_history = []
         self._message_history_token_count = []
+        self.language = language
         self.logger = logger if logger is not None else logging.getLogger(__name__)
         pass
 
@@ -160,11 +162,9 @@ class CoqGptPolicyPrompter(PolicyPrompter):
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_DFNS)
-            elif coq_gpt_request.action == CoqGptRequestActions.GET_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_THMS)
+                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
             elif coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
-                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
+                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=coq_gpt_request.args)
             else:
                 raise Exception(f"Invalid action {coq_gpt_request.action}")
             actions.append((open_ai_message, action, probability))

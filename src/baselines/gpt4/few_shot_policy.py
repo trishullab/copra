@@ -28,6 +28,7 @@ class FewShotGptPolicy(Policy):
         checkpoint_filename: str,
         policy_prompter: FewShotGptPolicyPrompter,
         checkpoint_on_exit: bool = True,
+        language: ProofAction.Language = ProofAction.Language.COQ,
         logger: logging.Logger = None):
         os.path.exists(checkpoint_dir), f"Checkpoint file {checkpoint_dir} does not exist"
         assert checkpoint_filename is not None, "Checkpoint filename cannot be None"
@@ -43,6 +44,7 @@ class FewShotGptPolicy(Policy):
         self._asked_for_dfns_and_lms = False
         self._asked_for_proof = False
         self._num_api_calls = 0
+        self.language = language
     
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
@@ -73,7 +75,7 @@ class FewShotGptPolicy(Policy):
         if not self._asked_for_dfns_and_lms:
             if len(state.training_data_format.all_useful_defns_theorems) == 0:
                 self._asked_for_dfns_and_lms = True
-                return ProofAction(ProofAction.ActionType.GET_DFNS_THMS)
+                return ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
         if not self._asked_for_proof:
             success = False
             tries = 10
@@ -101,7 +103,7 @@ class FewShotGptPolicy(Policy):
             action = actions_tuple[0][0]
             return action
         else:
-            return ProofAction(ProofAction.ActionType.EXIT)
+            return ProofAction(ProofAction.ActionType.EXIT, self.language)
 
     def update(self, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         pass

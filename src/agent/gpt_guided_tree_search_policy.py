@@ -149,7 +149,8 @@ class GptGuidedTreeSearchPolicy(Policy):
         checkpoint_filename: str,
         policy_prompter: PolicyPrompter,
         tree_search_algorithm: TreeSearchAlgorithm, 
-        checkpoint_on_exit: bool = True):
+        checkpoint_on_exit: bool = True,
+        language: ProofAction.Language = ProofAction.Language.COQ):
         assert tree_search_algorithm is not None, "Tree search algorithm cannot be None"
         assert policy_prompter is not None, "Policy prompter cannot be None"
         os.path.exists(checkpoint_dir), f"Checkpoint file {checkpoint_dir} does not exist"
@@ -162,6 +163,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         self._tree_search_algorithm = tree_search_algorithm
         self._policy_prompter = policy_prompter
         self._loaded = False
+        self.language = language
     
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
@@ -196,11 +198,11 @@ class GptGuidedTreeSearchPolicy(Policy):
         or tree_search_action.action_type == TreeSearchActionType.HARDER_STATE_SUMMARY_PROMPT:
             action = self._policy_prompter(tree_search_action)
         elif tree_search_action.action_type == TreeSearchActionType.RUN_ACTION:
-            action = ProofAction(ProofAction.ActionType.RUN_TACTIC, **tree_search_action.kwargs)
+            action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, **tree_search_action.kwargs)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
-            action = ProofAction(ProofAction.ActionType.BACKTRACK)
+            action = ProofAction(ProofAction.ActionType.BACKTRACK, self.language)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:
-            action = ProofAction(ProofAction.ActionType.EXIT)
+            action = ProofAction(ProofAction.ActionType.EXIT, self.language)
         else:
             raise Exception(f"Unknown tree search action {tree_search_action}")
         return action

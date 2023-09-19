@@ -366,22 +366,17 @@ if __name__ == "__main__":
     )
     supported_actions = [x.name for x in ProofAction.ActionType]
 
-    def scan_action():
+    def scan_action(language: ProofAction.Language = ProofAction.Language.COQ):
         inp_action_type = input(f"Enter an action type from {supported_actions}: ")
         action_type = ProofAction.ActionType[inp_action_type]
         if action_type == ProofAction.ActionType.RUN_TACTIC:
             inp = input("Enter tactic(s) (';' separated): ")
             inp = inp.split(';')
-            return ProofAction(action_type, tactics=inp)
-        elif action_type == ProofAction.ActionType.GET_THMS:
-            return ProofAction(action_type)
-        elif action_type == ProofAction.ActionType.GET_DFNS:
-            return ProofAction(action_type)
-        elif action_type == ProofAction.ActionType.EXIT:
-            return ProofAction(action_type)
+            return ProofAction(action_type, language, tactics=inp)
+        elif action_type == ProofAction.ActionType.GET_DFNS_THMS or action_type == ProofAction.ActionType.EXIT:
+            return ProofAction(action_type, language)
         else:
             raise Exception(f"Invalid action type {action_type}")
-    
 
     with ProofEnv("test", proof_exec_callback, 'algb_add_comm', max_proof_depth=10) as env:
         done = env.done

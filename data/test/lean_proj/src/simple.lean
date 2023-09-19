@@ -1,21 +1,36 @@
 import data.real.basic
+import data.nat.factorial.basic
 
 theorem x: ∀ (a b : ℕ), a + 0 = a :=
 begin
 intros a,
 induction a,
 {
-  simp,
+  simp
 },
 {
   simp
 }
 end
 
+theorem n_less_2_pow_n
+  (n : ℕ)
+  (h₀ : 1 ≤ n) :
+  n < 2^n :=
+begin
+  induction h₀ with k h₀ IH,
+  { norm_num },
+  {
+    calc k + 1 < 2 * 2^k : by linarith
+  }
+end
+
 theorem wrong_proof1: ∀ (a b : ℕ), a + 0 = a :=
 begin
-intros a,
-balabar a,
+intros,
+induction a,
+{simp}
+,
 end
 
 theorem wrong_proof2: ∀ (a b : ℕ), a + 0 = a :=
@@ -44,14 +59,14 @@ begin
     simp,
 end
 
-variables (w x y z : ℕ) (p : ℕ → Prop)
+-- variables (w x y z : ℕ) (p : ℕ → Prop)
 
-local attribute [simp] mul_comm mul_assoc mul_left_comm
-local attribute [simp] add_assoc add_comm add_left_comm
+-- local attribute [simp] mul_comm mul_assoc mul_left_comm
+-- local attribute [simp] add_assoc add_comm add_left_comm
 
-example (h : p (x * y + z * w  * x)) : p (x * w * z + y * x) :=
-by { simp at *, assumption }
+-- example (h : p (x * y + z * w  * x)) : p (x * w * z + y * x) :=
+-- by { simp at *, assumption }
 
-example (h₁ : p (1 * x + y)) (h₂ : p  (x * z * 1)) :
-  p (y + 0 + x) ∧ p (z * x) :=
-by { simp at *, split; assumption }
+-- example (h₁ : p (1 * x + y)) (h₂ : p  (x * z * 1)) :
+--   p (y + 0 + x) ∧ p (z * x) :=
+-- by { simp at *, split; assumption }

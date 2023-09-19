@@ -80,11 +80,12 @@ class DFSTreeNode(object):
     actions_till_now: typing.List[ProofAction] = field(default_factory=list)
 
 class DFSTreeSearch(TreeSearchAlgorithm):
-    def __init__(self):
+    def __init__(self, language: ProofAction.Language = ProofAction.Language.COQ):
         self._action_queue : deque = deque()
         self._search_stack : typing.List[DFSTreeNode] = []
         self._num_nodes_visited = 0
         self._bad_state_action_map : typing.Dict[ProofState, typing.Set[ProofAction]] = {}
+        self.language = language
         pass
 
     def reset(self):
@@ -102,7 +103,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             return
         non_simplifying_action_message = "The proof-step does NOT simplify the goal. Try stepping back with different proof-step."
         subsequent_failed_action_message = "The proof-step ultimately leads to goals which eventually don't simplify. Try stepping back with a different proof-step."
-        current_state_action_pair = StateActionPair(state, ProofAction(ProofAction.ActionType.NONE))
+        current_state_action_pair = StateActionPair(state, ProofAction(ProofAction.ActionType.NONE, self.language))
         next_state_action_pair = StateActionPair(next_state, action)
         new_node = DFSTreeNode(current_state_action_pair, next_state_action_pair, action, info, reward, done)
         current_node_is_correct = True
