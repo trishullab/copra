@@ -10,7 +10,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from src.rl.q_tree import QTreeStateInfo
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
 from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
 from src.rl.simple_proof_env import ProofEnvInfo, ProgressState
@@ -98,8 +99,16 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             last_node = self._search_stack[-1]
         else:
             last_node = None
-        if next_state.training_data_format is not None and next_state.training_data_format.goal_description == DynamicProofExecutor.ProofFinishedDescription:
-            self._action_queue.append(TreeSearchAction(TreeSearchActionType.RUN_ACTION, next_state, tactics=["Qed."]))
+        if self.language == ProofAction.Language.COQ:
+            description_match = DynamicCoqProofExecutor.ProofFinishedDescription
+            qed_tac = ["Qed."]
+        elif self.language == ProofAction.Language.LEAN:
+            description_match = DynamicLeanProofExecutor.ProofFinishedDescription
+            qed_tac = ["end"]
+        else:
+            raise NotImplementedError(f"language {self.language} not supported")
+        if next_state.training_data_format is not None and next_state.training_data_format.goal_description == description_match:
+            self._action_queue.append(TreeSearchAction(TreeSearchActionType.RUN_ACTION, next_state, tactics=qed_tac))
             return
         non_simplifying_action_message = "The proof-step does NOT simplify the goal. Try stepping back with different proof-step."
         subsequent_failed_action_message = "The proof-step ultimately leads to goals which eventually don't simplify. Try stepping back with a different proof-step."

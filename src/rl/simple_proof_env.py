@@ -76,6 +76,12 @@ class ProofEnv(Env):
         self._num_cycles = 0
         self._always_retrieve_thms = always_retrieve_thms
         self.retrieve_strategy = retrieval_strategy
+        if isinstance(self.dynamic_proof_executor_callback, DynamicCoqProofExecutor):
+            self.language = ProofAction.Language.COQ
+        elif isinstance(self.dynamic_proof_executor_callback, DynamicLeanProofExecutor):
+            self.language = ProofAction.Language.LEAN
+        else:
+            raise NotImplementedError(f"Proof executor callback {self.dynamic_proof_executor_callback} not implemented")
         if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
             self._re_ranker = CoqBm25ReRanker()
         else:
@@ -116,7 +122,7 @@ class ProofEnv(Env):
                 current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
-        state = ProofState(current_goals) # always make a copy of goals to avoid side effects
+        state = ProofState(current_goals, language=self.language) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         state.was_reset = len(self._history) == 0
         return state
@@ -348,7 +354,7 @@ class ProofEnv(Env):
                 global_responses[i].score = global_idx[i][1]/sum_global_scores
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
-        current_proof_state = ProofState(relevant_defns_thms)
+        current_proof_state = ProofState(relevant_defns_thms, language=self.language)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE

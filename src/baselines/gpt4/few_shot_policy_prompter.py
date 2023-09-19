@@ -19,7 +19,7 @@ from src.gpts.gpt_access import GptAccess
 from src.rl.proof_action import ProofAction
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
+from src.baselines.gpt4.few_shot_grammar import FewShotGptCoqKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
 
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
@@ -267,7 +267,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     n=self.num_sequences,
                     temperature=temperature,
                     max_tokens=tokens_to_generate,
-                    stop=[FewShotGptKeywords.QED])
+                    stop=[FewShotGptCoqKeywords.QED])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
