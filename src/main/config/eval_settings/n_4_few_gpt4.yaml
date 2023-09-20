@@ -6,7 +6,7 @@ timeout_in_secs: 60
 proof_retries: 1
 # main_prompt: data/prompts/baseline/simple-prompt.md
 # conv_prompt: data/prompts/baseline/simple-prompt-conv.md
-max_tokens_per_action: 250
+max_tokens_per_action: 1000
 max_theorems_in_prompt: 7
 gpt_model_name: gpt-4
 max_number_of_episodes: 1
