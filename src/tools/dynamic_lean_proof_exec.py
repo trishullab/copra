@@ -55,9 +55,9 @@ class DynamicProofExecutor(Lean3Executor):
     class RunState(object):
         def __init__(self):
             self.tatics_ran = []
-            self.proof_contexts = []
             self.last_exception : typing.Optional[str] = None
             self.line_tactic_map = {}
+            self.line_proof_context_map = {}
     UnfocussedGoalsDescription = "there are unsolved goals"
     ProofFinishedDescription = "no goals"
     NotInProofModeDescription = "not in proof mode"
@@ -182,18 +182,19 @@ class DynamicProofExecutor(Lean3Executor):
     def run_tactics(self, tactics: typing.List[str]) -> typing.Tuple[int, bool]:
         tactic_failed = False
         start_line_num = self.line_num
+        self.run_state.line_tactic_map[self.line_num] = len(self.run_state.tatics_ran)
+        self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
         for tactic in tactics:
             self.tactic_switch_iterator.set_next_instruction(tactic)
             self.run_next()
             self.run_state.tatics_ran.append(tactic)
-            self.run_state.proof_contexts.append(copy.deepcopy(self.proof_context))
-            self.run_state.line_tactic_map[self.line_num] = len(self.run_state.tatics_ran)
+            self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
         if len(self.lean_error_messages) > 0:
             current_thm_name = self.get_lemma_name_if_running()
             assert current_thm_name is not None, "current_thm_name must not be None"
             if len(self.lean_error_messages) > 0:
                 tactic_failed = True
-                self.run_state.last_exception = '\n'.join([msg.text for msg in self.lean_error_messages])
+                self.run_state.last_exception = '\n'.join(self.lean_error_messages)
         return start_line_num, not tactic_failed
     
     def get_last_exception(self) -> typing.Optional[str]:
@@ -209,18 +210,19 @@ class DynamicProofExecutor(Lean3Executor):
         assert tactic_line_num >= 0, "tactic_line_num must be >= 0"
         cancelled_some_tactics = False
         if tactic_line_num < self.line_num:
-            file_content = self._file_content.split("\n")
-            assert len(file_content) == self.line_num, f"file_content length {len(file_content)} != self.line_num + 1 {self.line_num + 1}"
-            new_file_content = file_content[:tactic_line_num]
-            self._file_content = "\n".join(new_file_content)
+            self._lines_executed = self._lines_executed[:tactic_line_num]
+            self._file_content = "\n".join(self._lines_executed)
             state_num = self.run_state.line_tactic_map[tactic_line_num]
-            self.run_state.proof_contexts = self.run_state.proof_contexts[:state_num]
             self.run_state.tatics_ran = self.run_state.tatics_ran[:state_num]
+            self.proof_context = self.run_state.line_proof_context_map[tactic_line_num]
             line_tactic_map_keys = list(self.run_state.line_tactic_map.keys())
             for line_num in line_tactic_map_keys:
-                if line_num > tactic_line_num:
+                if line_num >= tactic_line_num:
                     del self.run_state.line_tactic_map[line_num]
+            line_proof_context_map_keys = list(self.run_state.line_proof_context_map.keys())
+            for line_num in line_proof_context_map_keys:
+                if line_num >= tactic_line_num:
+                    del self.run_state.line_proof_context_map[line_num]
             self.line_num = tactic_line_num
-            self.proof_context = self.run_state.proof_contexts[-1]
             cancelled_some_tactics = True
         return cancelled_some_tactics

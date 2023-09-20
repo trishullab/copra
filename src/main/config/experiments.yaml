@@ -1,7 +1,7 @@
 defaults:
   - benchmark: simple_benchmark_lean
-  - eval_settings: n_4_few_gpt35
-  - prompt_settings: lean_few_shot
+  - eval_settings: n_30_dfs_gpt35
+  - prompt_settings: lean_dfs
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:

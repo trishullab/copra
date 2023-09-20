@@ -495,8 +495,11 @@ class Lean3Executor(object):
                 lines = content.split("\n")
                 self.lean_error_messages = [
                     f"Got [{msg.level}] in line '{lines[msg.line_num - 1][:25]} ...': \n [{msg.level}] {msg.text}" for msg in response.messages
-                    if msg.line_num < len(lines) # Ignore the last line as it has end 
+                    if msg.line_num <= len(lines) # Ignore the last line as it has end 
                 ]
+            else:
+                self.lean_error_messages = []
+
             if self.proof_context is None and prev_proof_context is not None:
                 if len(response.messages) > 0: # This has to be on the response messages not the error message
                     # Never give up the proof context because of an error

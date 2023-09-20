@@ -16,7 +16,7 @@ from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, S
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
 from src.rl.simple_proof_env import ProofEnvInfo, ProgressState
 from src.rl.proof_action import ProofAction
-from src.rl.proof_state import ProofState, FailedProofState
+from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
 
 @dataclass_json
@@ -87,6 +87,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._num_nodes_visited = 0
         self._bad_state_action_map : typing.Dict[ProofState, typing.Set[ProofAction]] = {}
         self.language = language
+        self.failed_proof_state = FailedCoqProofState if language == ProofAction.Language.COQ else FailedLeanProofState
         pass
 
     def reset(self):
@@ -118,7 +119,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         current_node_is_correct = True
         if new_node.info.progress == ProgressState.FAILED:
             assert new_node.info.progress == ProgressState.FAILED, "The progress should be FAILED"
-            new_node.next_state_action_pair.state = FailedProofState # This is to ensure that there are no cycles in the tree
+            new_node.next_state_action_pair.state = self.failed_proof_state # This is to ensure that there are no cycles in the tree
             current_node_is_correct = False
         elif self._check_if_state_is_harder(current_state_action_pair, next_state_action_pair):
             if action.action_type == ProofAction.ActionType.RUN_TACTIC:
@@ -126,7 +127,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                 self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
             new_node.info.progress = ProgressState.FAILED
             new_node.info.error_message = non_simplifying_action_message
-            new_node.next_state_action_pair.state = FailedProofState # This is to ensure that there are no cycles in the tree
+            new_node.next_state_action_pair.state = self.failed_proof_state # This is to ensure that there are no cycles in the tree
             current_node_is_correct = False
         else:
             assert new_node.info.progress == ProgressState.STATE_CHANGED or new_node.info.progress == ProgressState.STATE_UNCHANGED or new_node.info.progress == ProgressState.DONE, "The progress should be either STATE_CHANGED or STATE_UNCHANGED"
@@ -139,7 +140,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             # sort the incorrect actions by name
             new_node.incorrect_actions.sort(key=lambda x: x.name)
 
-        if last_node is None or last_node.next_state_action_pair.state != FailedProofState:
+        if last_node is None or last_node.next_state_action_pair.state != self.failed_proof_state:
             if last_node is not None:
                 new_node.actions_till_now = last_node.actions_till_now + [last_node.action]
             if last_node is None and state in self._bad_state_action_map and action in self._bad_state_action_map[state]:
@@ -151,7 +152,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     self._bad_state_action_map[state] = set()
                 self._bad_state_action_map[state].add(action)
         elif current_node_is_correct:
-            assert last_node.next_state_action_pair.state == FailedProofState, "The last node's next state should be FailedProofState"
+            assert last_node.next_state_action_pair.state == self.failed_proof_state, "The last node's next state should be self.failed_proof_state"
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
             # Pop the failed node from the stack
             self._search_stack.pop()
@@ -166,11 +167,11 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     # We are done searching because it repeated the same wrong action, even after warning
                     self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
                 else:
-                    assert last_node.next_state_action_pair.state != FailedProofState, "The last node's next state should not be FailedProofState"
+                    assert last_node.next_state_action_pair.state != self.failed_proof_state, "The last node's next state should not be self.failed_proof_state"
                     if last_node.action.action_type == ProofAction.ActionType.RUN_TACTIC:
                         self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
                     # Deem the last action as invalid
-                    last_node.next_state_action_pair.state = FailedProofState
+                    last_node.next_state_action_pair.state = self.failed_proof_state
                     last_node.info.progress = ProgressState.FAILED
                     last_node.info.error_message = subsequent_failed_action_message
                     # # Add the action to failed state
@@ -192,7 +193,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     self._bad_state_action_map[state].add(action)
         else:
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
-            assert last_node.next_state_action_pair.state == FailedProofState, "The last node's next state should be FailedProofState"
+            assert last_node.next_state_action_pair.state == self.failed_proof_state, "The last node's next state should be self.failed_proof_state"
             if action in last_node.incorrect_actions or new_node.action == last_node.action:
                 # Pop from the stack, because we no longer want to use this action again
                 self._search_stack.pop()
@@ -202,12 +203,12 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     # There is nothing in the queue the search is over
                     self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
                 else:
-                    assert last_node.next_state_action_pair.state != FailedProofState, "The last node's next state should not be FailedProofState"
+                    assert last_node.next_state_action_pair.state != self.failed_proof_state, "The last node's next state should not be self.failed_proof_state"
                     if last_node.action.action_type == ProofAction.ActionType.RUN_TACTIC:
                         # Add backtracking if the last action was a tactic
                         self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
                     # Deem the last action as invalid
-                    last_node.next_state_action_pair.state = FailedProofState
+                    last_node.next_state_action_pair.state = self.failed_proof_state
                     last_node.info.progress = ProgressState.FAILED
                     last_node.info.error_message = subsequent_failed_action_message
                     # # Add the action to failed state
@@ -226,7 +227,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                 self._bad_state_action_map[last_node.state_action_pair.state].add(last_node.action)
                 last_node.action = new_node.action
                 last_node.next_state_action_pair.action = new_node.next_state_action_pair.action
-                last_node.next_state_action_pair.state = FailedProofState
+                last_node.next_state_action_pair.state = self.failed_proof_state
                 last_node.info = new_node.info
     
     def estimate_q_value(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo) -> float:
@@ -261,7 +262,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                     last_node.incorrect_actions.append(action)
             # sort the incorrect actions by name
             last_node.incorrect_actions.sort(key=lambda x: x.name)
-        if last_node.next_state_action_pair.state == FailedProofState:
+        if last_node.next_state_action_pair.state == self.failed_proof_state:
             assert last_node.state_action_pair.state == state, "The last node's current state should be the current state"
             assert last_node.info.progress == ProgressState.FAILED, "The last node's progress should be FAILED"
             assert last_node.info.error_message is not None, "The last node's error message should not be None"

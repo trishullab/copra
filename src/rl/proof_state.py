@@ -56,6 +56,7 @@ class ProofState(State):
     def __ge__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
         assert self.language == __o.language, f"self.language: {self.language}, __o.language: {__o.language}"
+        FailedProofState = FailedCoqProofState if self.language == ProofAction.Language.COQ else FailedLeanProofState
         if __o == FailedProofState: # FailedProofState is the hardest state to reach
             return self.training_data_format == __o.training_data_format
         if self == FailedProofState:
@@ -75,6 +76,7 @@ class ProofState(State):
     def __le__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
         assert self.language == __o.language, f"self.language: {self.language}, __o.language: {__o.language}"
+        FailedProofState = FailedCoqProofState if self.language == ProofAction.Language.COQ else FailedLeanProofState
         if self == FailedProofState: # FailedProofState is the hardest state to reach
             return self.training_data_format == __o.training_data_format
         if __o == FailedProofState:
@@ -104,7 +106,8 @@ class ProofState(State):
         return self.training_data_format != __o.training_data_format and self.training_data_format >= __o.training_data_format
 
 
-FailedProofState = ProofState(training_data_format=None)
+FailedCoqProofState = ProofState(training_data_format=None, language=ProofAction.Language.COQ)
+FailedLeanProofState = ProofState(training_data_format=None, language=ProofAction.Language.LEAN)
 
 if __name__ == "__main__":
     proof_state = ProofState(training_data_format=None)

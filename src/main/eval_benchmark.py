@@ -155,7 +155,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings,
                     metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
                     language=eval_benchmark.language,
                     logger=logger)
-                dfs_tree_search = DFSTreeSearch()
+                dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
                     eval_settings.checkpoint_dir, 
                     lemma_name, 
