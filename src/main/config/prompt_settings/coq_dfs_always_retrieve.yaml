@@ -1,0 +1,3 @@
+name: coq_dfs_always_retrieve
+main_prompt: data/prompts/system/coq-proof-agent-with-dfs-always-retrieve.md
+conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs-always-retrieve.md

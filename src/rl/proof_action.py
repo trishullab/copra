@@ -90,8 +90,8 @@ class ProofAction(Action):
                 self.kwargs['tactics'] = tactics
             elif self.language == ProofAction.Language.LEAN:
                 all_tactics = '\n'.join(self.kwargs['tactics'])
-                reader = LeanLineByLineReader(file_content=all_tactics)
-                tactics = list(reader.instruction_step_generator())
+                # reader = LeanLineByLineReader(file_content=all_tactics)
+                tactics = [all_tactics]
                 self.kwargs['tactics'] = tactics
         self.original_message : typing.Any = None
         pass

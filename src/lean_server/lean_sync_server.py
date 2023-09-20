@@ -94,7 +94,7 @@ class SyncLeanServer:
             line = self.process.stdout.readline().strip()
             if line:
                 if self.debug_bytes:
-                    print(f'Received {line.encode()}')
+                    print(f'Received {line}')
                 response = CommandResponse.parse_response(line)
                 if self.debug:
                     print(f'Received {response}')

@@ -1,9 +1,11 @@
 defaults:
-  - benchmark: simple_benchmark_1
-  - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  - benchmark: simple_benchmark_lean
+  - eval_settings: n_4_few_gpt35
+  - prompt_settings: lean_few_shot
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:
+# nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_lean eval_settings=n_4_few_gpt35 prompt_settings=lean_few_shot &
 # nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_10_dfs_gpt35 &
 # nohup python src/main/eval_benchmark.py benchmark=minicompcert_benchmark_1 eval_settings=n_4_few_gpt35 &
 # nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex eval_settings.num_goal_per_prompt=1 &

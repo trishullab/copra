@@ -13,8 +13,7 @@ import random
 import re
 from collections import OrderedDict
 from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.lean_server.lean_sync_server import SyncLeanServer
-from src.lean_server.commands import Message
+from src.lean_server.lean_cmd_server import LeanCmdServer, LeanCmdServerResponse
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):
@@ -117,7 +116,7 @@ class Lean3Executor(object):
     goal_match = re.compile(goal_regex, re.MULTILINE)
     proof_context_generation_tactic = "\nend"
     proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
-    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
+    def __init__(self, project_root: str = None, prefix: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -131,21 +130,23 @@ class Lean3Executor(object):
         assert not use_hammer, "Hammer is not supported for Lean3"
         self.use_human_readable_proof_context = use_human_readable_proof_context
         self.project_root = project_root if project_root is not None else "."
-        self.main_file = main_file if main_file is not None else f"temp{random.randint(0, 100000000)}.lean"
+        self.main_file = main_file
+        self.temp_file = os.path.join(prefix, f"temptodel{random.randint(0, 100000000)}.lean") if prefix is not None else f"temptodel{random.randint(0, 100000000)}.lean"
+        self.temp_file_full_path = os.path.join(self.project_root, self.temp_file)
         self.use_hammer = use_hammer
         self.timeout_in_sec = min(timeout_in_sec, 120) # Maximum 120s timeout
         self.current_stmt = None
         self.line_num = 0
         self.main_file_iter = proof_step_iter
         self.suppress_error_log = suppress_error_log
-        self.lean_server : SyncLeanServer = None
+        self.lean_server : LeanCmdServer = None
         self.execution_complete = False
         self._max_memory_in_mib = 40000 # 40 GiB is needed for mathlib to work seemlessly
         self._lines_executed = []
         self.proof_context : ProofContext = None
         self.curr_lemma_name : typing.Optional[str] = None
         self.curr_lemma : typing.Optional[str] = None
-        self.lean_error_messages : typing.List[Message] = []
+        self.lean_error_messages : typing.List[str] = []
         self._proof_running = False
         self._file_content = ""
         self.local_file_lemmas: typing.OrderedDict[str, str] = OrderedDict()
@@ -154,9 +155,7 @@ class Lean3Executor(object):
         self._import_end_idx: typing.Optional[int] = None
 
     def __enter__(self):
-        lean_cmd = f"lean --server --memory={self._max_memory_in_mib}" + (" --quiet" if self.suppress_error_log else "")
-        self.lean_server = SyncLeanServer(lean_cmd=lean_cmd, cwd=self.project_root, debug=False, debug_bytes=True)
-        self.lean_server.__enter__()
+        self.lean_server = LeanCmdServer(memory_in_mibs=self._max_memory_in_mib, cwd=self.project_root, debug=False)
         if self.main_file_iter is None:
             self.main_file_iter = LeanLineByLineReader(self.main_file).instruction_step_generator()
         return self
@@ -166,7 +165,9 @@ class Lean3Executor(object):
             self.main_file_iter.close() # Close the file handle
         except:
             pass
-        self.lean_server.__exit__(exc_type, exc_value, traceback)
+        # delete if the main file is a temporary file
+        if os.path.exists(self.temp_file_full_path):
+            os.remove(self.temp_file_full_path)
 
     @property
     def token_separator_set(self):
@@ -444,6 +445,12 @@ class Lean3Executor(object):
     def _run_stmt_on_lean_server(self, idx : int, stmt: str):
         self._set_content_to_run(stmt)
         content = self._file_content
+        # Check if the temporary file exists
+        if not os.path.exists(self.temp_file_full_path):
+            with open(self.temp_file_full_path, "w") as f:
+                f.write("")
+        # Now add the contents to the file
+
         if stmt.startswith("theorem") and self._import_end_idx is None:
             self._import_end_idx = idx - 1
         if not self._proof_running:
@@ -477,43 +484,29 @@ class Lean3Executor(object):
             matching_end = self._check_matching_end(content)
             if not matching_end:
                 content += Lean3Executor.proof_context_generation_tactic
-            col = len(stmt)
             idx += 1
-            self.lean_server.full_sync(self.main_file, content)
-            next_proof_context_str = self.lean_server.state(self.main_file, idx, col)
+            with open(self.temp_file_full_path, "w") as f:
+                f.write(content)
+            response = self.lean_server.run(self.temp_file, self.timeout_in_sec)
             prev_proof_context = self.proof_context
-            self.proof_context = self._parse_proof_context(next_proof_context_str)
-            relevant_messages = []
-            for msg in self.lean_server.messages:
-                if msg.text.startswith(Lean3Executor.proof_state_running_message):
-                    # This is a case when there more subgoals to be solved
-                    new_proof_context = self._parse_proof_context(msg.text[len(Lean3Executor.proof_state_running_message):])
-                    if self.proof_context == ProofContext.empty():
-                        # But this is not focussed goal
-                        self.proof_context = ProofContext(
-                            fg_goals=[],
-                            bg_goals=new_proof_context.fg_goals,
-                            shelved_goals=new_proof_context.shelved_goals,
-                            given_up_goals=new_proof_context.given_up_goals
-                        )
-                    else:
-                        self.proof_context = new_proof_context
-                else:
-                    relevant_messages.append(msg)
+            self.proof_context = self._parse_proof_context(response.state)
 
-            if len(relevant_messages) > 0:
-                # There might be some errors on the current line
-                self.lean_error_messages = copy.deepcopy(relevant_messages)
-            else:
-                self.lean_error_messages = []
-            # This can simply happen because the we are not pointing at the end of an atomic unit of tactic execution
+            if len(response.messages) > 0:
+                lines = content.split("\n")
+                self.lean_error_messages = [
+                    f"Got [{msg.level}] in line '{lines[msg.line_num - 1][:25]} ...': \n [{msg.level}] {msg.text}" for msg in response.messages
+                    if msg.line_num < len(lines) # Ignore the last line as it has end 
+                ]
             if self.proof_context is None and prev_proof_context is not None:
-                # Only focus on messages related to the current lemma
-                if len(self.lean_server.messages) > 0 and not matching_end:
-                    # We might be in the middle of an atomic unit
-                    # So we don't need to give up proof context
+                if len(response.messages) > 0: # This has to be on the response messages not the error message
+                    # Never give up the proof context because of an error
                     self.proof_context = prev_proof_context
-            if prev_proof_context is not None and self.proof_context is None:
+                elif len(response.messages) == 0 and not matching_end:
+                    # No more goals
+                    self.proof_context = ProofContext.empty()
+
+            # Don't give up the proof context because someone tried to end early
+            elif prev_proof_context is not None and self.proof_context is None:
                 # We have finished a proof
                 self._proof_running = False
                 self.curr_lemma_name, self.curr_lemma = None, None
@@ -590,7 +583,7 @@ class Lean3Executor(object):
             raise NotImplementedError("Parsing of non-human readable proof context is not implemented")
     
     def _parse_proof_context_human_readable(self, proof_context_str: str) -> ProofContext:
-        if len(proof_context_str) == 0 and Lean3Executor.proof_context_separator not in proof_context_str:
+        if proof_context_str is None or len(proof_context_str) == 0 or Lean3Executor.proof_context_separator not in proof_context_str:
             return None
         if proof_context_str == "no goals":
             return ProofContext.empty()
@@ -724,9 +717,9 @@ if __name__ == "__main__":
     # with CoqStdInOutExecutor() as coq_exec:
     #     coq_exec.run_in_loop()
     os.chdir(root_dir)
-    # project = "data/test/lean_proj"
-    project = "data/benchmarks/miniF2F"
-    # file = "data/test/lean_proj/src/simple.lean"
-    file = "data/benchmarks/miniF2F/lean/src/temp.lean"
+    project = "data/test/lean_proj"
+    # project = "data/benchmarks/miniF2F"
+    file = "data/test/lean_proj/src/temp.lean"
+    # file = "data/benchmarks/miniF2F/lean/src/temp.lean"
     with LeanCustomFileExec(file, project) as lean_exec:
         lean_exec.run_in_loop()

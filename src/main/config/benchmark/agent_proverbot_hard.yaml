@@ -1,5 +1,6 @@
 name: agent_proverbot_hard
 num_files: 2
+language: COQ
 few_shot_data_path_for_retrieval: .log/tools/coq_raw_proofs/data/benchmarks/CompCert/2023-09-06-03-44-06/CompCert/train
 few_shot_metadata_filename_for_retrieval: single.meta.json
 dfs_data_path_for_retrieval: .log/run_data_generation_transforms/data/benchmarks/CompCert/train

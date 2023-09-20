@@ -76,12 +76,7 @@ class ProofEnv(Env):
         self._num_cycles = 0
         self._always_retrieve_thms = always_retrieve_thms
         self.retrieve_strategy = retrieval_strategy
-        if isinstance(self.dynamic_proof_executor_callback, DynamicCoqProofExecutor):
-            self.language = ProofAction.Language.COQ
-        elif isinstance(self.dynamic_proof_executor_callback, DynamicLeanProofExecutor):
-            self.language = ProofAction.Language.LEAN
-        else:
-            raise NotImplementedError(f"Proof executor callback {self.dynamic_proof_executor_callback} not implemented")
+        self.language = self.dynamic_proof_executor_callback.language
         if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
             self._re_ranker = CoqBm25ReRanker()
         else:
@@ -122,7 +117,8 @@ class ProofEnv(Env):
                 current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
-        state = ProofState(current_goals, language=self.language) # always make a copy of goals to avoid side effects
+        lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
+        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         state.was_reset = len(self._history) == 0
         return state
@@ -236,7 +232,8 @@ class ProofEnv(Env):
             is_timeout=False, 
             is_inference_exhausted=False, 
             longest_success_path=-1,
-            additional_info=additional_info)
+            additional_info=additional_info,
+            language=self.language)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
         if dump_file_name is not None:
             opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'
@@ -354,7 +351,8 @@ class ProofEnv(Env):
                 global_responses[i].score = global_idx[i][1]/sum_global_scores
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
-        current_proof_state = ProofState(relevant_defns_thms, language=self.language)
+        lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
+        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
@@ -474,11 +472,11 @@ if __name__ == "__main__":
         language = ProofAction.Language.COQ
     elif inp == 'lean':
         proof_exec_callback = ProofExecutorCallback(
-            project_folder="data/test/lean_proj",
-            file_path="data/test/lean_proj/src/simple.lean",
-            context_type=DynamicLeanProofExecutor.ContextType.NoContext
+            project_folder="data/benchmarks/miniF2F",
+            file_path="data/benchmarks/miniF2F/lean/src/test.lean",
+            language=ProofAction.Language.LEAN
         )
-        theorem_name = "wrong_proof1"
+        theorem_name = "mathd_algebra_478"
         language = ProofAction.Language.LEAN
         pass
     else:

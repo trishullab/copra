@@ -4,8 +4,8 @@ use_hammer: False
 max_proof_depth: 30
 timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1
-main_prompt: data/prompts/system/coq-proof-agent-with-dfs.md
-conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md
+# main_prompt: data/prompts/system/coq-proof-agent-with-dfs.md
+# conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md
 max_tokens_per_action: 100
 max_theorems_in_prompt: 7
 gpt_model_name: gpt-4

@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 
 import logging
 import typing
-from src.tools.lean_executor import Lean3Executor
+from src.tools.lean_cmd_executor import Lean3Executor
 from src.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 

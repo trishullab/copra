@@ -5,6 +5,7 @@ import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
+import typing
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
 from src.rl.abstraction import State
@@ -19,6 +20,7 @@ class ProofState(State):
     training_data_format: TrainingDataFormat
     was_reset: bool = False
     language: ProofAction.Language = ProofAction.Language.COQ
+    theorem_statement_with_name: typing.Optional[str] = None
 
     def _post_init(self):
         self.proof_tree = None

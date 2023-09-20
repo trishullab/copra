@@ -67,7 +67,6 @@ LmResponse:
     Lm String;
 """
 
-
     def before_keyword(self, text, pos):
         last = pos
         while last < len(text):
@@ -263,11 +262,11 @@ String:;
         return result
     
     def generate_message_from_gpt_request(self, coq_gpt_request: FewShotGptRequest) -> str:
-        return f"{FewShotGptCoqKeywords.PROOF}\n{coq_gpt_request.proof_string}"
+        return f"{self.PROOF}\n{coq_gpt_request.proof_string}"
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
         message, _ = message_response
-        message += f"\n{FewShotGptCoqKeywords.QED}"
+        message += f"\n{self.QED}"
         result : FewShotGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)

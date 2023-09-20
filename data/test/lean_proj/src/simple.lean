@@ -1,16 +1,9 @@
 import data.real.basic
 import data.nat.factorial.basic
 
-theorem x: ∀ (a b : ℕ), a + 0 = a :=
+theorem x: ∀ (a b : ℕ), a + b = b + a :=
 begin
-intros a,
-induction a,
-{
-  simp
-},
-{
-  simp
-}
+sorry
 end
 
 theorem n_less_2_pow_n
@@ -27,15 +20,11 @@ end
 
 theorem wrong_proof1: ∀ (a b : ℕ), a + 0 = a :=
 begin
-intros,
-induction a,
-{simp}
-,
+sorry
 end
 
 theorem wrong_proof2: ∀ (a b : ℕ), a + 0 = a :=
 begin
-intros a,
 sorry
 end
 

@@ -73,18 +73,31 @@ class FewShotGptPolicy(Policy):
         # assert len(state.training_data_format.start_goals) == 1, "At the begining of the proof there is exactly one goal"
         # There can actually be more than one goals at the beginning of the proof
         if not self._asked_for_dfns_and_lms:
-            if len(state.training_data_format.all_useful_defns_theorems) == 0:
+            if self.language == ProofAction.Language.COQ:
+                if len(state.training_data_format.all_useful_defns_theorems) == 0:
+                    self._asked_for_dfns_and_lms = True
+                    return ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
+            elif self.language == ProofAction.Language.LEAN:
                 self._asked_for_dfns_and_lms = True
-                return ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
+                # Move on because we don't support retrieving definitions and theorems for Lean as of now
         if not self._asked_for_proof:
             success = False
             tries = 10
             exceptions = []
-            gpt_response = FewShotGptResponse(
-                theorem=state.training_data_format.start_goals[0].goal,
-                defintions=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].relevant_defns],
-                lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
-            )
+            if self.language == ProofAction.Language.COQ:
+                gpt_response = FewShotGptResponse(
+                    theorem=state.training_data_format.start_goals[0].goal,
+                    defintions=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].relevant_defns],
+                    lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
+                )
+            elif self.language == ProofAction.Language.LEAN:
+                gpt_response = FewShotGptResponse(
+                    theorem=state.theorem_statement_with_name,
+                    defintions=[],
+                    lemmas=[],
+                )
+            else:
+                raise Exception(f"Unsupported language {self.language}")
             while not success and tries > 0:
                 try:
                     responses = self._policy_prompter.run_prompt(gpt_response)

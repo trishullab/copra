@@ -10,7 +10,7 @@ import os
 import copy
 import enum
 import logging
-from src.tools.lean_executor import Lean3Executor
+from src.tools.lean_cmd_executor import Lean3Executor
 from src.tools.training_data_format import Goal, TrainingDataFormat
 from src.tools.lean_parse_utils import LeanLineByLineReader
 from src.tools.lean_context_helper import Lean3ContextHelper
