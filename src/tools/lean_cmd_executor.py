@@ -4,7 +4,7 @@ import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-import copy
+import itertools
 import os
 import logging
 import typing
@@ -494,8 +494,8 @@ class Lean3Executor(object):
             if len(response.messages) > 0:
                 lines = content.split("\n")
                 self.lean_error_messages = [
-                    f"Got [{msg.level}] in line '{lines[msg.line_num - 1][:25]} ...': \n [{msg.level}] {msg.text}" for msg in response.messages
-                    if msg.line_num <= len(lines) # Ignore the last line as it has end 
+                    f"Got {msg.level} in '{lines[msg.line_num - 1][:25]}{'...' if len(lines[msg.line_num - 1]) > 25 else ''}': \n {msg.level}: {msg.text}" for msg in response.messages
+                    if msg.line_num <= len(lines) 
                 ]
             else:
                 self.lean_error_messages = []

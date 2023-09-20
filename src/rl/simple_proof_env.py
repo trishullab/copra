@@ -257,6 +257,8 @@ class ProofEnv(Env):
         try:
             state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
         except Exception:
+            self.logger.exception(f"Exception occured while running tactics:\n {tactics}")
+            self.logger.info("Resetting the environment and running all the tactics again")
             self._reset_and_restore_history()
             next_state = self.state
             reward = -1.0

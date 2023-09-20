@@ -1,0 +1,41 @@
+name: re_prover_hard
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval: 
+few_shot_metadata_filename_for_retrieval: 
+dfs_data_path_for_retrieval: 
+dfs_metadata_filename_for_retrieval: 
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - aime_1989_p8
+          - mathd_algebra_107
+          - mathd_algebra_125
+          - mathd_algebra_139
+          - mathd_algebra_142
+          - mathd_algebra_143
+          - mathd_algebra_188
+          - mathd_algebra_24
+          - mathd_algebra_246
+          - mathd_algebra_270
+          - mathd_algebra_275
+          - mathd_algebra_302
+          - mathd_algebra_329
+          - mathd_algebra_33
+          - mathd_algebra_346
+          - mathd_algebra_354
+          - mathd_algebra_388
+          - mathd_algebra_398
+          - mathd_algebra_400
+          - mathd_algebra_440
+          - mathd_algebra_441
+          - mathd_numbertheory_212
+          - mathd_numbertheory_229
+          - mathd_numbertheory_239
+          - mathd_numbertheory_293
+          - mathd_numbertheory_343
+          - mathd_numbertheory_447
+          - mathd_numbertheory_728
+          - mathd_numbertheory_769

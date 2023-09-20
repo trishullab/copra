@@ -68,22 +68,36 @@ class LeanCmdServer:
         abs_path = os.path.abspath(full_path) + ':'
         messages = output.split(abs_path)
         messages = [msg for msg in messages if len(msg) > 0] # Remove empty strings
-        final_messages = []
+        final_messages : typing.List[Message] = []
         state = None
+        msg_unparsed = []
         for msg in messages:
             # Get rid of line number and column number
-            line_num_str, col_num_str, level_str, text = msg.split(':', 3)
-            line_num_str = line_num_str.strip()
-            col_num_str = col_num_str.strip()
-            level_str = level_str.strip()
-            text = text.strip()
-            line_num = int(line_num_str)
-            col_num = int(col_num_str)
-            level = level_str.lower()
-            if level == 'error' and text.startswith(LeanCmdServer.has_state_message):
-                state = text[len(LeanCmdServer.has_state_message):]
-            else:
-                final_messages.append(Message(level, full_path, line_num, col_num, text))
+            try:
+                line_num_str, col_num_str, level_str, text = msg.split(':', 3)
+                line_num_str = line_num_str.strip()
+                col_num_str = col_num_str.strip()
+                level_str = level_str.strip()
+                text = text.strip()
+                line_num = int(line_num_str)
+                col_num = int(col_num_str)
+                level = level_str.lower()
+                if level == 'error' and text.startswith(LeanCmdServer.has_state_message):
+                    state = text[len(LeanCmdServer.has_state_message):]
+                else:
+                    final_messages.append(Message(level, full_path, line_num, col_num, text))
+            except:
+                msg_unparsed.append(msg)
+                pass
+        if len(final_messages) > 0:
+            # Sort messages by line number
+            final_messages.sort(key=lambda msg: msg.line_num)
+        last_line_num = 0 if len(final_messages) == 0 else final_messages[-1].line_num
+        # Now add the unparsed messages
+        for msg in msg_unparsed:
+            final_messages.append(Message('info', full_path, last_line_num, 0, msg))
+        # re-sort
+        final_messages.sort(key=lambda msg: msg.line_num)
         return LeanCmdServerResponse(state, final_messages)
 
 if __name__ == "__main__":
