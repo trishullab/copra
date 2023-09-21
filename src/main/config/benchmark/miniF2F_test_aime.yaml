@@ -1,0 +1,27 @@
+name: miniF2F_test_aime
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+        - aime_1983_p1
+        - aime_1983_p2
+        - aime_1983_p3
+        - aime_1984_p1
+        - aime_1984_p7
+        - aime_1987_p5
+        - aime_1988_p8
+        - aime_1989_p8
+        - aime_1990_p15
+        - aime_1990_p4
+        - aime_1991_p9
+        - aime_1994_p3
+        - aime_1995_p7
+        - aime_1997_p9
+        - aime_1999_p11

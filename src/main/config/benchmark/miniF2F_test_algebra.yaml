@@ -1,0 +1,30 @@
+name: miniF2F_test_algebra
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - algebra_2varlineareq_fp3zeq11_3tfm1m5zeqn68_feqn10_zeq7
+          - algebra_9onxpypzleqsum2onxpy
+          - algebra_abpbcpcageq3_sumaonsqrtapbgeq3onsqrt2
+          - algebra_absapbon1pabsapbleqsumabsaon1pabsa
+          - algebra_absxm1pabsxpabsxp1eqxp2_0leqxleq1
+          - algebra_amgm_sum1toneqn_prod1tonleq1
+          - algebra_amgm_sumasqdivbgeqsuma
+          - algebra_apbmpcneq0_aeq0anbeq0anceq0
+          - algebra_apbon2pownleqapownpbpowon2
+          - algebra_apbpceq2_abpbcpcaeq1_aleq1on3anbleq1ancleq4on3
+          - algebra_bleqa_apbon2msqrtableqambsqon8b
+          - algebra_cubrtrp1oncubrtreq3_rcubp1onrcubeq5778
+          - algebra_ineq_nto1onlt2m1on
+          - algebra_others_exirrpowirrrat
+          - algebra_sqineq_at2malt1
+          - algebra_sqineq_unitcircatbpabsamblt1
+          - algebra_sqineq_unitcircatbpamblt1
+          - algebra_sum1onsqrt2to1onsqrt10000lt198

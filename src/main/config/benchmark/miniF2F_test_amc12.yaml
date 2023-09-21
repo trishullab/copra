@@ -1,0 +1,57 @@
+name: miniF2F_test_amc12
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+        - amc12_2000_p1
+        - amc12_2000_p12
+        - amc12_2000_p20
+        - amc12_2000_p6
+        - amc12_2001_p21
+        - amc12_2001_p5
+        - amc12a_2002_p13
+        - amc12a_2002_p6
+        - amc12a_2003_p23
+        - amc12a_2003_p5
+        - amc12a_2008_p25
+        - amc12a_2009_p6
+        - amc12a_2009_p7
+        - amc12a_2013_p4
+        - amc12a_2019_p12
+        - amc12a_2020_p10
+        - amc12a_2020_p15
+        - amc12a_2020_p25
+        - amc12a_2020_p4
+        - amc12a_2020_p7
+        - amc12a_2020_p9
+        - amc12a_2021_p12
+        - amc12a_2021_p14
+        - amc12a_2021_p18
+        - amc12a_2021_p19
+        - amc12a_2021_p22
+        - amc12a_2021_p25
+        - amc12a_2021_p3
+        - amc12a_2021_p8
+        - amc12a_2021_p9
+        - amc12b_2002_p19
+        - amc12b_2002_p2
+        - amc12b_2002_p4
+        - amc12b_2002_p7
+        - amc12b_2020_p13
+        - amc12b_2020_p2
+        - amc12b_2020_p21
+        - amc12b_2020_p22
+        - amc12b_2020_p6
+        - amc12b_2021_p1
+        - amc12b_2021_p13
+        - amc12b_2021_p18
+        - amc12b_2021_p3
+        - amc12b_2021_p4
+        - amc12b_2021_p9
