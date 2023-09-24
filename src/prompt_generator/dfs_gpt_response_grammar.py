@@ -192,11 +192,11 @@ ErrorString:;
                 CoqGPTResponseDfsGrammar.Keywords.THEOREMS,
                 CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS,
                 CoqGPTResponseDfsGrammar.Keywords.STEPS,
+                CoqGPTResponseDfsGrammar.Keywords.GOALS, # trim down the goals
                 CoqGPTResponseDfsGrammar.Keywords.INCORRECT_STEPS,
                 CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE,
                 CoqGPTResponseDfsGrammar.Keywords.LAST_STEP,
                 CoqGPTResponseDfsGrammar.Keywords.SUCCESS,
-                CoqGPTResponseDfsGrammar.Keywords.GOALS
             ]
             assert coq_gpt_response.training_data_format is not None
             new_line = f"Goals to prove:\n{CoqGPTResponseDfsGrammar.Keywords.GOALS}"
@@ -253,8 +253,8 @@ ErrorString:;
                     new_line = f"\n{CoqGPTResponseDfsGrammar.Keywords.SUCCESS}"
                     lines_map[CoqGPTResponseDfsGrammar.Keywords.SUCCESS] = [new_line]
             if coq_gpt_response.error_message is not None:
-                assert coq_gpt_response.last_step is not None
-                assert not coq_gpt_response.success
+                # assert coq_gpt_response.last_step is not None
+                # assert not coq_gpt_response.success
                 new_line = f"\n{CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE}"
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE] = [new_line]
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE].append(coq_gpt_response.error_message)

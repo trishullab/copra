@@ -4,7 +4,7 @@ import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
-import itertools
+import subprocess
 import os
 import logging
 import typing
@@ -487,33 +487,44 @@ class Lean3Executor(object):
             idx += 1
             with open(self.temp_file_full_path, "w") as f:
                 f.write(content)
-            response = self.lean_server.run(self.temp_file, self.timeout_in_sec)
-            prev_proof_context = self.proof_context
-            self.proof_context = self._parse_proof_context(response.state)
 
-            if len(response.messages) > 0:
-                lines = content.split("\n")
-                self.lean_error_messages = [
-                    f"Got {msg.level} in '{lines[msg.line_num - 1][:25]}{'...' if len(lines[msg.line_num - 1]) > 25 else ''}': \n {msg.level}: {msg.text}" for msg in response.messages
-                    if msg.line_num <= len(lines) 
-                ]
+            timed_out = False
+            try:
+                response = self.lean_server.run(self.temp_file, self.timeout_in_sec)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                pass
+            
+            if not timed_out:
+                prev_proof_context = self.proof_context
+                self.proof_context = self._parse_proof_context(response.state)
+
+                if len(response.messages) > 0:
+                    lines = content.split("\n")
+                    self.lean_error_messages = [
+                        f"Got {msg.level} in '{lines[msg.line_num - 1][:25]}{'...' if len(lines[msg.line_num - 1]) > 25 else ''}': \n {msg.level}: {msg.text}" for msg in response.messages
+                        if msg.line_num <= len(lines) 
+                    ]
+                else:
+                    self.lean_error_messages = []
+
+                if self.proof_context is None and prev_proof_context is not None:
+                    if len(response.messages) > 0: # This has to be on the response messages not the error message
+                        # Never give up the proof context because of an error
+                        self.proof_context = prev_proof_context
+                    elif len(response.messages) == 0 and not matching_end:
+                        # No more goals
+                        self.proof_context = ProofContext.empty()
+
+                # Don't give up the proof context because someone tried to end early
+                elif prev_proof_context is not None and self.proof_context is None:
+                    # We have finished a proof
+                    self._proof_running = False
+                    self.curr_lemma_name, self.curr_lemma = None, None
+                    self._proof_start_idx = None
             else:
-                self.lean_error_messages = []
-
-            if self.proof_context is None and prev_proof_context is not None:
-                if len(response.messages) > 0: # This has to be on the response messages not the error message
-                    # Never give up the proof context because of an error
-                    self.proof_context = prev_proof_context
-                elif len(response.messages) == 0 and not matching_end:
-                    # No more goals
-                    self.proof_context = ProofContext.empty()
-
-            # Don't give up the proof context because someone tried to end early
-            elif prev_proof_context is not None and self.proof_context is None:
-                # We have finished a proof
-                self._proof_running = False
-                self.curr_lemma_name, self.curr_lemma = None, None
-                self._proof_start_idx = None
+                self.lean_error_messages = ["The tactic timed out, probably because of repeated application of a tactic which created a very big goal."]
+                pass
         pass
 
     def _skip_to_theorem(self, theorem: str):
