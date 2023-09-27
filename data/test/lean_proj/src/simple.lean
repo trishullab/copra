@@ -6,6 +6,12 @@ begin
 sorry
 end
 
+theorem mod_arith_1
+(x : ℕ) : x % 2 = 0 → (x * x) % 2 = 0 :=
+begin
+sorry
+end
+
 theorem n_less_2_pow_n
   (n : ℕ)
   (h₀ : 1 ≤ n) :

@@ -10,6 +10,6 @@ datasets:
     files:
       - path: src/simple.lean
         theorems: 
-          - x
-          - n_less_2_pow_n
-          - mathd_algebra_478
+          - mod_arith_1
+          # - n_less_2_pow_n
+          # - mathd_algebra_478
