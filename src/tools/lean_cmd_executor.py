@@ -493,7 +493,13 @@ class Lean3Executor(object):
                 response = self.lean_server.run(self.temp_file, self.timeout_in_sec)
             except subprocess.TimeoutExpired:
                 timed_out = True
+                if os.path.exists(self.temp_file_full_path):
+                    os.remove(self.temp_file_full_path)
                 pass
+            except:
+                if os.path.exists(self.temp_file_full_path):
+                    os.remove(self.temp_file_full_path)
+                raise
             
             if not timed_out:
                 prev_proof_context = self.proof_context
@@ -728,12 +734,8 @@ class LeanCustomFileExec:
 
 if __name__ == "__main__":
     logging.basicConfig(filename='lean_executor.log', filemode='w', level=logging.INFO)
-    # with CoqStdInOutExecutor() as coq_exec:
-    #     coq_exec.run_in_loop()
     os.chdir(root_dir)
     project = "data/test/lean_proj"
-    # project = "data/benchmarks/miniF2F"
     file = "data/test/lean_proj/src/temp.lean"
-    # file = "data/benchmarks/miniF2F/lean/src/temp.lean"
     with LeanCustomFileExec(file, project) as lean_exec:
         lean_exec.run_in_loop()

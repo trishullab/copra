@@ -1,15 +1,16 @@
 import data.real.basic
 import data.nat.factorial.basic
 
-theorem x: ∀ (a b : ℕ), a + b = b + a :=
+theorem a_plus_b_b_plus_a 
+(a b : ℕ) : a + b = b + a :=
 begin
-sorry
+  sorry
 end
 
 theorem mod_arith_1
 (x : ℕ) : x % 2 = 0 → (x * x) % 2 = 0 :=
 begin
-sorry
+  sorry
 end
 
 theorem n_less_2_pow_n
@@ -17,21 +18,12 @@ theorem n_less_2_pow_n
   (h₀ : 1 ≤ n) :
   n < 2^n :=
 begin
-  induction h₀ with k h₀ IH,
-  { norm_num },
-  {
-    calc k + 1 < 2 * 2^k : by linarith
-  }
+  sorry
 end
 
-theorem wrong_proof1: ∀ (a b : ℕ), a + 0 = a :=
+theorem a_plus_zero: ∀ (a : ℕ), a + 0 = a :=
 begin
-sorry
-end
-
-theorem wrong_proof2: ∀ (a b : ℕ), a + 0 = a :=
-begin
-sorry
+  sorry
 end
 
 theorem mathd_algebra_478
@@ -42,26 +34,11 @@ theorem mathd_algebra_478
   (h₃ : h = 13 / 2) :
   v = 65 :=
 begin
-  rw [h₂, h₃] at h₁,
-  rw h₁,
-  norm_num
+  sorry
 end
 
-theorem ab_square: ∀ a: ℝ, a + 0 = a :=
+theorem ab_square: 
+∀ (a b: ℝ), (a + b)^2 = a^2 + b^2 + 2*a*b :=
 begin
-    intro a,
-    induction a,
-    simp,
+  sorry
 end
-
--- variables (w x y z : ℕ) (p : ℕ → Prop)
-
--- local attribute [simp] mul_comm mul_assoc mul_left_comm
--- local attribute [simp] add_assoc add_comm add_left_comm
-
--- example (h : p (x * y + z * w  * x)) : p (x * w * z + y * x) :=
--- by { simp at *, assumption }
-
--- example (h₁ : p (1 * x + y)) (h₂ : p  (x * z * 1)) :
---   p (y + 0 + x) ∧ p (z * x) :=
--- by { simp at *, split; assumption }

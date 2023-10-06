@@ -43,8 +43,6 @@ class EvalSettings(object):
     max_proof_depth: int = 50
     timeout_in_secs: int = 60
     proof_retries: int = 1
-    # main_prompt: str = "data/prompts/system/coq-proof-agent-with-dfs.md"
-    # conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     max_tokens_per_action: int = 25
     max_theorems_in_prompt: int = 3
     gpt_model_name: str = "gpt-3.5-turbo"

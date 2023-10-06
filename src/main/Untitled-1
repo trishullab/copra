@@ -1,1 +1,0 @@
-nohup python src/main/eval_benchmark.py benchmark=compcert_benchmark_hard eval_settings=n_30_dfs_gpt35_7_per_cent &

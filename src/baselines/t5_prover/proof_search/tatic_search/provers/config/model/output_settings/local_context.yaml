@@ -1,4 +1,0 @@
-name_suffix:
-name_prefix: local_context_prover
-dumping_folder_prefix: .log/proofs
-logging_folder_prefix: # Write the logging folder here
