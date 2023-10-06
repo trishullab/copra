@@ -16,7 +16,8 @@ from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.training_data_format import TrainingDataFormat
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
@@ -62,7 +63,7 @@ class ProofEnv(Env):
         assert isinstance(max_proof_depth, int)
         assert isinstance(always_retrieve_thms, bool)
         self.dynamic_proof_executor_callback = dynamic_proof_executor_callback
-        self._dynamic_proof_executor : DynamicProofExecutor = None
+        self._dynamic_proof_executor : typing.Union[DynamicCoqProofExecutor, DynamicLeanProofExecutor] = None
         self._loaded = False
         self._history : typing.List[typing.Tuple[ProofState, ProofAction, ProofState, float, bool, ProofEnvInfo]] = []
         self._name = name
@@ -75,6 +76,7 @@ class ProofEnv(Env):
         self._num_cycles = 0
         self._always_retrieve_thms = always_retrieve_thms
         self.retrieve_strategy = retrieval_strategy
+        self.language = self.dynamic_proof_executor_callback.language
         if self.retrieve_strategy == ProofEnvReRankStrategy.BM25:
             self._re_ranker = CoqBm25ReRanker()
         else:
@@ -115,7 +117,8 @@ class ProofEnv(Env):
                 current_goals = self._dynamic_proof_executor.get_current_proof_state_as_training_data()
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
-        state = ProofState(current_goals) # always make a copy of goals to avoid side effects
+        lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
+        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         state.was_reset = len(self._history) == 0
         return state
@@ -141,6 +144,8 @@ class ProofEnv(Env):
             except Exception:
                 pass
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
+        if isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
+            self._always_retrieve_thms = False # Lean does not support retrieval of theorems as of now
         self._dynamic_proof_executor.__enter__()
         self._history.clear()
         self._p_tree = ProofTree()
@@ -213,7 +218,7 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         self.goal_end_time = time.time()
         self.time_taken = self.goal_end_time - self.goal_start_time
-        proof_steps = [TrainingDataFormat(proof_steps=tactic.training_data_format.proof_steps) for _, tactic in self._p_tree]
+        proof_steps = [TrainingDataFormat(proof_steps=tactic.proof_steps) for _, tactic in self._p_tree.tactics]
         additional_info = additional_info if additional_info is not None else {}
         self.proof_search_res = ProofSearchResult(
             self._dynamic_proof_executor.main_file, 
@@ -227,7 +232,8 @@ class ProofEnv(Env):
             is_timeout=False, 
             is_inference_exhausted=False, 
             longest_success_path=-1,
-            additional_info=additional_info)
+            additional_info=additional_info,
+            language=self.language)
         self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
         if dump_file_name is not None:
             opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'
@@ -251,6 +257,8 @@ class ProofEnv(Env):
         try:
             state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
         except Exception:
+            self.logger.exception(f"Exception occured while running tactics:\n {tactics}")
+            self.logger.info("Resetting the environment and running all the tactics again")
             self._reset_and_restore_history()
             next_state = self.state
             reward = -1.0
@@ -267,7 +275,7 @@ class ProofEnv(Env):
             previous_proof_state = state
             previous_proof_state.training_data_format.proof_steps = copy.deepcopy(tactics)
             # add the proof step to the proof tree
-            self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state, force_add=True, action=action)
+            self._p_tree.try_add_tactic(tactic_line_num, previous_proof_state.training_data_format, force_add=True, action=action)
             self.current_proof_depth += 1
             proof_progressed = True
             current_proof_state = self.state
@@ -345,7 +353,8 @@ class ProofEnv(Env):
                 global_responses[i].score = global_idx[i][1]/sum_global_scores
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
-        current_proof_state = ProofState(relevant_defns_thms)
+        lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
+        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
@@ -396,19 +405,25 @@ class ProofEnv(Env):
         assert self._loaded, "Env not loaded, call reset() first"
         lemma_found = False
         self._lemma_name_with_stmt = None
-        while not self._dynamic_proof_executor.execution_complete and not lemma_found:
-            assert not self._dynamic_proof_executor.is_in_proof_mode(), "executor must not be in proof mode"
-            _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
-            if self._dynamic_proof_executor.execution_complete:
-                break
-            lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
-            if lemma_name is not None:
-                lemma_name = lemma_name.strip()
-            lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
-            if not lemma_found:
-                _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
+        if isinstance(self._dynamic_proof_executor, DynamicCoqProofExecutor):
+            while not self._dynamic_proof_executor.execution_complete and not lemma_found:
+                assert not self._dynamic_proof_executor.is_in_proof_mode(), "executor must not be in proof mode"
+                _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
                 if self._dynamic_proof_executor.execution_complete:
                     break
+                lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
+                if lemma_name is not None:
+                    lemma_name = lemma_name.strip()
+                lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
+                if not lemma_found:
+                    _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
+                    if self._dynamic_proof_executor.execution_complete:
+                        break
+        elif isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
+            self._dynamic_proof_executor.skip_to_theorem(self.lemma_name)
+            lemma_found = True
+        else:
+            raise NotImplementedError(f"Proof executor {type(self._dynamic_proof_executor)} not implemented")
 
         if not lemma_found:
             raise Exception(f"Could not find lemma {self.lemma_name}")
@@ -421,8 +436,8 @@ class ProofEnv(Env):
         self.reset() # To ensure that everything is fine we start again
         # Run all the current steps in the proof tree
         self.logger
-        for _, tactic in p_tree.tactics:
-            self._run_tactics(tactic.proof_steps, self.state, ProofEnvInfo(progress=ProgressState.STARTING))
+        for (_, tactic), action in zip(p_tree.tactics, p_tree.actions):
+            self._run_tactics(tactic.proof_steps, self.state, action, ProofEnvInfo(progress=ProgressState.STARTING))
             # No need to capture in history as the history is already captured
         self._history = history
 
@@ -430,36 +445,51 @@ class ProofEnv(Env):
 if __name__ == "__main__":
     import os
     os.chdir(root_dir)
+
     print("Interactive Proof Environment")
-    proof_exec_callback = ProofExecutorCallback(
-        project_folder=".",
-        file_path="data/test/SimpleAlgebra.v"
-    )
     supported_actions = [x.name for x in ProofAction.ActionType]
 
-    def scan_action():
-        inp_action_type = input(f"Enter an action type from {supported_actions}: ")
+    def scan_action(language):
+        inp_action_type = input(f"Enter an action type from {supported_actions}: (default RUN_TACTIC)")
+        if inp_action_type not in supported_actions:
+            inp_action_type = ProofAction.ActionType.RUN_TACTIC.name
         action_type = ProofAction.ActionType[inp_action_type]
         if action_type == ProofAction.ActionType.RUN_TACTIC:
             inp = input("Enter tactic(s) (';' separated): ")
             inp = inp.split(';')
-            return ProofAction(action_type, tactics=inp)
-        elif action_type == ProofAction.ActionType.GET_DFNS_THMS:
-            return ProofAction(action_type)
-        elif action_type == ProofAction.ActionType.BACKTRACK:
-            return ProofAction(action_type)
-        elif action_type == ProofAction.ActionType.EXIT:
-            return ProofAction(action_type)
+            return ProofAction(action_type, language, tactics=inp)
+        elif action_type == ProofAction.ActionType.GET_DFNS_THMS or action_type == ProofAction.ActionType.BACKTRACK or action_type == ProofAction.ActionType.EXIT:
+            return ProofAction(action_type, language)
         else:
             raise Exception(f"Invalid action type {action_type}")
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    inp = input("Want to run coq or lean env? (Enter 'coq'/'lean') ")
+    language = ProofAction.Language.COQ
+    if inp == 'coq':
+        proof_exec_callback = ProofExecutorCallback(
+            project_folder=".",
+            file_path="data/test/SimpleAlgebra.v"
+        )
+        theorem_name = "algb_add_comm"
+        language = ProofAction.Language.COQ
+    elif inp == 'lean':
+        proof_exec_callback = ProofExecutorCallback(
+            project_folder="data/benchmarks/miniF2F",
+            file_path="data/benchmarks/miniF2F/lean/src/test.lean",
+            language=ProofAction.Language.LEAN
+        )
+        theorem_name = "mathd_algebra_478"
+        language = ProofAction.Language.LEAN
+        pass
+    else:
+        raise Exception(f"Invalid input {inp} for choosing coq/lean")
     logger = logging.getLogger(__name__)
-    with ProofEnv("test", proof_exec_callback, 'algb_add_comm', max_proof_depth=10, logger=logger) as env:
+    with ProofEnv("test", proof_exec_callback, theorem_name, max_proof_depth=10, logger=logger) as env:
         done = env.done
-        action = scan_action()
+        action = scan_action(language)
         while action.action_type != ProofAction.ActionType.EXIT and not done:
             state, _, _, reward, done, info = env.step(action)
             env.render()
             if not done:
-                action = scan_action()
+                action = scan_action(language)
         pass

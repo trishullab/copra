@@ -38,6 +38,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             num_goal_per_prompt: typing.Optional[int] = None,
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
+            language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
@@ -68,6 +69,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
         self._num_goal_per_prompt = num_goal_per_prompt
+        self.language = language
+        self.incorrect_repeat_count = 0 # 1 # Give only one warning
+        self.incorrect_repeat_warning = "warning: You are trying to repeat the same incorrect step. Please try a different step, otherwise this will lead to backtracking or termination of proof search. Only repeat if you have run out of all other options, and want to backtrack to the previous state."
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -377,9 +381,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
-                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS)
+                action = ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
             elif coq_gpt_request.action == CoqGptRequestActions.RUN_TACTIC:
-                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, tactics=coq_gpt_request.args)
+                action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=coq_gpt_request.args)
             else:
                 raise Exception(f"Invalid action {coq_gpt_request.action}")
             action.original_message = open_ai_message
@@ -426,21 +430,55 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 error_message=env_info.error_message,
                 training_data_format=state.training_data_format)
         elif tree_search_action.action_type == TreeSearchActionType.BACKTRACK:
-            return ProofAction(ProofAction.ActionType.BACKTRACK)
+            return ProofAction(ProofAction.ActionType.BACKTRACK, self.language)
         elif tree_search_action.action_type == TreeSearchActionType.STOP:
-            return ProofAction(ProofAction.ActionType.EXIT)
+            return ProofAction(ProofAction.ActionType.EXIT, self.language)
         else:
             raise Exception(f"Invalid action type {tree_search_action.action_type}")
         success = False
         tries = 10
         exceptions = []
+        incorrect_action_repeat_count = 0
         while not success and tries > 0:
             try:
                 responses = self.run_prompt(gpt_response)
                 actions_tuple = self.parse_response(responses)
                 chosen_message = actions_tuple[0][0].original_message # Selecting only top action here
                 self.add_to_history(chosen_message)
-                success = True
+
+                if (self.incorrect_repeat_count > 0) and (len(incorrect_steps) > 0 or (gpt_response.last_step is not None and not gpt_response.success)):
+                    # Create invalid requests first and then match with the chosen one
+                    invalid_requests = []
+                    invalid_messages = set()                    
+                    for incorrect_step in incorrect_steps:
+                        if incorrect_step.startswith(CoqGptRequestActions.GET_DFNS_THMS[1:-1]):
+                            invalid_requests.append(CoqGptRequest(CoqGptRequestActions.GET_DFNS_THMS, args=[]))
+                        else:
+                            invalid_requests.append(CoqGptRequest(CoqGptRequestActions.RUN_TACTIC, args=[incorrect_step]))
+                    if gpt_response.last_step is not None and not gpt_response.success:
+                        if gpt_response.last_step.startswith(CoqGptRequestActions.GET_DFNS_THMS[1:-1]):
+                            invalid_requests.append(CoqGptRequest(CoqGptRequestActions.GET_DFNS_THMS, args=[]))
+                        else:
+                            invalid_requests.append(CoqGptRequest(CoqGptRequestActions.RUN_TACTIC, args=[gpt_response.last_step]))
+                    invalid_messages = set([self.coq_gpt_request_grammar.generate_message_from_gpt_request(request) for request in invalid_requests])
+                    if chosen_message['content'] in invalid_messages and incorrect_action_repeat_count < self.incorrect_repeat_count:
+                        incorrect_action_repeat_count += 1
+                        temp_action = actions_tuple[0][0]
+                        temp_action_str = temp_action.original_message["content"]
+                        if temp_action_str.startswith(CoqGptRequestActions.GET_DFNS_THMS[1:-1]):
+                            temp_action_str = CoqGptRequestActions.GET_DFNS_THMS[1:-1]
+                        else:
+                            temp_action_str = temp_action_str[len(CoqGptRequestActions.RUN_TACTIC):-len(CoqGPTRequestGrammar.end)]
+                        incorrect_message = self.incorrect_repeat_warning + f"\nincorrect step:\n {temp_action_str}"
+                        self.logger.warning(incorrect_message)
+                        # Add the warning message
+                        if gpt_response.error_message is not None:
+                            gpt_response.error_message = f"{incorrect_message}\n{gpt_response.error_message}"
+                        else:
+                            gpt_response.error_message = incorrect_message
+                    else:
+                        incorrect_action_repeat_count = 0
+                success = incorrect_action_repeat_count == 0
             except InvalidActionException as e:
                 gpt_response = CoqGptResponse(action = CoqGptResponseActions.ERROR, 
                 message=e.message)

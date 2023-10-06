@@ -14,7 +14,7 @@ from transformers import set_seed
 from datetime import datetime
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from src.tools.dynamic_proof_exec import DynamicProofExecutor
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
 from src.tools.coq_build_tool import CoqRepoBuilder
 from src.baselines.t5_prover.proof_search.common.generic_proof_search_engine import Prover, GenericTacticGenerationEngine, ProofSearchResult
 

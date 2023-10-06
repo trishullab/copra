@@ -1,0 +1,20 @@
+name: miniF2F_test_numbertheory
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - numbertheory_2pownm1prime_nprime
+          - numbertheory_3pow2pownm1mod2pownp3eq2pownp2
+          - numbertheory_4x3m7y3neq2003
+          - numbertheory_aoddbdiv4asqpbsqmod8eq1
+          - numbertheory_exk2powkeqapb2mulbpa2_aeq1
+          - numbertheory_fxeq4powxp6powxp9powx_f2powmdvdf2pown
+          - numbertheory_notequiv2i2jasqbsqdiv8
+          - numbertheory_x5neqy2p4

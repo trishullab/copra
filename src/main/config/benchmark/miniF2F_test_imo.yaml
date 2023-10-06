@@ -1,0 +1,32 @@
+name: miniF2F_test_imo
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - imo_1959_p1
+          - imo_1960_p2
+          - imo_1962_p2
+          - imo_1963_p5
+          - imo_1964_p2
+          - imo_1965_p2
+          - imo_1968_p5_1
+          - imo_1969_p2
+          - imo_1974_p3
+          - imo_1977_p6
+          - imo_1981_p6
+          - imo_1982_p1
+          - imo_1983_p6
+          - imo_1984_p6
+          - imo_1985_p6
+          - imo_1992_p1
+          - imo_1997_p5
+          - imo_2001_p6
+          - imo_2019_p1
+          - imosl_2007_algebra_p6

@@ -18,3 +18,13 @@ sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.
 ```
 export PATH="/home/<username>/.opam/default/bin:$PATH"
 ```
+
+6. You need to create a file `.secrets/openai_key.json` in the root directory with the OpenAI API key. The file should contain the following:
+```
+{
+    "organization": "<your-organization-id>",
+    "api_key": "<your-api-key>"
+}
+```
+
+7. The experiments are not necessarily thread safe. So, it is recommended to run them sequentially. The commands to run the desired experiments can be found in the file `./src/main/config/experiments.yaml`.

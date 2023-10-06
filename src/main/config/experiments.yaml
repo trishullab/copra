@@ -1,14 +1,19 @@
 defaults:
-  - benchmark: simple_benchmark_1
-  - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  - benchmark: re_prover_very_hard
+  - eval_settings: n_30_dfs_gpt35
+  - prompt_settings: lean_dfs
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:
-# nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_10_dfs_gpt35 &
-# nohup python src/main/eval_benchmark.py benchmark=minicompcert_benchmark_1 eval_settings=n_4_few_gpt35 &
-# nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex eval_settings.num_goal_per_prompt=1 &
-# nohup python src/main/eval_benchmark.py benchmark=simple_benchmark_1 eval_settings=n_60_dfs_gpt35_always_retrieve eval_settings.num_goal_per_prompt=1 &
-# nohup python src/main/eval_benchmark.py benchmark=compcert_benchmark_hard_1  eval_settings=n_60_dfs_gpt35_always_retrieve eval_settings.num_goal_per_prompt=1 &
-# nohup python src/main/eval_benchmark.py benchmark=compcert_benchmark_hard_1  eval_settings=n_60_dfs_gpt35_always_retrieve eval_settings.num_goal_per_prompt=1 &
-# nohup python src/main/eval_benchmark.py benchmark=compcert_benchmark_hard_1  eval_settings=n_30_dfs_gpt4_always_retrieve_no_ex &
-# nohup python src/main/eval_benchmark.py benchmark=compcert_benchmark_hard_2  eval_settings=n_60_dfs_gpt4_always_retrieve_no_ex &
+
+# Few shot Lean
+# nohup python src/main/eval_benchmark.py prompt_settings=lean_few_shot eval_settings=n_4_few_gpt35 benchmark=simple_benchmark_lean  &
+
+# Dfs Agent Lean
+# nohup python src/main/eval_benchmark.py prompt_settings=lean_dfs eval_settings=n_60_dfs_gpt4_always_retrieve_no_ex benchmark=simple_benchmark_lean  &
+
+# Few shot Coq
+# nohup python src/main/eval_benchmark.py prompt_settings=coq_few_shot eval_settings=n_4_few_gpt35 benchmark=simple_benchmark_1  &
+
+# Dfs Agent Coq
+# nohup python src/main/eval_benchmark.py prompt_settings=coq_dfs_always_retrieve eval_settings=n_60_dfs_gpt4_always_retrieve_no_ex benchmark=simple_benchmark_1  &

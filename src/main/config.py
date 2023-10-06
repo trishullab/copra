@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from enum import Enum
 from src.rl.proof_tree import ProofSearchResult
+from src.rl.proof_action import ProofAction
 
 class SettingType(Enum):
     Agent = "Agent"
@@ -28,6 +29,13 @@ class PolicyName(Enum):
 
 @dataclass_json
 @dataclass
+class PromptSettings(object):
+    name: str
+    main_prompt: str
+    conv_prompt: str
+
+@dataclass_json
+@dataclass
 class EvalSettings(object):
     name: str
     use_hammer: bool
@@ -35,8 +43,8 @@ class EvalSettings(object):
     max_proof_depth: int = 50
     timeout_in_secs: int = 60
     proof_retries: int = 1
-    main_prompt: str = "data/prompts/system/coq-proof-agent-with-dfs.md"
-    conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
+    # main_prompt: str = "data/prompts/system/coq-proof-agent-with-dfs.md"
+    # conv_prompt: str = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     max_tokens_per_action: int = 25
     max_theorems_in_prompt: int = 3
     gpt_model_name: str = "gpt-3.5-turbo"
@@ -73,6 +81,7 @@ class EvalDataset(object):
 class EvalBenchmark(object):
     name: str
     num_files: int
+    language: ProofAction.Language
     datasets: typing.List[EvalDataset]
     few_shot_data_path_for_retrieval: str = None
     few_shot_metadata_filename_for_retrieval: str = None
@@ -82,6 +91,7 @@ class EvalBenchmark(object):
 @dataclass_json
 @dataclass
 class Experiments(object):
+    prompt_settings: PromptSettings
     eval_settings: EvalSettings
     benchmark: EvalBenchmark
 
@@ -119,6 +129,11 @@ class EvalProofResults(object):
 
 
 def parse_config(cfg):
+    prompt_settings_cfg = cfg["prompt_settings"]
+    prompt_settings = PromptSettings(
+        name=prompt_settings_cfg["name"],
+        main_prompt=prompt_settings_cfg["main_prompt"],
+        conv_prompt=prompt_settings_cfg["conv_prompt"])
     eval_settings_cfg = cfg["eval_settings"]
     eval_settings = EvalSettings(
         name=eval_settings_cfg["name"],
@@ -127,8 +142,8 @@ def parse_config(cfg):
         max_proof_depth=eval_settings_cfg["max_proof_depth"],
         timeout_in_secs=eval_settings_cfg["timeout_in_secs"],
         proof_retries=eval_settings_cfg["proof_retries"],
-        main_prompt=eval_settings_cfg["main_prompt"],
-        conv_prompt=eval_settings_cfg["conv_prompt"],
+        # main_prompt=eval_settings_cfg["main_prompt"],
+        # conv_prompt=eval_settings_cfg["conv_prompt"],
         max_tokens_per_action=eval_settings_cfg["max_tokens_per_action"],
         max_theorems_in_prompt=eval_settings_cfg["max_theorems_in_prompt"],
         gpt_model_name=eval_settings_cfg["gpt_model_name"],
@@ -165,12 +180,14 @@ def parse_config(cfg):
         eval_datasets.append(EvalDataset(
             project=dataset_cfg["project"],
             files=eval_files))
+    language = ProofAction.Language(benchmark_cfg["language"])
     benchmark = EvalBenchmark(
         name=benchmark_cfg["name"],
         num_files=benchmark_cfg["num_files"],
+        language=language,
         datasets=eval_datasets,
         few_shot_data_path_for_retrieval=benchmark_cfg["few_shot_data_path_for_retrieval"],
         few_shot_metadata_filename_for_retrieval=benchmark_cfg["few_shot_metadata_filename_for_retrieval"],
         dfs_data_path_for_retrieval=benchmark_cfg["dfs_data_path_for_retrieval"],
         dfs_metadata_filename_for_retrieval=benchmark_cfg["dfs_metadata_filename_for_retrieval"])
-    return Experiments(eval_settings=eval_settings, benchmark=benchmark)
+    return Experiments(eval_settings=eval_settings, benchmark=benchmark, prompt_settings=prompt_settings)

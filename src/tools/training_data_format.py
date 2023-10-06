@@ -282,7 +282,9 @@ class TrainingDataFormat(object):
             for key in goals_a:
                 for g_a in goals_a[key]:
                     for g_b in goals_b[key]:
-                        if g_a > g_b:
+                        a_is_strictly_harder_than_b = g_a > g_b and g_b < g_a # g_a > g_b is not same as g_b < g_a as because it is not a total order and the goals can be incomparable
+                        a_is_not_comparable_to_b = (not g_a > g_b) and (not g_b < g_a)
+                        if a_is_not_comparable_to_b or a_is_strictly_harder_than_b:
                             return False
             return True
             # for key in goals_a:
@@ -335,7 +337,9 @@ class TrainingDataFormat(object):
             for key in goals_b:
                 for g_b in goals_b[key]:
                     for g_a in goals_a[key]:
-                        if g_a < g_b:
+                        b_is_strictly_harder_than_a = g_a < g_b and g_b > g_a # g_a < g_b is not same as g_b > g_a as because it is not a total order and the goals can be incomparable
+                        b_is_not_comparable_to_a = (not g_a < g_b) and (not g_b > g_a)
+                        if b_is_not_comparable_to_a or b_is_strictly_harder_than_a:
                             return False
             return True
 

@@ -64,6 +64,7 @@ class ProofSearchResult(object):
     is_inference_exhausted: bool
     longest_success_path: int
     additional_info: typing.Dict[str, typing.Any] = field(default_factory=dict)
+    language: ProofAction.Language = ProofAction.Language.COQ
 
     def __str__(self) -> str:
         try:
@@ -81,10 +82,12 @@ NumberOfBacktracks: {self.num_of_backtracks}
 PossibleFailedPaths: {self.possible_failed_paths}
 AdditionalInfo: {self.additional_info}
 """
+            proof_start = "Proof." if self.language == ProofAction.Language.COQ else "begin"
+            proof_end = "Qed." if self.language == ProofAction.Language.COQ else "end"
             all_proof_steps = "\n    ".join(lines[:-1]) if len(lines) > 1 else ""
-            last_line = (lines[-1] if lines[-1] == "Qed." else f"    {lines[-1]}\n") if len(lines) > 0 else ""
+            last_line = (lines[-1] if lines[-1] == proof_end else f"    {lines[-1]}\n") if len(lines) > 0 else ""
             return f"""{self.lemma_name}
-Proof.
+{proof_start}
     {all_proof_steps}
 {last_line}
 {proof_metadata}

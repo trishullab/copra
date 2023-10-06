@@ -1,0 +1,3 @@
+name: lean_few_shot
+main_prompt: data/prompts/baseline/simple-prompt-lean.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-lean.md

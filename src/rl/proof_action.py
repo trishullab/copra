@@ -7,6 +7,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 from src.tools.coq_parse_utils import CoqLineByLineReader
+from src.tools.lean_parse_utils import LeanLineByLineReader
 from src.rl.abstraction import Action
 from enum import Enum
 from dataclasses import dataclass, field
@@ -15,6 +16,9 @@ from dataclasses_json import dataclass_json
 @dataclass_json
 @dataclass
 class ProofAction(Action):
+    class Language(Enum):
+        COQ = 'COQ'
+        LEAN = 'LEAN'
     class ActionType(Enum):
         GET_DFNS_THMS = 'GET_DFNS_THMS'
         RUN_TACTIC = 'RUN_TACTIC'
@@ -57,10 +61,12 @@ class ProofAction(Action):
             return ProofAction.ActionType.get_order(self) >= ProofAction.ActionType.get_order(other)
 
     action_type: ActionType
+    language: Language
     kwargs: typing.Optional[dict] = field(default_factory=dict)
-    def __init__(self, action_type: ActionType, **kwargs):
+    def __init__(self, action_type: ActionType, language: Language, **kwargs):
         assert isinstance(action_type, ProofAction.ActionType), f"action_type must be of type ProofAction.Type, not {type(action_type)}"
         self.action_type = action_type
+        self.language = language
         if kwargs is not None and isinstance(kwargs, dict) and len(kwargs) == 1 and "kwargs" in kwargs:
             kwargs = kwargs["kwargs"] # TODO: this is a hack to get around the fact that dataclasses_json doesn't support having parameterized fields in the constructor
         self.kwargs = kwargs
@@ -77,10 +83,16 @@ class ProofAction(Action):
     def _post_init(self):
         type = self.action_type
         if type == ProofAction.ActionType.RUN_TACTIC:
-            all_tactics = '\n'.join(self.kwargs['tactics'])
-            reader = CoqLineByLineReader(file_content=all_tactics)
-            tactics = list(reader.instruction_step_generator())
-            self.kwargs['tactics'] = tactics
+            if self.language == ProofAction.Language.COQ:
+                all_tactics = '\n'.join(self.kwargs['tactics'])
+                reader = CoqLineByLineReader(file_content=all_tactics)
+                tactics = list(reader.instruction_step_generator())
+                self.kwargs['tactics'] = tactics
+            elif self.language == ProofAction.Language.LEAN:
+                all_tactics = '\n'.join(self.kwargs['tactics'])
+                # reader = LeanLineByLineReader(file_content=all_tactics)
+                tactics = [all_tactics]
+                self.kwargs['tactics'] = tactics
         self.original_message : typing.Any = None
         pass
 

@@ -1,0 +1,82 @@
+name: miniF2F_test_mathd_algebra
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - mathd_algebra_478
+          - mathd_algebra_141
+          - mathd_algebra_209
+          - mathd_algebra_33
+          - mathd_algebra_419
+          - mathd_algebra_398
+          - mathd_algebra_459
+          - mathd_algebra_320
+          - mathd_algebra_137
+          - mathd_algebra_160
+          - mathd_algebra_24
+          - mathd_algebra_176
+          - mathd_algebra_208
+          - mathd_algebra_156
+          - mathd_algebra_171
+          - mathd_algebra_188
+          - mathd_algebra_346
+          - mathd_algebra_487
+          - mathd_algebra_184
+          - mathd_algebra_44
+          - mathd_algebra_215
+          - mathd_algebra_452
+          - mathd_algebra_296
+          - mathd_algebra_107
+          - mathd_algebra_412
+          - mathd_algebra_392
+          - mathd_algebra_756
+          - mathd_algebra_80
+          - mathd_algebra_275
+          - mathd_algebra_388
+          - mathd_algebra_263
+          - mathd_algebra_170
+          - mathd_algebra_432
+          - mathd_algebra_598
+          - mathd_algebra_276
+          - mathd_algebra_427
+          - mathd_algebra_76
+          - mathd_algebra_17
+          - mathd_algebra_153
+          - mathd_algebra_329
+          - mathd_algebra_313
+          - mathd_algebra_129
+          - mathd_algebra_484
+          - mathd_algebra_304
+          - mathd_algebra_113
+          - mathd_algebra_125
+          - mathd_algebra_148
+          - mathd_algebra_332
+          - mathd_algebra_293
+          - mathd_algebra_440
+          - mathd_algebra_114
+          - mathd_algebra_513
+          - mathd_algebra_143
+          - mathd_algebra_354
+          - mathd_algebra_246
+          - mathd_algebra_196
+          - mathd_algebra_342
+          - mathd_algebra_270
+          - mathd_algebra_362
+          - mathd_algebra_289
+          - mathd_algebra_359
+          - mathd_algebra_288
+          - mathd_algebra_158
+          - mathd_algebra_314
+          - mathd_algebra_302
+          - mathd_algebra_139
+          - mathd_algebra_142
+          - mathd_algebra_400
+          - mathd_algebra_441
+          - mathd_algebra_338

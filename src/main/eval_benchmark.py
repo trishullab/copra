@@ -3,6 +3,7 @@
 import sys
 
 
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -20,13 +21,16 @@ from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
 from src.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
-from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, parse_config
+from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, PromptSettings, parse_config
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.proof_tree import ProofSearchResult
 from src.rl.simple_proof_env import ProofEnv
+from src.rl.proof_action import ProofAction
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
+from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -38,25 +42,31 @@ def query_limit_info_message(max_query_limit: int) -> typing.Callable[[int, typi
         return f"Step {info['queries']}/{max_query_limit} (Actual steps: {steps})"
     return _query_limit_info_message
 
-def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback):
+def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: logging.Logger):
     lemmas_to_prove = []
     with coq_proof_exec_callback.get_proof_executor() as main_executor:
-        while not main_executor.execution_complete:
-            assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
-            _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
-            if main_executor.execution_complete:
-                break
-            lemma_name = main_executor.get_lemma_name_if_running()
-            if lemma_name is None:
-                _ = list(main_executor.run_to_finish_lemma_return_exec())
+        if isinstance(main_executor, DynamicLeanProofExecutor):
+            main_executor.run_all_without_exec()
+            lemmas_to_prove = main_executor.find_all_theorems_names()
+        elif isinstance(main_executor, DynamicCoqProofExecutor):
+            while not main_executor.execution_complete:
+                assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
+                _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
                 if main_executor.execution_complete:
                     break
-            else:
-                lemmas_to_prove.append(lemma_name)
-                main_executor.run_to_finish_lemma()
+                lemma_name = main_executor.get_lemma_name_if_running()
+                if lemma_name is None:
+                    _ = list(main_executor.run_to_finish_lemma_return_exec())
+                    if main_executor.execution_complete:
+                        break
+                else:
+                    logger.info(f"Discovered lemma: {lemma_name}")
+                    lemmas_to_prove.append(lemma_name)
+                    main_executor.run_to_finish_lemma()
+    logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
     return lemmas_to_prove
 
-def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
+def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
@@ -68,23 +78,25 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                 f.write(f"Evaluation Settings:\n {eval_settings.to_json(indent=4)}\n")
         eval_checkpoint_info.add_path_to_maps(path)
         eval_proof_results.add_path_to_maps(path)
-        coq_proof_exec_callback = ProofExecutorCallback(
+        proof_exec_callback = ProofExecutorCallback(
             project_folder=dataset.project,
             file_path=path,
+            language=eval_benchmark.language,
             use_hammer=eval_settings.use_hammer,
             timeout_in_secs=eval_settings.timeout_in_secs,
             use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
             suppress_error_log=True,
             logger=logger)
-        def _get_all_lemmas(ret_dict):
+        def _get_all_lemmas(ret_dict, logger):
             try:
-                ret_dict["lemmas"] = get_all_lemmas(coq_proof_exec_callback)
+                ret_dict["lemmas"] = get_all_lemmas(proof_exec_callback, logger)
             except:
                 logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
         file_time_out = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50
-        p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict,))
+        logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
+        p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
         p.start()
         p.join(file_time_out)
         if p.is_alive():
@@ -94,7 +106,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
         if "lemmas" not in return_dict:
             logger.info(f"Failed to get all lemmas in file: {path}, moving on to the next file.")
             continue
-        lemmas_to_prove = set(get_all_lemmas(coq_proof_exec_callback))
+        lemmas_to_prove = return_dict["lemmas"]
         if isinstance(file.theorems, str) and file.theorems == "*":
             file.theorems = list(lemmas_to_prove)
         elif isinstance(file.theorems, list):
@@ -130,8 +142,8 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
 
             if eval_settings.policy_name == PolicyName.Dfs:
                 policy_prompter = DfsCoqGptPolicyPrompter(
-                    main_sys_prompt_path=eval_settings.main_prompt,
-                    example_conv_prompt_path=eval_settings.conv_prompt,
+                    main_sys_prompt_path=prompt_settings.main_prompt,
+                    example_conv_prompt_path=prompt_settings.conv_prompt,
                     max_tokens_per_action=eval_settings.max_tokens_per_action,
                     gpt_model_name=eval_settings.gpt_model_name,
                     temperature=eval_settings.temperature,
@@ -141,18 +153,20 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                     num_goal_per_prompt=eval_settings.num_goal_per_prompt,
                     training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
                     metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                    language=eval_benchmark.language,
                     logger=logger)
-                dfs_tree_search = DFSTreeSearch()
+                dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
                     eval_settings.checkpoint_dir, 
                     lemma_name, 
                     policy_prompter,
                     dfs_tree_search,
-                    checkpoint_on_exit=eval_settings.should_checkpoint)
+                    checkpoint_on_exit=eval_settings.should_checkpoint,
+                    language=eval_benchmark.language)
             elif eval_settings.policy_name == PolicyName.FewShot:
                 policy_prompter = FewShotGptPolicyPrompter(
-                    main_sys_prompt_path=eval_settings.main_prompt,
-                    example_conv_prompt_path=eval_settings.conv_prompt,
+                    main_sys_prompt_path=prompt_settings.main_prompt,
+                    example_conv_prompt_path=prompt_settings.conv_prompt,
                     temperature=eval_settings.temperature,
                     max_tokens_per_action=eval_settings.max_tokens_per_action,
                     max_history_messages=eval_settings.max_history_messages,
@@ -161,12 +175,14 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                     retrieve_prompt_examples=eval_settings.use_example_retrieval,
                     training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
                     metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
+                    language=eval_benchmark.language,
                     logger=logger)
                 search_guidance_policy = FewShotGptPolicy(
                     eval_settings.checkpoint_dir,
                     lemma_name,
                     policy_prompter,
                     checkpoint_on_exit=eval_settings.should_checkpoint,
+                    language=eval_benchmark.language,
                     logger=logger)
             else:
                 raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
@@ -176,7 +192,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, dataset: EvalDataset, eval_setti
                 return_dict = manager.dict()
                 def _run_prover(ret_dict):
                     try:
-                        with ProofEnv(f"basic_proof_env_{lemma_name}", coq_proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
+                        with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
                             with search_guidance_policy:
                                 agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
                                 agent.run_episodes_till_stop(
@@ -247,7 +263,8 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
     eval_settings = experiment.eval_settings
     benchmark = experiment.benchmark
     checkpoint_dir = experiment.eval_settings.checkpoint_dir
-    eval_settings.checkpoint_dir = os.path.join(checkpoint_dir, benchmark.name, eval_settings.name)
+    prompt_settings = experiment.prompt_settings
+    eval_settings.checkpoint_dir = os.path.join(checkpoint_dir, benchmark.name, eval_settings.name, prompt_settings.name)
     os.makedirs(eval_settings.checkpoint_dir, exist_ok=True)
     # Load the checkpoint file if it exists
     checkpoint_file = os.path.join(eval_settings.checkpoint_dir, "checkpoint_info.json")
@@ -277,7 +294,7 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         try:
             logger = logger or logging.getLogger(__name__)
             for dataset in benchmark.datasets:
-                eval_dataset(benchmark, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
+                eval_dataset(benchmark, prompt_settings, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
             measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
             trial_cnt = 0
         except:
@@ -301,5 +318,5 @@ def main(cfg):
     pass
 
 if __name__ == "__main__":
-    RayUtils.init_ray(num_of_cpus=20, object_store_memory_in_gb=50, memory_in_gb=1)
+    # RayUtils.init_ray(num_of_cpus=20, object_store_memory_in_gb=50, memory_in_gb=1)
     main()

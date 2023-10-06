@@ -19,7 +19,7 @@ from src.gpts.gpt_access import GptAccess
 from src.rl.proof_action import ProofAction
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.baselines.gpt4.few_shot_grammar import FewShotGptKeywords, FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
+from src.baselines.gpt4.few_shot_grammar import FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
 
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
@@ -37,12 +37,14 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             retrieve_prompt_examples: bool = True,
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
+            language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
-        self.coq_gpt_request_grammar = FewShotGptRequestGrammar()
-        self.coq_gpt_response_grammar = FewShotGptResponseGrammar()
+        self.language = language
+        self.gpt_request_grammar = FewShotGptRequestGrammar(language)
+        self.gpt_response_grammar = FewShotGptResponseGrammar(language)
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
@@ -69,6 +71,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self._num_api_calls = 0
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
+        if self.language == ProofAction.Language.LEAN:
+            self._retrieve_prompt_examples = False
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -126,7 +130,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     for retrieved_example in retrieved_examples
                 ]
                 example_theorems = [
-                    self.coq_gpt_response_grammar.format_as_per_grammar(
+                    self.gpt_response_grammar.format_as_per_grammar(
                         FewShotGptResponse(theorem=theorem), 
                         self._k, 
                         max_token_for_examples, 
@@ -169,7 +173,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             max_token_for_problem = max_tokens_in_prompt
         characters_per_token = 5
         while not prompt_message_tokens_underlimit and characters_per_token > 0:
-            prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
+            prompt_message = self.gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
             prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
             prompt_messages = [prompt_message]
             prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
@@ -267,7 +271,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
                     n=self.num_sequences,
                     temperature=temperature,
                     max_tokens=tokens_to_generate,
-                    stop=[FewShotGptKeywords.QED])
+                    stop=[self.gpt_request_grammar.QED])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
@@ -315,14 +319,14 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         total = len(message_contents)
         for idx, message in enumerate(message_contents):
             try:
-                coq_gpt_request, parsed_message = self.coq_gpt_request_grammar.get_openai_request(message)
+                gpt_request, parsed_message = self.gpt_request_grammar.get_openai_request(message)
                 open_ai_message = self.agent_grammar.get_openai_main_message_from_string(parsed_message, "assistant")
             except Exception as e:
                 error = f"Expected {str(e)}"
                 error_message = f"Invalid response:\n '{message[0]}', \n Stopping Reason: '{message[1]}'.\n Failure reason: {error} \nPlease respond only in the format specified."
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
-            action = coq_gpt_request.action
+            action = gpt_request.action
             action.original_message = open_ai_message
             actions.append((action, probability))
         return actions
