@@ -5,8 +5,22 @@
   <!-- Meta tags for social media banners, these should be filled in appropriatly as they are your "business card" -->
   <!-- Replace the content tag with appropriate information -->
   <meta name="description" content="DESCRIPTION META TAG">
-  <meta property="og:title" content="SOCIAL MEDIA TITLE TAG"/>
-  <meta property="og:description" content="SOCIAL MEDIA DESCRIPTION TAG TAG"/>
+  <meta property="og:title" content="A Language-Agent Approach To Formal Theorem-Proving"/>
+  <meta property="og:description" content="Language agents, which use a large language model (LLM) capable of in-context
+  learning to interact with an external environment, have recently emerged as a
+  promising approach to control tasks. We present the first language-agent
+  approach to formal theorem-proving. Our method, COPRA, uses a high-capacity,
+  black-box LLM (GPT-4) as part of a policy for a stateful backtracking search.
+  During the search, the policy can select proof tactics and retrieve lemmas and
+  definitions from an external database. Each selected tactic is executed in the
+  underlying proof framework, and the execution feedback is used to build the
+  prompt for the next policy invocation. The search also tracks selected
+  information from its history and uses it to reduce hallucinations and
+  unnecessary LLM queries.
+    We evaluate COPRA on the miniF2F benchmark for Lean and a set of Coq tasks
+  from the Compcert project. On these benchmarks, COPRA is significantly better
+  than one-shot invocations of GPT-4, as well as state-of-the-art models
+  fine-tuned on proof data, at finding correct proofs quickly."/>
   <meta property="og:url" content="URL OF THE WEBSITE"/>
   <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X630-->
   <meta property="og:image" content="static/image/your_banner_image.png" />
@@ -14,13 +28,27 @@
   <meta property="og:image:height" content="630"/>
 
 
-  <meta name="twitter:title" content="TWITTER BANNER TITLE META TAG">
-  <meta name="twitter:description" content="TWITTER BANNER DESCRIPTION META TAG">
+  <meta name="twitter:title" content="A Language-Agent Approach To Formal Theorem-Proving">
+  <meta name="twitter:description" content="Language agents, which use a large language model (LLM) capable of in-context
+  learning to interact with an external environment, have recently emerged as a
+  promising approach to control tasks. We present the first language-agent
+  approach to formal theorem-proving. Our method, COPRA, uses a high-capacity,
+  black-box LLM (GPT-4) as part of a policy for a stateful backtracking search.
+  During the search, the policy can select proof tactics and retrieve lemmas and
+  definitions from an external database. Each selected tactic is executed in the
+  underlying proof framework, and the execution feedback is used to build the
+  prompt for the next policy invocation. The search also tracks selected
+  information from its history and uses it to reduce hallucinations and
+  unnecessary LLM queries.
+    We evaluate COPRA on the miniF2F benchmark for Lean and a set of Coq tasks
+  from the Compcert project. On these benchmarks, COPRA is significantly better
+  than one-shot invocations of GPT-4, as well as state-of-the-art models
+  fine-tuned on proof data, at finding correct proofs quickly.">
   <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X600-->
   <meta name="twitter:image" content="static/images/your_twitter_banner_image.png">
   <meta name="twitter:card" content="summary_large_image">
   <!-- Keywords for your paper to be indexed by-->
-  <meta name="keywords" content="KEYWORDS SHOULD BE PLACED HERE">
+  <meta name="keywords" content=" theorem proving, formal methods, large language models, agents">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
 
