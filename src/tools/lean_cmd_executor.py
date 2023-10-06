@@ -734,12 +734,8 @@ class LeanCustomFileExec:
 
 if __name__ == "__main__":
     logging.basicConfig(filename='lean_executor.log', filemode='w', level=logging.INFO)
-    # with CoqStdInOutExecutor() as coq_exec:
-    #     coq_exec.run_in_loop()
     os.chdir(root_dir)
     project = "data/test/lean_proj"
-    # project = "data/benchmarks/miniF2F"
     file = "data/test/lean_proj/src/temp.lean"
-    # file = "data/benchmarks/miniF2F/lean/src/temp.lean"
     with LeanCustomFileExec(file, project) as lean_exec:
         lean_exec.run_in_loop()

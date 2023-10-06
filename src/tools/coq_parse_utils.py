@@ -145,20 +145,6 @@ class CoqStepByStepStdInReader:
                 break
 
 if __name__ == "__main__":
-#    file_name = "data/custom_group_theory/theories/grpthm.v"
-    # file_name = "data/proverbot9001/CompCert/common/Memtype.v"
-    # if len(sys.argv) == 2:
-    #     file_name = sys.argv[1]
-    # print(file_name)
-    # print("=========================")
-    # if not os.path.exists(file_name):
-    #     print(f"File {file_name} does not exist")
-    #     exit(1)
-    # coq_reader = CoqLineByLineReader(file_name)
-    # assert coq_reader.file_content is not None
-    # # assert "(*" not in coq_reader.file_content and "*)" not in coq_reader.file_content
-    # for idx, instruction in enumerate(coq_reader.instruction_step_generator()):
-    #     print(f"[{idx}]: {instruction}")
     file_content = """
 {reflexivity. }
 """

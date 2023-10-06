@@ -102,12 +102,8 @@ class LeanCmdServer:
 
 if __name__ == "__main__":
     os.chdir(root_dir)
-    # cwd = 'data/benchmarks/miniF2F'
-    # cwd = 'data/test/lean_proj'
-    cwd = '/home/amthakur/Project/miniF2F'
-    # path = f'lean/src/test.lean'
-    # path = 'src/simple.lean'
-    path = 'lean/src/temp.lean'
+    cwd = 'data/test/lean_proj'
+    path = 'src/simple.lean'
     server = LeanCmdServer(cwd=cwd)
     output = server.run(path)
     print(output)
