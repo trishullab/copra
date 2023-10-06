@@ -493,7 +493,13 @@ class Lean3Executor(object):
                 response = self.lean_server.run(self.temp_file, self.timeout_in_sec)
             except subprocess.TimeoutExpired:
                 timed_out = True
+                if os.path.exists(self.temp_file_full_path):
+                    os.remove(self.temp_file_full_path)
                 pass
+            except:
+                if os.path.exists(self.temp_file_full_path):
+                    os.remove(self.temp_file_full_path)
+                raise
             
             if not timed_out:
                 prev_proof_context = self.proof_context

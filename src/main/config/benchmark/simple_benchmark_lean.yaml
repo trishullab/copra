@@ -9,7 +9,4 @@ datasets:
   - project: data/test/lean_proj
     files:
       - path: src/simple.lean
-        theorems: 
-          - mod_arith_1
-          # - n_less_2_pow_n
-          # - mathd_algebra_478
+        theorems: "*"
