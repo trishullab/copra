@@ -1,7 +1,0 @@
-name: NucleusSamplingParameters
-num_samples: 50
-generation_max_length: 40 
-padding: True
-top_k: 50
-top_p: 0.95
-temperature: 0.8
