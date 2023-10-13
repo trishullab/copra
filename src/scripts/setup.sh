@@ -22,10 +22,12 @@ echo "Installing Elan (Lean version manager) ..."
 # # https://leanprover-community.github.io/install/debian_details.html
 curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
 echo "Installed Elan (Lean version manager) successfully!"
+source $HOME/.elan/env
 echo "Installing Lean (lean:3.42.1) ..."
 elan toolchain install leanprover-community/lean:3.42.1
 elan override set leanprover-community/lean:3.42.1
 echo "Installed Lean (lean:3.42.1) successfully!"
+export PATH=$PATH:$HOME/.elan/bin
 # # # For installing leanproject
 # echo "Installing leanproject..."
 # $pip_exe install --user mathlibtools
