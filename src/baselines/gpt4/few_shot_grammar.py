@@ -266,10 +266,34 @@ String:;
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
         message, _ = message_response
-        message += f"\n{self.QED}"
-        result : FewShotGptRequest = self.run(message, None)            
-        message = self.generate_message_from_gpt_request(result)
-        return (result, message)
+        start_idx = 0
+        end_idx = len(message)
+        # Generate all possible sub-strings such that the start_idx is less than end_idx
+        idxs = [(s_idx, e_idx) for s_idx in range(start_idx, end_idx) for e_idx in range(end_idx, s_idx, -1)]
+        message_temp = message
+        message_parsed = False
+        for s_idx, e_idx in idxs:
+            # This type of robust parsing can be needed in case of some LLMs which
+            # don't follow the specified format
+            try:
+                message_temp = message[s_idx:e_idx]
+                if message_temp.endswith(self.QED):
+                    # Just in case the LLM doesn't remove the stop token
+                    message_temp = message_temp.strip(self.QED)
+                message_temp += f"\n{self.QED}"
+                result : FewShotGptRequest = self.run(message_temp, None)            
+                message_temp = self.generate_message_from_gpt_request(result)
+                message_parsed = True
+            except:
+                message_parsed = False
+            if message_parsed:
+                break
+        if not message_parsed:
+            message_temp = message[start_idx:end_idx]
+            message_temp += f"\n{self.QED}"
+            result : FewShotGptRequest = self.run(message_temp, None)            
+            message_temp = self.generate_message_from_gpt_request(result)
+        return (result, message_temp)
     
     def parse_request_to_args(self, messages: typing.List[str]) -> typing.List[str]:
         results : typing.List[str] = []

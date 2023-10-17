@@ -16,6 +16,7 @@ from src.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from src.agent.rate_limiter import RateLimiter, InvalidActionException
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAction
 from src.gpts.gpt_access import GptAccess
+from src.gpts.llama_access import LlamaAccess
 from src.rl.proof_action import ProofAction
 from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
@@ -48,7 +49,10 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
+        if not gpt_model_name.startswith("gpt"):
+            self._gpt_access = LlamaAccess(gpt_model_name)
+        else:
+            self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
         self._token_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["token_limit_per_min"]
         self._request_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["request_limit_per_min"]
         self._max_token_per_prompt = GptAccess.gpt_model_info[gpt_model_name]["max_token_per_prompt"]
@@ -79,6 +83,14 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             assert os.path.exists(self._training_data_path), f"Training data path {self._training_data_path} doesn't exists"
             self._init_retriever()
         pass
+
+    def __enter__(self):
+        if isinstance(self._gpt_access, LlamaAccess):
+            self._gpt_access.__enter__()
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        if isinstance(self._gpt_access, LlamaAccess):
+            self._gpt_access.__exit__(exc_type, exc_value, traceback)
 
     def _init_retriever(self):
         if FewShotGptPolicyPrompter._cache.get(self._training_data_path, None) is not None:

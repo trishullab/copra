@@ -7,6 +7,8 @@ if root_dir not in sys.path:
 import time
 import os
 import openai
+import tiktoken
+from litellm import token_counter
 from subprocess import Popen, PIPE, STDOUT
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
@@ -98,6 +100,25 @@ class LlamaAccess(GptAccess):
         openai.api_base = "http://0.0.0.0:8000"
         self.model_name = f"huggingface/{self.model_name}"
         pass
+
+    def num_tokens_from_messages(self, messages, model=None):
+        model = model if model is not None else self.model_name
+        num_tokens = 0
+        tokens_per_message = 3
+        tokens_per_name = 1
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            print("Warning: model not found. Using cl100k_base encoding.")
+            encoding = tiktoken.get_encoding("cl100k_base")
+        for message in messages:
+            num_tokens += tokens_per_message
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+                if key == "name":
+                    num_tokens += tokens_per_name
+        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+        return num_tokens
 
     def kill(self):
         # Ensure that the process is killed

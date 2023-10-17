@@ -168,6 +168,7 @@ class GptGuidedTreeSearchPolicy(Policy):
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
             self._proof_q_tree = ProofQTree()
+        self._policy_prompter.__enter__()
         self._loaded = True
         return self
     
@@ -175,6 +176,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         assert self._loaded, "Policy was not loaded"
         if self.checkpoint_on_exit:
             self.checkpoint()
+        self._policy_prompter.__exit__(exc_type, exc_value, traceback)
     
     def load_from_checkpoint_if_exists(self):
         checkpoint_path = os.path.join(self.checkpoint_dir, self.checkpoint_filename)

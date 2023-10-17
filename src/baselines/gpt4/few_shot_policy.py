@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import sys
-import uuid
-
-
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
+import uuid
 import typing
 import logging
 from src.agent.gpt_guided_tree_search_policy import ProofQTree
@@ -49,6 +46,7 @@ class FewShotGptPolicy(Policy):
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
             self._proof_q_tree = ProofQTree()
+        self._policy_prompter.__enter__()
         self._loaded = True
         return self
     
@@ -56,6 +54,7 @@ class FewShotGptPolicy(Policy):
         assert self._loaded, "Policy was not loaded"
         if self.checkpoint_on_exit:
             self.checkpoint()
+        self._policy_prompter.__exit__(exc_type, exc_value, traceback)
     
     def load_from_checkpoint_if_exists(self):
         checkpoint_path = os.path.join(self.checkpoint_dir, self.checkpoint_filename)
