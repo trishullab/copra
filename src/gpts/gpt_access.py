@@ -35,6 +35,7 @@ class GptAccess(object):
         if model_name is not None:
             assert model_name in self.models_supported_name, f"Model name {model_name} not supported"
             self.model_name = model_name
+        self.supports_usage_api = True
         self.usage = {
             "prompt_tokens": 0,
             "completion_tokens": 0,
@@ -70,10 +71,11 @@ class GptAccess(object):
             logprobs=logprobs
             # best_of=n
         )
-        usagae = response.usage
-        self.usage["prompt_tokens"] += usagae.prompt_tokens
-        self.usage["completion_tokens"] += usagae.completion_tokens
-        self.usage["total_tokens"] += usagae.total_tokens        
+        if self.supports_usage_api:
+            usagae = response.usage
+            self.usage["prompt_tokens"] += usagae.prompt_tokens
+            self.usage["completion_tokens"] += usagae.completion_tokens
+            self.usage["total_tokens"] += usagae.total_tokens        
         resp = [(obj.text, sum(obj.logprobs.token_logprobs)) for obj in response.choices]
         resp.sort(key=lambda x: x[1], reverse=True)
         return resp
@@ -89,32 +91,46 @@ class GptAccess(object):
             presence_penalty: float = 0.0,
             stop: list = ["\n"]) -> typing.Tuple[list, dict]:
         model = self.model_name if model is None else model
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            frequency_penalty=frequency_penalty,
-            presence_penalty=presence_penalty,
-            stop=stop,
-            n=n
-        )
-        usage = response.usage
-        self.usage["prompt_tokens"] += usage.prompt_tokens
-        self.usage["completion_tokens"] += usage.completion_tokens
-        self.usage["total_tokens"] += usage.total_tokens
+        if self.supports_usage_api:
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                stop=stop,
+                n=n
+            )
+            usage = response.usage
+            self.usage["prompt_tokens"] += usage.prompt_tokens
+            self.usage["completion_tokens"] += usage.completion_tokens
+            self.usage["total_tokens"] += usage.total_tokens
+        else:
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=messages
+            )            
         return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
             return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-        usage_dict = {
-            "prompt_tokens": usage.prompt_tokens,
-            "completion_tokens": usage.completion_tokens,
-            "total_tokens": usage.total_tokens,
-            "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
-        }
+        if self.supports_usage_api:
+            usage_dict = {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+                "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+            }
+        else:
+            usage_dict = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+            }
         return return_responses, usage_dict
     
     def num_tokens_from_messages(self, messages, model=None):

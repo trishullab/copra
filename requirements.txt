@@ -31,3 +31,4 @@ psutil==5.9.5
 accelerate==0.20.3
 urllib3==2.0.4
 mathlibtools==1.3.2
+litellm
