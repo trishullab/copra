@@ -29,7 +29,7 @@ class LlamaAccess(GptAccess):
             "completion_tokens": 0,
             "total_tokens": 0
         }
-        self.supports_usage_api = False
+        self.is_open_ai_model = False
 
     def __enter__(self):
         self._start_service()
@@ -140,13 +140,20 @@ if __name__ == '__main__':
                 "content": "Let's talk later when we're less busy about how to do better.",
             },
             {
-                "role": "user",
+                "role": "system",
+                "name": "example_user",
                 "content": "This late pivot means we don't have time to boil the ocean for the client deliverable.",
             },
             {
+                "role": "system",
+                "name": "example_assistant",                
                 "role": "user",
                 "content": "Our idea seems to be scooped, don't know how to change direction now."
+            },
+            {
+                "role": "user",
+                "content": "We changed the direction of the project, but we don't have time to do it.",
             }
         ]
-        print(llama.complete_chat(messages, max_tokens=15, n=2, temperature=0.8))
+        print(llama.complete_chat(messages, max_tokens=50, n=2, temperature=0.2, stop=['.']))
         pass

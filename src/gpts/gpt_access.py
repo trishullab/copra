@@ -21,6 +21,11 @@ class GptAccess(object):
             "token_limit_per_min": 20000,
             "request_limit_per_min": 100,
             "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
+        },
+        'codellama/CodeLlama-7b-Instruct-hf': {
+            "token_limit_per_min": 10**6,
+            "request_limit_per_min": 10**6,
+            "max_token_per_prompt": int(14.4*2**10) # less than 8k because additional tokens are added at times
         }
     }
     def __init__(self, 
@@ -35,7 +40,7 @@ class GptAccess(object):
         if model_name is not None:
             assert model_name in self.models_supported_name, f"Model name {model_name} not supported"
             self.model_name = model_name
-        self.supports_usage_api = True
+        self.is_open_ai_model = True
         self.usage = {
             "prompt_tokens": 0,
             "completion_tokens": 0,
@@ -71,7 +76,7 @@ class GptAccess(object):
             logprobs=logprobs
             # best_of=n
         )
-        if self.supports_usage_api:
+        if self.is_open_ai_model:
             usagae = response.usage
             self.usage["prompt_tokens"] += usagae.prompt_tokens
             self.usage["completion_tokens"] += usagae.completion_tokens
@@ -91,7 +96,7 @@ class GptAccess(object):
             presence_penalty: float = 0.0,
             stop: list = ["\n"]) -> typing.Tuple[list, dict]:
         model = self.model_name if model is None else model
-        if self.supports_usage_api:
+        if self.is_open_ai_model:
             response = openai.ChatCompletion.create(
                 model=model,
                 messages=messages,
@@ -110,14 +115,19 @@ class GptAccess(object):
         else:
             response = openai.ChatCompletion.create(
                 model=model,
-                messages=messages
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                # top_p=top_p,
+                stop=stop,
+                n=n
             )            
         return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
             return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-        if self.supports_usage_api:
+        if self.is_open_ai_model:
             usage_dict = {
                 "prompt_tokens": usage.prompt_tokens,
                 "completion_tokens": usage.completion_tokens,
