@@ -7,7 +7,6 @@ if root_dir not in sys.path:
 import time
 import os
 import openai
-import tiktoken
 from litellm import token_counter
 from subprocess import Popen, PIPE, STDOUT
 from dataclasses import dataclass, field
@@ -35,10 +34,14 @@ class LlamaAccess(GptAccess):
 
     def __enter__(self):
         self._start_service()
+        openai.api_key = "xyz"
+        openai.api_base = "http://0.0.0.0:8000"
+        self.model_name = f"huggingface/{self.model_name}"
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):
         self.kill()
+        pass
     
     def _start_service(self) -> None:
         # Change the openai.api_key to the llama api key
@@ -66,7 +69,7 @@ class LlamaAccess(GptAccess):
                 # sleep for a bit to avoid busy waiting
                 time.sleep(0.02)
         self.proxy_process = Popen(
-            f'litellm --model huggingface/{self.model_name} --api_base http://localhost:8080',
+            f'litellm --model huggingface/{self.model_name} --api_base http://localhost:8080 --temperature 0.0',
             shell = True, 
             stdin = PIPE, 
             stdout = PIPE, 
@@ -96,28 +99,11 @@ class LlamaAccess(GptAccess):
             if self.debug:
                 print(test_process.stdout.read())
             test_process.kill()
-        openai.api_key = "xyz"
-        openai.api_base = "http://0.0.0.0:8000"
-        self.model_name = f"huggingface/{self.model_name}"
         pass
 
     def num_tokens_from_messages(self, messages, model=None):
         model = model if model is not None else self.model_name
-        num_tokens = 0
-        tokens_per_message = 3
-        tokens_per_name = 1
-        try:
-            encoding = tiktoken.encoding_for_model(model)
-        except KeyError:
-            print("Warning: model not found. Using cl100k_base encoding.")
-            encoding = tiktoken.get_encoding("cl100k_base")
-        for message in messages:
-            num_tokens += tokens_per_message
-            for key, value in message.items():
-                num_tokens += len(encoding.encode(value))
-                if key == "name":
-                    num_tokens += tokens_per_name
-        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+        num_tokens = token_counter(model, messages=messages)
         return num_tokens
 
     def kill(self):
@@ -167,8 +153,7 @@ if __name__ == '__main__':
             },
             {
                 "role": "system",
-                "name": "example_assistant",                
-                "role": "user",
+                "name": "example_assistant", 
                 "content": "Our idea seems to be scooped, don't know how to change direction now."
             },
             {
@@ -176,5 +161,7 @@ if __name__ == '__main__':
                 "content": "We changed the direction of the project, but we don't have time to do it.",
             }
         ]
+        messages = [messages[1+(i%len(messages[1:-1]))] for i in range(300)] + [messages[-1]]
+        print(llama.num_tokens_from_messages(messages))
         print(llama.complete_chat(messages, max_tokens=50, n=2, temperature=0.2, stop=['.']))
         pass

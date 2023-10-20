@@ -121,26 +121,22 @@ class GptAccess(object):
                 # top_p=top_p,
                 stop=stop,
                 n=n
-            )            
+            )
+            usage = response.usage
+            self.usage["prompt_tokens"] += usage.prompt_tokens
+            self.usage["completion_tokens"] += usage.completion_tokens
+            self.usage["total_tokens"] += usage.total_tokens
         return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
             return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-        if self.is_open_ai_model:
-            usage_dict = {
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
-                "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
-            }
-        else:
-            usage_dict = {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0,
-                "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
-            }
+        usage_dict = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+            "reason": response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        }
         return return_responses, usage_dict
     
     def num_tokens_from_messages(self, messages, model=None):

@@ -14,4 +14,4 @@ if [ ! -d $volume ]; then
     echo "Volume $volume does not exist"
     exit 1
 fi
-docker run --gpus all --shm-size 1g -p 8080:80 -v $volume:/data ghcr.io/huggingface/text-generation-inference:1.1.0 --model-id $model
+docker run --gpus all --shm-size 1g -p 8080:80 -v $volume:/data ghcr.io/huggingface/text-generation-inference:1.1.0 --model-id $model --max-input-length 14000 --max-total-tokens 16384 --max-batch-prefill-tokens 14000

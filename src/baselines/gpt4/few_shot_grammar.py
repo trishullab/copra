@@ -204,7 +204,7 @@ Prog:
                     return text[pos:last]
             last += 1
 
-    def __init__(self, language: ProofAction.Language = ProofAction.Language.COQ):
+    def __init__(self, language: ProofAction.Language = ProofAction.Language.COQ, enable_defensive_parsing: bool = False):
         self.language = language
         if language == ProofAction.Language.COQ:
             self.keywords = [FewShotGptCoqKeywords.PROOF, FewShotGptCoqKeywords.QED]
@@ -240,6 +240,7 @@ String:;
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptRequestGrammar.grammar + terminals
+        self.enable_defensive_parsing = enable_defensive_parsing
         super(FewShotGptRequestGrammar, self).__init__(grammar, self.keywords, recognizers=recognizers)
 
     def _parse_expr(self, nonTerminal: str, nodes) -> FewShotGptRequest:
@@ -266,6 +267,19 @@ String:;
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
         message, _ = message_response
+        if self.enable_defensive_parsing:
+            return self.defensive_parsing(message)
+        else:
+            return self.normal_parsing(message)
+    
+    def normal_parsing(self, message):
+        message_temp = message
+        message_temp += f"\n{self.QED}"
+        result : FewShotGptRequest = self.run(message_temp, None)            
+        message_temp = self.generate_message_from_gpt_request(result)
+        return (result, message_temp)
+
+    def defensive_parsing(self, message):
         start_idx = 0
         end_idx = len(message)
         # Generate all possible sub-strings such that the start_idx is less than end_idx

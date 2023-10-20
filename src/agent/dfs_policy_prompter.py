@@ -44,7 +44,8 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
-        self.coq_gpt_request_grammar = CoqGPTRequestGrammar()
+        use_defensive_parsing = not gpt_model_name.startswith("gpt")
+        self.coq_gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
         self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")

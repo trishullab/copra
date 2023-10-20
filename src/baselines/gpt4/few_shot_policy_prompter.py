@@ -44,7 +44,8 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.language = language
-        self.gpt_request_grammar = FewShotGptRequestGrammar(language)
+        use_defensive_parsing = not gpt_model_name.startswith("gpt")
+        self.gpt_request_grammar = FewShotGptRequestGrammar(language, use_defensive_parsing)
         self.gpt_response_grammar = FewShotGptResponseGrammar(language)
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
