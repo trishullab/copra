@@ -44,6 +44,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.language = language
+        self.model_name = gpt_model_name
         use_defensive_parsing = not gpt_model_name.startswith("gpt")
         self.gpt_request_grammar = FewShotGptRequestGrammar(language, use_defensive_parsing)
         self.gpt_response_grammar = FewShotGptResponseGrammar(language)
@@ -76,6 +77,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         self._num_api_calls = 0
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
+        self.last_message_has_error = False
         if self.language == ProofAction.Language.LEAN:
             self._retrieve_prompt_examples = False
         if self._retrieve_prompt_examples:
@@ -259,7 +261,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, self._max_tokens_per_action)
         success = False
-        retries = 10
+        retries = 3
         time_to_sleep = 60
         exp_factor = 1.25
         tokens_factor = 1.25
@@ -316,6 +318,13 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             except Exception as e:
                 self.logger.info("Got an unknown exception. Retrying.")
                 self.logger.exception(e)
+                # if not self.model_name.startswith("gpt"):
+                #     self.logger.warning("Killing the Llama model.")
+                #     LlamaAccess.class_kill()
+                #     self.logger.warning("Killed the Llama model.")
+                #     self.logger.warning("Restarting the Llama model.")
+                #     LlamaAccess.class_init(self.model_name, self.temperature)
+                #     self.logger.warning("Restarted the Llama model.")
                 time.sleep(time_to_sleep)
                 responses = []
                 usage = {}

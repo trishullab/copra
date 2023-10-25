@@ -88,6 +88,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._bad_state_action_map : typing.Dict[ProofState, typing.Set[ProofAction]] = {}
         self.language = language
         self.failed_proof_state = FailedCoqProofState if language == ProofAction.Language.COQ else FailedLeanProofState
+        self.has_qed = False
         pass
 
     def reset(self):
@@ -96,6 +97,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
 
     def update_new_node(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         assert action.action_type in [ProofAction.ActionType.RUN_TACTIC, ProofAction.ActionType.GET_DFNS_THMS], "The action type should be either RUN_TACTIC, GET_DFNS or GET_THMS"
+        if self.has_qed:
+            self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
+            return
         if len(self._search_stack) > 0:
             last_node = self._search_stack[-1]
         else:
@@ -110,6 +114,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             raise NotImplementedError(f"language {self.language} not supported")
         if next_state.training_data_format is not None and next_state.training_data_format.goal_description == description_match:
             self._action_queue.append(TreeSearchAction(TreeSearchActionType.RUN_ACTION, next_state, tactics=qed_tac))
+            self.has_qed = True
             return
         non_simplifying_action_message = "The proof-step does NOT simplify the goal. Try stepping back with different proof-step."
         subsequent_failed_action_message = "The proof-step ultimately leads to goals which eventually don't simplify. Try stepping back with a different proof-step."
