@@ -1,0 +1,12 @@
+name: stack_machine
+num_files: 1
+language: COQ
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: .
+    files:
+      - path: data/test/coq/stack_machine/StackMachine.v
+        theorems: "*"
