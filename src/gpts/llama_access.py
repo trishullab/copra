@@ -86,9 +86,6 @@ class LlamaAccess(GptAccess):
             LlamaAccess.port = port
         if not LlamaAccess._check_if_docker_running():
             LlamaAccess._start_service(model_name, temperature, port, debug)
-            # openai.api_key = "xyz"
-            # openai.api_base = "http://0.0.0.0:8000"
-            # openai.api_requestor.TIMEOUT_SECS = 11*60
         pass
 
     def class_kill():
@@ -183,7 +180,7 @@ class LlamaAccess(GptAccess):
             prompt_tokens = self.num_tokens_from_messages(messages)
             completion_tokens = 0
             prompt, role_names = self._llama2_format_chat(messages)
-            LlamaAccess.logger.info(f"Prompt Received:\n{prompt}")
+            # LlamaAccess.logger.debug(f"Prompt Received:\n{prompt}")
             for i in range(n):
                 output = self.interface.text_generation(
                     prompt=prompt,
@@ -196,7 +193,7 @@ class LlamaAccess(GptAccess):
                 )
                 generated_text = output.generated_text
                 finish_reason = output.details.finish_reason
-                LlamaAccess.logger.info(f"Generated Text:\n{generated_text}")
+                # LlamaAccess.logger.debug(f"Generated Text:\n{generated_text}")
                 if finish_reason.value == "stop_sequence":
                     finish_reason = "stop"
                 else:
