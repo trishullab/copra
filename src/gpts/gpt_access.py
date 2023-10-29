@@ -25,12 +25,17 @@ class GptAccess(object):
         'codellama/CodeLlama-7b-Instruct-hf': {
             "token_limit_per_min": 10**6,
             "request_limit_per_min": 10**6,
-            "max_token_per_prompt": int(13.75*2**10) # less than 8k because additional tokens are added at times
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times
         },
         'EleutherAI/llemma_7b': {
             "token_limit_per_min": 10**6,
             "request_limit_per_min": 10**6,
-            "max_token_per_prompt": int(13.75*2**10) # less than 8k because additional tokens are added at times
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times
+        },
+        'morph-labs/morph-prover-v0-7b': {
+            "token_limit_per_min": 10**6,
+            "request_limit_per_min": 10**6,
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times            
         }
     }
     def __init__(self, 

@@ -1,4 +1,4 @@
-name: n_500_dfs_llemma_always_retrieve_no_ex
+name: n_500_dfs_morph_always_retrieve_no_ex
 setting_type: Agent
 use_hammer: False
 max_proof_depth: 500
@@ -8,7 +8,7 @@ proof_retries: 1
 # conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs-always-retrieve.md
 max_tokens_per_action: 100
 max_theorems_in_prompt: 3
-gpt_model_name: EleutherAI/llemma_7b
+gpt_model_name: morph-labs/morph-prover-v0-7b
 max_number_of_episodes: 1
 max_steps_per_episode: 500
 render: False
@@ -17,7 +17,7 @@ should_checkpoint: False
 temperature: 0.0
 max_history_messages: 0
 policy_name: Dfs
-proof_dump_dir: .log/proofs/eval_driver/dfs/llemma
+proof_dump_dir: .log/proofs/eval_driver/dfs/morph
 use_human_readable_proof_context: True
 sample: 1.0
 sample_seed: 0xf00

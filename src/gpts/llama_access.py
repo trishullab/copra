@@ -14,20 +14,23 @@ import threading
 from litellm import token_counter
 from subprocess import Popen, PIPE, STDOUT
 from src.gpts.gpt_access import GptAccess
+from src.gpts.llama2_chat_format import Llama2FormatChat
+from huggingface_hub import InferenceClient
 
 class ServiceDownError(Exception):
     pass
 
 class LlamaAccess(GptAccess):
+    # Use this https://huggingface.co/blog/codellama#conversational-instructions for formatting instructions
     """
     This is not thread safe"""
     process = None
-    proxy_process = None
     model_name = None
     debug = False
     random_suffix = random.randint(0, 10**16)
-    models_supported_name = ['codellama/CodeLlama-7b-Instruct-hf', 'EleutherAI/llemma_7b']
+    models_supported_name = ['codellama/CodeLlama-7b-Instruct-hf', 'EleutherAI/llemma_7b', 'morph-labs/morph-prover-v0-7b']
     logger : logging.Logger = None
+    port = 8080
     docker_exit_signal = False
     litellm_exit_signal = False
     docker_logging_thread = None
@@ -35,7 +38,6 @@ class LlamaAccess(GptAccess):
     def __init__(self, model_name: str | None = None, temperature = 0.0) -> None:
         assert model_name == LlamaAccess.model_name or model_name is None, "Model name must be initialized before use"
         assert LlamaAccess.process is not None, "LlamaAccess class must be initialized before use"
-        assert LlamaAccess.proxy_process is not None, "LlamaAccess class must be initialized before use"
         self.secret_filepath = None
         self.model_name = model_name if model_name is not None else LlamaAccess.models_supported_name[0]
         self.temperature = temperature
@@ -45,9 +47,11 @@ class LlamaAccess(GptAccess):
             "total_tokens": 0
         }
         self.is_open_ai_model = False
+        self._llama2_format_chat = Llama2FormatChat()
 
     def __enter__(self):
         self.model_name = f"huggingface/{self.model_name}"
+        self.interface = InferenceClient(model=f"http://localhost:{LlamaAccess.port}")
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):
@@ -66,7 +70,7 @@ class LlamaAccess(GptAccess):
         except:
             return False
 
-    def class_init(model_name: str = None, temperature = 0.0, debug = False, logger: logging.Logger = None):            
+    def class_init(model_name: str = None, temperature = 0.0, port = 8080, debug = False, logger: logging.Logger = None):            
         if model_name is None:
             model_name = LlamaAccess.models_supported_name[0]
         elif model_name is not None:
@@ -78,11 +82,13 @@ class LlamaAccess(GptAccess):
             LlamaAccess.logger = logger if logger is not None else logging.getLogger(__name__)
             LlamaAccess.docker_exit_signal = False
             LlamaAccess.litellm_exit_signal = False
+            LlamaAccess.docker_logging_thread = None
+            LlamaAccess.port = port
         if not LlamaAccess._check_if_docker_running():
-            LlamaAccess._start_service(model_name, temperature, debug)
-            openai.api_key = "xyz"
-            openai.api_base = "http://0.0.0.0:8000"
-            openai.api_requestor.TIMEOUT_SECS = 11*60
+            LlamaAccess._start_service(model_name, temperature, port, debug)
+            # openai.api_key = "xyz"
+            # openai.api_base = "http://0.0.0.0:8000"
+            # openai.api_requestor.TIMEOUT_SECS = 11*60
         pass
 
     def class_kill():
@@ -99,24 +105,15 @@ class LlamaAccess(GptAccess):
                     time.sleep(0.02)
         except:
             pass
-    
-    def _litellm_logs():
-        try:
-            while not LlamaAccess.litellm_exit_signal:
-                line = LlamaAccess.proxy_process.stdout.readline().strip()
-                if line:
-                    LlamaAccess.logger.info(f'Litellm:\n {line}')
-                else:
-                    # sleep for a bit to avoid busy waiting
-                    time.sleep(0.02)
-        except:
-            pass
 
-    def _start_service(model_name: str, temperature = 0.0, debug = False) -> None:
+    def _start_service(model_name: str, temperature = 0.0, port = 8080, debug = False) -> None:
         # Change the openai.api_key to the llama api key
         # Start the docker container for llama TGI
         docker_container_name = LlamaAccess._get_docker_container_name(model_name)
-        cmd = f'sh src/gpts/start_llama.sh {docker_container_name} {model_name}'
+        cuda_visible_devices = os.popen('echo $CUDA_VISIBLE_DEVICES').read().strip()
+        if cuda_visible_devices == '':
+            cuda_visible_devices = '0'
+        cmd = f'sh src/gpts/start_llama.sh {docker_container_name} {model_name} {port}'
         LlamaAccess.process = Popen(
             cmd, 
             shell = True, 
@@ -163,47 +160,6 @@ class LlamaAccess(GptAccess):
         LlamaAccess.docker_exit_signal = False
         LlamaAccess.docker_logging_thread = threading.Thread(target=LlamaAccess._docker_service_logs)
         LlamaAccess.docker_logging_thread.start()
-        # Kill if litellm is running
-        try:
-            os.popen('pkill litellm').read()
-        except:
-            pass
-
-        LlamaAccess.proxy_process = Popen(
-            f'litellm --model huggingface/{model_name} --api_base http://localhost:8080 --temperature {temperature}',
-            shell = True, 
-            stdin = PIPE, 
-            stdout = PIPE, 
-            stderr = STDOUT,
-            cwd = root_dir, 
-            bufsize = 1, 
-            universal_newlines = True
-        )
-        time.sleep(5)
-        LlamaAccess.litellm_exit_signal = False
-        LlamaAccess.litellm_logging_thread = threading.Thread(target=LlamaAccess._litellm_logs)
-        LlamaAccess.litellm_logging_thread.start()
-        test_process = Popen(
-            'litellm --test',
-            shell = True, 
-            stdin = PIPE, 
-            stdout = PIPE, 
-            stderr = STDOUT,
-            cwd = root_dir, 
-            bufsize = 1, 
-            universal_newlines = True
-        )
-        test_process.wait()
-        if test_process.returncode != 0:
-            if debug:
-                print(test_process.stdout.read())
-            test_process.kill()
-            raise Exception('litellm test failed')
-        else:
-            if debug:
-                print(test_process.stdout.read())
-            test_process.kill()
-        pass
 
     def num_tokens_from_messages(self, messages, model=None):
         model = model if model is not None else self.model_name
@@ -220,29 +176,66 @@ class LlamaAccess(GptAccess):
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
         stop: list = ["\n"]) -> typing.Tuple[list, dict]:
+        temperature = None if temperature == 0.0 else temperature
+        top_p = None if top_p == 1.0 else top_p
         try:
-            return super().complete_chat(messages, model, n, max_tokens, temperature, top_p, frequency_penalty, presence_penalty, stop)
+            outputs = []
+            prompt_tokens = self.num_tokens_from_messages(messages)
+            completion_tokens = 0
+            prompt, role_names = self._llama2_format_chat(messages)
+            LlamaAccess.logger.info(f"Prompt Received:\n{prompt}")
+            for i in range(n):
+                output = self.interface.text_generation(
+                    prompt=prompt,
+                    details=True,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    stop_sequences=stop,
+                    do_sample=i>0,
+                )
+                generated_text = output.generated_text
+                finish_reason = output.details.finish_reason
+                LlamaAccess.logger.info(f"Generated Text:\n{generated_text}")
+                if finish_reason.value == "stop_sequence":
+                    finish_reason = "stop"
+                else:
+                    finish_reason = finish_reason.value
+                if finish_reason == "stop":
+                    # Remove the stop token
+                    for stop_token in stop:
+                        if generated_text.endswith(stop_token):
+                            generated_text = generated_text[:generated_text.rfind(stop_token)]
+                            break
+                generated_text = generated_text.strip()
+                for role_name in role_names:
+                    if generated_text.startswith(role_name):
+                        generated_text = generated_text[len(role_name):].strip()
+                        break
+                    elif generated_text.startswith(f"`{role_name}`"):
+                        generated_text = generated_text[len(f"`{role_name}`:"):].strip()
+                        break
+                outputs.append({'role': 'assistant', 'content': generated_text, 'finish_reason': finish_reason})
+                completion_tokens += output.details.generated_tokens
+            total_tokens = prompt_tokens + completion_tokens
+            usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "reason": outputs[-1]["finish_reason"] if len(outputs) > 0 else "stop"
+            }
+            self.usage['prompt_tokens'] += prompt_tokens
+            self.usage['completion_tokens'] += completion_tokens
+            self.usage['total_tokens'] += total_tokens
+            return outputs, usage
         except:
             if not LlamaAccess._check_if_docker_running():
                 raise ServiceDownError("Docker is shut down, restart the service")
             else:
                 raise
-        pass
 
     def kill():
-        LlamaAccess.logger.info("Killing the docker and litellm processes")
-        # kill the litellm process
-        try:
-            LlamaAccess.proxy_process.kill()
-        except:
-            pass
-        time.sleep(2)
-        try:
-            os.popen('pkill litellm').read()
-        except:
-            pass
-        time.sleep(2)
-        LlamaAccess.logger.info("Litellm stopped")
+        LlamaAccess.logger.info("Killing the docker processes")
         docker_container_name = LlamaAccess._get_docker_container_name(LlamaAccess.model_name)
         if LlamaAccess._check_if_docker_running():
             docker_name = os.popen(f"docker stop {docker_container_name}").read().strip()
@@ -268,16 +261,9 @@ class LlamaAccess(GptAccess):
         LlamaAccess.docker_exit_signal = True
         LlamaAccess.litellm_exit_signal = True
         LlamaAccess.docker_logging_thread.join()
-        LlamaAccess.litellm_logging_thread.join()
-        time.sleep(2)
-        LlamaAccess.logger.info("Docker and litellm processes killed and logging threads stopped")
+        LlamaAccess.logger.info("Docker processes killed and logging threads stopped")
         try:
             LlamaAccess.process.stdin.close()
-        except:
-            pass
-        time.sleep(2)
-        try:
-            LlamaAccess.proxy_process.stdin.close()
         except:
             pass
         time.sleep(2)
@@ -286,17 +272,13 @@ class LlamaAccess(GptAccess):
         except:
             pass
         time.sleep(2)
-        try:
-            LlamaAccess.proxy_process.stdout.close()
-        except:
-            pass
-        LlamaAccess.logger.info("Docker and litellm stdin and stdout closed")
+        LlamaAccess.logger.info("Docker stdin and stdout closed")
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.log(logging.INFO, "Testing LlamaAccess")
-    LlamaAccess.class_init(logger=logger)
+    LlamaAccess.class_init(port=10005, logger=logger)
     try:
         with LlamaAccess() as llama:
             messages = [
@@ -339,10 +321,10 @@ if __name__ == '__main__':
                     "content": "We changed the direction of the project, but we don't have time to do it.",
                 }
             ]
-            messages = [messages[1+(i%len(messages[1:-1]))] for i in range(300)] + [messages[-1]]
+            messages = [messages[0]] + [messages[1+(i%len(messages[1:-1]))] for i in range(300)] + [messages[-1]]
             print(llama.num_tokens_from_messages(messages))
             print("Will call complete_chat soon")
-            time.sleep(30)
-            print(llama.complete_chat(messages, max_tokens=50, n=2, temperature=0.2, stop=['.']))
+            #time.sleep(30)
+            print(llama.complete_chat(messages, max_tokens=50, n=2, temperature=0.0, stop=['.']))
     finally:
         LlamaAccess.class_kill()

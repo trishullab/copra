@@ -163,9 +163,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._history_token_count += prompt_token_count + custom_system_message_count
         messages = self.system_messages + self._custom_system_messages + self._message_history
         assert total_token_count + max_tokens_per_action <= self._max_token_per_prompt, f"Total token count {total_token_count} + max tokens per action {max_tokens_per_action} is greater than max token per prompt {self._max_token_per_prompt}"
-        if self.last_message_has_error:
-            self.last_message_has_error = False
-            # self._message_history = self._message_history[:-1]
         return messages, total_token_count
     
     def _throttle_if_needed(self, total_token_count: int):
@@ -290,7 +287,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         characters_per_token = 4.0
         full_prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_cnt=None, characters_per_token=characters_per_token)
         prompt_char_cnt = len(full_prompt_message)
-        full_prompt_message = self.agent_grammar.get_openai_main_message_from_string(full_prompt_message, "system", "example_user")
+        full_prompt_message = self.agent_grammar.get_openai_main_message_from_string(full_prompt_message, "user")
         prompt_token_count = self._gpt_access.num_tokens_from_messages([full_prompt_message])
         characters_per_token = prompt_char_cnt / prompt_token_count
         decrement_factor = 0.1
@@ -302,7 +299,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         while prompt_token_count > max_token_for_problem and retries > 0 and characters_per_token > 0:
             prompt_message = self.coq_gpt_response_grammar.format_as_per_grammar(request, self._k, max_token_for_problem, characters_per_token)
             prompt_char_cnt = len(prompt_message)
-            prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "system", "example_user")
+            prompt_message = self.agent_grammar.get_openai_main_message_from_string(prompt_message, "user")
             prompt_messages = [prompt_message]
             prompt_token_count = self._gpt_access.num_tokens_from_messages(prompt_messages)
             retries -= 1
@@ -382,7 +379,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             except Exception as e:
                 self.logger.info("Got an unknown exception. Retrying.")
                 self.logger.exception(e)
-                self.last_message_has_error = True
                 time.sleep(time_to_sleep)
                 responses = []
                 usage = {}
@@ -403,7 +399,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 open_ai_message = self.agent_grammar.get_openai_main_message_from_string(parsed_message, "assistant")
             except Exception as e:
                 error = f"Expected {str(e)}"
-                error_message = f"Invalid response:\n '{message[0]}', \n Stopping Reason: '{message[1]}'.\n Failure reason: {error} \nPlease respond only in the format specified."
+                error_message = f"Invalid response:\n '{message[0]}'.\n Failure reason: {error} \nPlease respond only in the format specified."
                 raise InvalidActionException(error_message)
             probability = (idx + 1) / total # For now just assume that the order of the messages is the order of the actions
             if coq_gpt_request.action == CoqGptRequestActions.GET_DFNS_THMS:
@@ -471,6 +467,8 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 actions_tuple = self.parse_response(responses)
                 chosen_message = actions_tuple[0][0].original_message # Selecting only top action here
                 self.add_to_history(chosen_message)
+                if self.last_message_has_error:
+                    self.last_message_has_error = False
 
                 if (self.incorrect_repeat_count > 0) and (len(incorrect_steps) > 0 or (gpt_response.last_step is not None and not gpt_response.success)):
                     # Create invalid requests first and then match with the chosen one
@@ -509,6 +507,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 gpt_response = CoqGptResponse(action = CoqGptResponseActions.ERROR, 
                 message=e.message)
                 chosen_message = responses[0]
+                self.last_message_has_error = True
                 self.add_to_history(chosen_message)
                 exceptions.append(e)
             tries -= 1
