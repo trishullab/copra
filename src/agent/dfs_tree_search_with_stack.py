@@ -259,22 +259,24 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         assert len(self._search_stack) > 0, "The search stack should not be empty"
         last_node = self._search_stack[-1]
         distance_from_root = len(self._search_stack)
-        # Make sure that incorrect actions are updated
+        incorrect_actions_set = set()
         if state in self._bad_state_action_map:
-            incorrect_actions = self._bad_state_action_map[state]
-            for action in incorrect_actions:
-                if action not in last_node.incorrect_actions:
-                    last_node.incorrect_actions.append(action)
-            # sort the incorrect actions by name
-            last_node.incorrect_actions.sort(key=lambda x: x.name)
+            for action in self._bad_state_action_map[state]:
+                incorrect_actions_set.add(action)
         if last_node.next_state_action_pair.state == self.failed_proof_state:
             assert last_node.state_action_pair.state == state, "The last node's current state should be the current state"
             assert last_node.info.progress == ProgressState.FAILED, "The last node's progress should be FAILED"
             assert last_node.info.error_message is not None, "The last node's error message should not be None"
+            # sort the incorrect actions by name
+            # Make sure that incorrect actions are updated
+            for action in last_node.incorrect_actions:
+                incorrect_actions_set.add(action)
+            incorrect_actions = list(incorrect_actions_set)
+            incorrect_actions.sort(key=lambda x: x.name)
             self._num_nodes_visited += 1
             return TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT,
                     last_node.state_action_pair.state, summary = PromptSummary(
-                        last_node.incorrect_actions,
+                        incorrect_actions,
                         last_node.actions_till_now,
                         last_node.action,
                         QTreeStateInfo(last_node.state_action_pair.state, 
@@ -288,9 +290,11 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert last_node.info.progress != ProgressState.FAILED, "The last node's progress should not be FAILED"
             assert last_node.info.error_message is None, "The last node's error message should be None"
             self._num_nodes_visited += 1
+            incorrect_actions = list(incorrect_actions_set)
+            incorrect_actions.sort(key=lambda x: x.name)
             return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT,
                     last_node.next_state_action_pair.state, summary = PromptSummary(
-                        last_node.incorrect_actions,
+                        incorrect_actions,
                         last_node.actions_till_now,
                         last_node.action,
                         QTreeStateInfo(last_node.next_state_action_pair.state, 

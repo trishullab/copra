@@ -1,6 +1,6 @@
 defaults:
   - benchmark: simple_benchmark_lean
-  - eval_settings: n_60_dfs_codellama_always_retrieve_no_ex
+  - eval_settings: n_60_dfs_gpt4_always_retrieve_no_ex
   - prompt_settings: lean_dfs
   - override hydra/job_logging: 'disabled'
 
