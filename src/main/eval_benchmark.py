@@ -21,7 +21,7 @@ from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
 from src.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
-from src.main.config import EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, PromptSettings, parse_config
+from src.main.config import EnvSettings, EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, PromptSettings, parse_config
 from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.abstraction import Policy
 from src.rl.proof_tree import ProofSearchResult
@@ -66,7 +66,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
     logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
     return lemmas_to_prove
 
-def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
+def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
     if not eval_settings.gpt_model_name.startswith("gpt"):
         llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -196,7 +196,7 @@ def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings,
                 return_dict = manager.dict()
                 def _run_prover(ret_dict):
                     try:
-                        with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
+                        with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name, retrieval_strategy=env_settings.retrieval_strategy, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
                             with search_guidance_policy:
                                 agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
                                 agent.run_episodes_till_stop(
@@ -291,6 +291,7 @@ def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eva
 
 def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None):
     trial_cnt = 1
+    env_settings = experiment.env_settings
     eval_settings = experiment.eval_settings
     benchmark = experiment.benchmark
     checkpoint_dir = experiment.eval_settings.checkpoint_dir
@@ -325,7 +326,7 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         try:
             logger = logger or logging.getLogger(__name__)
             for dataset in benchmark.datasets:
-                eval_dataset(benchmark, prompt_settings, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
+                eval_dataset(env_settings, benchmark, prompt_settings, dataset, eval_settings, checkpoint_info, eval_proof_results, logger=logger)
             measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
             trial_cnt = 0
         except:

@@ -1,0 +1,2 @@
+name: bm25_retrieval_with_print
+retrieval_strategy: BM25_WITH_PRINT

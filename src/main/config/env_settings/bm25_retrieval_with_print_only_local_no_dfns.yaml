@@ -1,0 +1,2 @@
+name: bm25_retrieval_with_print_only_local_no_dfns
+retrieval_strategy: BM25_WITH_PRINT_ONLY_LOCAL_NO_DFNS
