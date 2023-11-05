@@ -638,6 +638,8 @@ class Lean3Executor(object):
         hypotheses_str = hypotheses_str.strip()
         goal = goal.strip()
         hypotheses = [hyp.rstrip(',') for hyp in hypotheses_str.split("\n")]
+        # Get rid of all the empty hypotheses
+        hypotheses = [hyp for hyp in hypotheses if len(hyp) > 0]
         goal = Obligation(hypotheses, goal)
         return goal
 
@@ -736,6 +738,6 @@ if __name__ == "__main__":
     logging.basicConfig(filename='lean_executor.log', filemode='w', level=logging.INFO)
     os.chdir(root_dir)
     project = "data/test/lean_proj"
-    file = "data/test/lean_proj/src/temp.lean"
+    file = "data/test/lean_proj/src/simple.lean"
     with LeanCustomFileExec(file, project) as lean_exec:
         lean_exec.run_in_loop()

@@ -2,8 +2,6 @@
 
 import sys
 
-
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -15,6 +13,8 @@ import time
 import math
 import typing
 import multiprocessing
+from src.tools.log_utils import setup_logger
+from src.gpts.llama_access import LlamaAccess, ServiceDownError
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
@@ -68,6 +68,10 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
 
 def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
+    if not eval_settings.gpt_model_name.startswith("gpt"):
+        llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # This is a llama model
+        LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
@@ -205,34 +209,61 @@ def eval_dataset(eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings,
                             proof_res = env.proof_search_res
                             ret_dict["proof_res"] = proof_res
                             ret_dict["attempted_success"] = True
+                            ret_dict["service_down"] = False
+                    except ServiceDownError:
+                        logger.exception(f"ServiceDownError occurred while proving lemma: {lemma_name} in file {path}")
+                        ret_dict["attempted_success"] = False
+                        ret_dict["service_down"] = True
                     except:
                         logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
                         ret_dict["attempted_success"] = False
-                # Run the prover with a timeout
-                timeout = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25
-                logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
-                p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
-                p.start()
-                p.join(timeout)
-                if p.is_alive():
-                    p.kill()
-                    p.join()
-                p.close()
-                if "attempted_success" not in return_dict:
-                    logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
-                    eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
-                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
-                elif not return_dict["attempted_success"]:
-                    logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
-                    eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
-                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
-                else:
-                    logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
-                    eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
-                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
-                return_dict.clear()
+                        ret_dict["service_down"] = False
+
+                should_retry = True
+                max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
+                while should_retry and max_retry > 0:
+                    # Run the prover with a timeout
+                    timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, 60 * 12) # max 12 minutes
+                    logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
+                    p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
+                    p.start()
+                    p.join(timeout)
+                    if p.is_alive():
+                        p.kill()
+                        p.join()
+                    p.close()
+                    if "attempted_success" not in return_dict:
+                        logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
+                        eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
+                        eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                        should_retry = False
+                    elif not return_dict["attempted_success"]:
+                        if not return_dict["service_down"] or eval_settings.gpt_model_name.startswith("gpt") or max_retry <= 1:
+                            logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                            eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
+                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                            should_retry = False
+                        elif return_dict["service_down"]:
+                            # Kill the llama process if it is a llama model
+                            should_retry = True
+                            logger.info("Killing the llama process")
+                            LlamaAccess.class_kill()
+                            logger.info("Killed the llama process")
+                            logger.info("Restarting the llama process")
+                            LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
+                            logger.info("Restarted the llama process")                            
+                    else:
+                        logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                        eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
+                        eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
+                        should_retry = False
+                    return_dict.clear()
+                    max_retry -= 1
             else:
                 logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
+    if not eval_settings.gpt_model_name.startswith("gpt"):
+        # This is a llama model
+        LlamaAccess.class_kill()
     pass
 
 def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
@@ -310,8 +341,7 @@ def main(cfg):
     log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, time.strftime("%Y%m%d-%H%M%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "eval.log")
-    logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger(__name__)
+    logger = setup_logger(__name__, log_path, logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.info(f"Pid: {os.getpid()}")
     logger.info(f"Running Experiment: {experiment.to_json(indent=4)}")
     eval_benchmark(experiment, log_dir, logger=logger)

@@ -180,34 +180,4 @@ rewrite tactic failed, did not find instance of the pattern in the target expres
 },
 [END]
 
-`example_user`
-Goals to prove:
-[GOALS]
-[DESCRIPTION] no goals
-
-[STEPS]
-[STEP] split,
-[STEP] {
-  rw h₁ at h₂,
-  linarith
-},
-
-[INCORRECT STEPS]
-[STEP] rw h₂ at h₁,
-[STEP] rw ←h₁,
-
-[LAST STEP]
-{
-  rw h₁ at h₂,
-  linarith
-},
-
-[SUCCESS]
-[END]
-
-`example_assistant`
-[RUN TACTIC]
-end
-[END]
-
 `conv end`

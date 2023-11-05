@@ -55,7 +55,6 @@ class SyncLeanServer:
         self.thread = threading.Thread(target=self.receiver)
         self.thread.start()
 
-
     def send(self, request: Request) -> Optional[CommandResponse]:
         self.seq_num += 1
         request.seq_num = self.seq_num

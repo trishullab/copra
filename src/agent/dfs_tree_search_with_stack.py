@@ -88,6 +88,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._bad_state_action_map : typing.Dict[ProofState, typing.Set[ProofAction]] = {}
         self.language = language
         self.failed_proof_state = FailedCoqProofState if language == ProofAction.Language.COQ else FailedLeanProofState
+        self.has_qed = False
         pass
 
     def reset(self):
@@ -96,6 +97,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
 
     def update_new_node(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         assert action.action_type in [ProofAction.ActionType.RUN_TACTIC, ProofAction.ActionType.GET_DFNS_THMS], "The action type should be either RUN_TACTIC, GET_DFNS or GET_THMS"
+        if self.has_qed:
+            self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
+            return
         if len(self._search_stack) > 0:
             last_node = self._search_stack[-1]
         else:
@@ -110,6 +114,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             raise NotImplementedError(f"language {self.language} not supported")
         if next_state.training_data_format is not None and next_state.training_data_format.goal_description == description_match:
             self._action_queue.append(TreeSearchAction(TreeSearchActionType.RUN_ACTION, next_state, tactics=qed_tac))
+            self.has_qed = True
             return
         non_simplifying_action_message = "The proof-step does NOT simplify the goal. Try stepping back with different proof-step."
         subsequent_failed_action_message = "The proof-step ultimately leads to goals which eventually don't simplify. Try stepping back with a different proof-step."
@@ -254,22 +259,24 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         assert len(self._search_stack) > 0, "The search stack should not be empty"
         last_node = self._search_stack[-1]
         distance_from_root = len(self._search_stack)
-        # Make sure that incorrect actions are updated
+        incorrect_actions_set = set()
         if state in self._bad_state_action_map:
-            incorrect_actions = self._bad_state_action_map[state]
-            for action in incorrect_actions:
-                if action not in last_node.incorrect_actions:
-                    last_node.incorrect_actions.append(action)
-            # sort the incorrect actions by name
-            last_node.incorrect_actions.sort(key=lambda x: x.name)
+            for action in self._bad_state_action_map[state]:
+                incorrect_actions_set.add(action)
         if last_node.next_state_action_pair.state == self.failed_proof_state:
             assert last_node.state_action_pair.state == state, "The last node's current state should be the current state"
             assert last_node.info.progress == ProgressState.FAILED, "The last node's progress should be FAILED"
             assert last_node.info.error_message is not None, "The last node's error message should not be None"
+            # sort the incorrect actions by name
+            # Make sure that incorrect actions are updated
+            for action in last_node.incorrect_actions:
+                incorrect_actions_set.add(action)
+            incorrect_actions = list(incorrect_actions_set)
+            incorrect_actions.sort(key=lambda x: x.name)
             self._num_nodes_visited += 1
             return TreeSearchAction(TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT,
                     last_node.state_action_pair.state, summary = PromptSummary(
-                        last_node.incorrect_actions,
+                        incorrect_actions,
                         last_node.actions_till_now,
                         last_node.action,
                         QTreeStateInfo(last_node.state_action_pair.state, 
@@ -283,9 +290,11 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert last_node.info.progress != ProgressState.FAILED, "The last node's progress should not be FAILED"
             assert last_node.info.error_message is None, "The last node's error message should be None"
             self._num_nodes_visited += 1
+            incorrect_actions = list(incorrect_actions_set)
+            incorrect_actions.sort(key=lambda x: x.name)
             return TreeSearchAction(TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT,
                     last_node.next_state_action_pair.state, summary = PromptSummary(
-                        last_node.incorrect_actions,
+                        incorrect_actions,
                         last_node.actions_till_now,
                         last_node.action,
                         QTreeStateInfo(last_node.next_state_action_pair.state, 

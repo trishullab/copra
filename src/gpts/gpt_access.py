@@ -21,6 +21,21 @@ class GptAccess(object):
             "token_limit_per_min": 20000,
             "request_limit_per_min": 100,
             "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
+        },
+        'codellama/CodeLlama-7b-Instruct-hf': {
+            "token_limit_per_min": 10**6,
+            "request_limit_per_min": 10**6,
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times
+        },
+        'EleutherAI/llemma_7b': {
+            "token_limit_per_min": 10**6,
+            "request_limit_per_min": 10**6,
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times
+        },
+        'morph-labs/morph-prover-v0-7b': {
+            "token_limit_per_min": 10**6,
+            "request_limit_per_min": 10**6,
+            "max_token_per_prompt": int(13.75*2**10) # less than 16k because additional tokens are added at times            
         }
     }
     def __init__(self, 
@@ -35,6 +50,7 @@ class GptAccess(object):
         if model_name is not None:
             assert model_name in self.models_supported_name, f"Model name {model_name} not supported"
             self.model_name = model_name
+        self.is_open_ai_model = True
         self.usage = {
             "prompt_tokens": 0,
             "completion_tokens": 0,
@@ -70,10 +86,11 @@ class GptAccess(object):
             logprobs=logprobs
             # best_of=n
         )
-        usagae = response.usage
-        self.usage["prompt_tokens"] += usagae.prompt_tokens
-        self.usage["completion_tokens"] += usagae.completion_tokens
-        self.usage["total_tokens"] += usagae.total_tokens        
+        if self.is_open_ai_model:
+            usagae = response.usage
+            self.usage["prompt_tokens"] += usagae.prompt_tokens
+            self.usage["completion_tokens"] += usagae.completion_tokens
+            self.usage["total_tokens"] += usagae.total_tokens        
         resp = [(obj.text, sum(obj.logprobs.token_logprobs)) for obj in response.choices]
         resp.sort(key=lambda x: x[1], reverse=True)
         return resp
@@ -89,21 +106,36 @@ class GptAccess(object):
             presence_penalty: float = 0.0,
             stop: list = ["\n"]) -> typing.Tuple[list, dict]:
         model = self.model_name if model is None else model
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            frequency_penalty=frequency_penalty,
-            presence_penalty=presence_penalty,
-            stop=stop,
-            n=n
-        )
-        usage = response.usage
-        self.usage["prompt_tokens"] += usage.prompt_tokens
-        self.usage["completion_tokens"] += usage.completion_tokens
-        self.usage["total_tokens"] += usage.total_tokens
+        if self.is_open_ai_model:
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                stop=stop,
+                n=n
+            )
+            usage = response.usage
+            self.usage["prompt_tokens"] += usage.prompt_tokens
+            self.usage["completion_tokens"] += usage.completion_tokens
+            self.usage["total_tokens"] += usage.total_tokens
+        else:
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                # top_p=top_p,
+                stop=stop,
+                n=n
+            )
+            usage = response.usage
+            self.usage["prompt_tokens"] += usage.prompt_tokens
+            self.usage["completion_tokens"] += usage.completion_tokens
+            self.usage["total_tokens"] += usage.total_tokens
         return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"

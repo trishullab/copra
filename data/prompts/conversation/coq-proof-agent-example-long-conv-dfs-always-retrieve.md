@@ -212,25 +212,4 @@ S n + 0 = S n
 - rewrite plus_n_O. reflexivity.
 [END]
 
-`example_user`
-Goals to prove:
-[GOALS]
-[DESCRIPTION] Proof finished.
-
-[STEPS]
-[STEP] intros a.
-[STEP] induction a as [| n IHn].
-[STEP] - reflexivity.
-
-[LAST STEP]
-- rewrite plus_n_O. reflexivity.
-
-[SUCCESS]
-[END]
-
-`example_assistant`
-[RUN TACTIC]
-Qed.
-[END]
-
 `conv end`

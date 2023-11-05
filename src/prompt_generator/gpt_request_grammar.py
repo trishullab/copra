@@ -55,10 +55,11 @@ String:;
                       return text[pos:last]
               last += 1
 
-    def __init__(self):
+    def __init__(self, enable_defensive_parsing: bool = False):
         recognizers = {
             'String': CoqGPTRequestGrammar.before_keyword
         }
+        self.enable_defensive_parsing = enable_defensive_parsing
         super(CoqGPTRequestGrammar, self).__init__(CoqGPTRequestGrammar.grammar, CoqGPTRequestGrammar.keywords, recognizers=recognizers)
 
     def _parse_expr(self, nonTerminal, nodes, context):
@@ -104,51 +105,90 @@ String:;
 
     def get_openai_request(self, message_response: str) -> typing.Tuple[CoqGptRequest, str]:
         message, finish_reason = message_response
-        if finish_reason != "stop":            
-            # do a greedy correction to ensure that the message is parsable
-            idx = len(message)
-            exceptions = []
-            message_seems_fixable = True
-            try:
-                # trim any unwanted keywords at the end
-                idx = message.rfind('[')
-                if idx < 0:
-                    raise Exception("No opening bracket found, message is not parsable")
-                close_idx = message.rfind(']', idx, len(message))
-                if close_idx < 0:
-                    message = message[:idx]
-                else:
-                    idx = len(message)
-            except Exception:
-                message_seems_fixable = False
-                pass
-            if message_seems_fixable:    
-                attempt = 0
-                while idx >= 0:
-                    try:
-                        parsable_message = message[:idx] + f"\n{CoqGPTRequestGrammar.end}"
-                        self.compile(parsable_message)
-                        break
-                    except Exception as e:
-                        exceptions.append(e)
-                        idx = message.rfind('[', 0, idx)
-                    attempt += 1
-                if idx >= 0:
-                    message = parsable_message
-                else:
-                    raise exceptions[0]
-                result : CoqGptRequest = self.run(message, None)
-                if result.action == CoqGptRequestActions.RUN_TACTIC and len(result.args) > 1:
-                    result.args = result.args[:-1] # remove the last tactic as it can be incomplete
-            else:
-                message += CoqGPTRequestGrammar.end
-                result : CoqGptRequest = self.run(message, None)
+        defensive_parsing = finish_reason != "stop" or self.enable_defensive_parsing
+        if defensive_parsing:     
+            return self.defensive_parsing(message)
         else:
-            message += CoqGPTRequestGrammar.end
-            result : CoqGptRequest = self.run(message, None)            
+            return self.normal_parsing(message)
+    
+    def normal_parsing(self, message):
+        message += CoqGPTRequestGrammar.end
+        result : CoqGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
-    
+
+    def defensive_parsing(self, message):
+        start_idx = 0
+        end_idx = len(message)
+        # Generate all possible sub-strings such that the start_idx is less than end_idx
+        idxs = [(s_idx, e_idx) for s_idx in range(start_idx, end_idx) for e_idx in range(end_idx, s_idx, -1)]
+        message_temp = message
+        message_parsed = False
+        for s_idx, e_idx in idxs:
+            # This type of robust parsing can be needed in case of some LLMs which
+            # don't follow the specified format
+            try:
+                message_temp = message[s_idx:e_idx]
+                if message_temp.endswith(CoqGPTRequestGrammar.end):
+                    # Just in case the LLM doesn't remove the stop token
+                    message_temp = message_temp.strip(CoqGPTRequestGrammar.end)
+                message_temp += f"\n{CoqGPTRequestGrammar.end}"
+                result : CoqGptRequest = self.run(message_temp, None)            
+                message_temp = self.generate_message_from_gpt_request(result)
+                message_parsed = True
+            except:
+                message_parsed = False
+            if message_parsed:
+                break
+        if not message_parsed:
+            message_temp = message[start_idx:end_idx]
+            message_temp += f"\n{CoqGPTRequestGrammar.end}"
+            result : CoqGptRequest = self.run(message_temp, None)            
+            message_temp = self.generate_message_from_gpt_request(result)
+        return (result, message_temp)
+
+    def attempt_parsing(self, message):
+        # do a greedy correction to ensure that the message is parsable
+        idx = len(message)
+        exceptions = []
+        message_seems_fixable = True
+        try:
+            # trim any unwanted keywords at the end
+            idx = message.rfind('[')
+            if idx < 0:
+                raise Exception("No opening bracket found, message is not parsable")
+            close_idx = message.rfind(']', idx, len(message))
+            if close_idx < 0:
+                message = message[:idx]
+            else:
+                idx = len(message)
+        except Exception:
+            message_seems_fixable = False
+            pass
+        if message_seems_fixable:    
+            attempt = 0
+            while idx >= 0:
+                try:
+                    parsable_message = message[:idx] + f"\n{CoqGPTRequestGrammar.end}"
+                    self.compile(parsable_message)
+                    break
+                except Exception as e:
+                    exceptions.append(e)
+                    idx = message.rfind('[', 0, idx)
+                attempt += 1
+            if idx >= 0:
+                message = parsable_message
+            else:
+                raise exceptions[0]
+            result : CoqGptRequest = self.run(message, None)
+            if result.action == CoqGptRequestActions.RUN_TACTIC and len(result.args) > 1:
+                result.args = result.args[:-1] # remove the last tactic as it can be incomplete
+        else:
+            message += CoqGPTRequestGrammar.end
+            result : CoqGptRequest = self.run(message, None)
+        message = self.generate_message_from_gpt_request(result)
+        return (result, message)
+
     def parse_request_to_args(self, messages: typing.List[str]) -> typing.List[str]:
         results : typing.List[str] = []
         for message in messages:

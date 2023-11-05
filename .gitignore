@@ -181,3 +181,6 @@ nohup.out
 
 # Hydra output dir
 outputs/
+
+# Ignore the api_log.json file
+api_log.json

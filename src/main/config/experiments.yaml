@@ -1,6 +1,6 @@
 defaults:
-  - benchmark: re_prover_very_hard
-  - eval_settings: n_30_dfs_gpt35
+  - benchmark: simple_benchmark_lean
+  - eval_settings: n_500_dfs_codellama_always_retrieve_no_ex
   - prompt_settings: lean_dfs
   - override hydra/job_logging: 'disabled'
 
