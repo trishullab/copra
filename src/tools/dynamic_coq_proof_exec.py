@@ -140,9 +140,9 @@ class DynamicProofExecutor(CoqExecutor):
             training_data_format.goal_description = None
         return training_data_format
     
-    def get_all_relevant_thms(self) -> TrainingDataFormat:
+    def get_all_relevant_thms(self, should_print_symbol: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=should_print_symbol)
         return training_data_format
     
     def get_all_relevant_thms_within_local_context(self) -> TrainingDataFormat:
@@ -155,10 +155,11 @@ class DynamicProofExecutor(CoqExecutor):
         self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
     
-    def get_all_relevant_defns_and_thms(self) -> TrainingDataFormat:
+    def get_all_relevant_defns_and_thms(self, should_print_symbol: bool = False, only_local: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
-        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger, should_print_symbol=should_print_symbol, only_local=only_local)
+        # Don't print symbols for theorems as it will print the proof as well which is not needed to apply the theorem
+        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=False, only_local=only_local)
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:

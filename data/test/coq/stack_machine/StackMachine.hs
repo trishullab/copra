@@ -35,6 +35,5 @@ compile e =
   case e of {
    Const n -> Cons (IConst n) Nil;
    Binop0 b e1 e2 ->
-    app (compile e2)
-      (app (compile e1) (Cons (IBinop b) Nil))}
+    app (compile e2) (app (compile e1) (Cons (IBinop b) Nil))}
 

@@ -139,26 +139,35 @@ class CoqExecutor:
             if len(tok1) > 0:
                 yield tok1
 
+    @functools.lru_cache(maxsize=10000)
+    def print_dfns(self, name: str) -> str:
+        if name in CoqExecutor.keywords:
+            return ""
+        return self.coq.print_symbols(name)
+
     # Make this chacheable
     @functools.lru_cache(maxsize=10000)
-    def search_type_matching_defns(self, name: str) -> typing.List[typing.Tuple[str, str]]:
+    def search_type_matching_defns(self, name: str) -> typing.List[str]:
         if name in CoqExecutor.keywords:
             return []
         return self.coq.search_about(name)
     
-    def get_all_type_matching_defns(self, name: str) -> typing.Generator[typing.Tuple[str, str], None, None]:
+    def get_all_type_matching_defns(self, name: str, should_print_symbol: bool = False) -> typing.Generator[typing.Tuple[str, str], None, None]:
         all_defns = self.search_type_matching_defns(name)
         # Try for an exact match
         for defn in all_defns:
             defn = defn.split(":")
             defn_name = defn[0].strip()
             if len(defn) > 1:
-                defn_val = ("".join(defn[1:])).strip()
+                if should_print_symbol:
+                    defn_val = self.print_dfns(defn_name).strip()
+                else:
+                    defn_val = ("".join(defn[1:])).strip()
             else:
                 defn_val = ""
             yield defn_name, defn_val
 
-    def search_exact(self, name: str) -> typing.List[typing.Tuple[str, str]]:
+    def search_exact(self, name: str, should_print_symbol: bool = False) -> typing.List[typing.Tuple[str, str]]:
         symb_defn = self.search_type_matching_defns(name)
         main_matches = []
         match_until = set([name])
@@ -167,7 +176,13 @@ class CoqExecutor:
             defn = defn.split(":")
             defn_name = defn[0].strip()
             if len(defn) > 1:
-                defn_val = ("".join(defn[1:])).strip()
+                if should_print_symbol:
+                    defn_val = self.print_dfns(defn_name).strip()
+                else:                    
+                    defn_val = ("".join(defn[1:])).strip()
+                # print(f"should_print_symbol: {should_print_symbol}")
+                # print(defn_name)
+                # print(defn_val)
             else:
                 defn_val = ""
             if defn_name in match_until:
@@ -175,7 +190,7 @@ class CoqExecutor:
                 break
         return main_matches
 
-    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None) -> typing.List[typing.Tuple[str, str, bool]]:
+    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None, should_print_symbol: bool = False) -> typing.List[typing.Tuple[str, str, bool]]:
         symb_defn = self.search_type_matching_defns(name)
         match_defns = []
         main_matches = []
@@ -185,7 +200,10 @@ class CoqExecutor:
             defn = defn.split(":")
             defn_name = defn[0].strip()
             if len(defn) > 1:
-                defn_val = ("".join(defn[1:])).strip()
+                if should_print_symbol:
+                    defn_val = self.print_dfns(defn_name).strip()
+                else:
+                    defn_val = ("".join(defn[1:])).strip()
             else:
                 defn_val = ""
             if defn_name in match_until:

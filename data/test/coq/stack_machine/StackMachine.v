@@ -88,11 +88,11 @@ Lemma compile_one_instr: forall e p s, progDenote (compile e ++ p) s = progDenot
 Qed.
 
 Theorem compile_correct: forall e, progDenote (compile e) nil = Some (expDenote e::nil).
-intros.
-rewrite (app_nil_end (compile e)).
-rewrite compile_one_instr.
-simpl.
-reflexivity.
+    intros.
+    rewrite (app_nil_end (compile e)).
+    rewrite compile_one_instr.
+    simpl.
+    reflexivity.
 Qed.
 
 

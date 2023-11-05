@@ -11,6 +11,7 @@ from dataclasses_json import dataclass_json
 from enum import Enum
 from src.rl.proof_tree import ProofSearchResult
 from src.rl.proof_action import ProofAction
+from src.rl.simple_proof_env import ProofEnvReRankStrategy
 
 class SettingType(Enum):
     Agent = "Agent"
@@ -26,6 +27,12 @@ class PolicyName(Enum):
 
     def __str__(self):
         return self.value
+
+@dataclass_json
+@dataclass
+class EnvSettings(object):
+    name: str
+    retrieval_strategy: ProofEnvReRankStrategy
 
 @dataclass_json
 @dataclass
@@ -89,6 +96,7 @@ class EvalBenchmark(object):
 @dataclass_json
 @dataclass
 class Experiments(object):
+    env_settings: EnvSettings
     prompt_settings: PromptSettings
     eval_settings: EvalSettings
     benchmark: EvalBenchmark
@@ -127,6 +135,10 @@ class EvalProofResults(object):
 
 
 def parse_config(cfg):
+    env_settings_cfg = cfg["env_settings"]
+    env_settings = EnvSettings(
+        name=env_settings_cfg["name"],
+        retrieval_strategy=ProofEnvReRankStrategy(env_settings_cfg["retrieval_strategy"]))
     prompt_settings_cfg = cfg["prompt_settings"]
     prompt_settings = PromptSettings(
         name=prompt_settings_cfg["name"],
@@ -188,4 +200,4 @@ def parse_config(cfg):
         few_shot_metadata_filename_for_retrieval=benchmark_cfg["few_shot_metadata_filename_for_retrieval"],
         dfs_data_path_for_retrieval=benchmark_cfg["dfs_data_path_for_retrieval"],
         dfs_metadata_filename_for_retrieval=benchmark_cfg["dfs_metadata_filename_for_retrieval"])
-    return Experiments(eval_settings=eval_settings, benchmark=benchmark, prompt_settings=prompt_settings)
+    return Experiments(env_settings=env_settings, eval_settings=eval_settings, benchmark=benchmark, prompt_settings=prompt_settings)

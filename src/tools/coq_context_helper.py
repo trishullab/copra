@@ -30,31 +30,70 @@ class CoqContextHelper(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.search_executor.__exit__(exc_type, exc_value, traceback)
 
-    def _get_local_lemmas_discovered_so_far_set(self, coq_executor: CoqExecutor):
+    def _get_local_lemma_names_discovered_so_far(self, coq_executor: CoqExecutor):
         local_lemmas_discovered_so_far = [lemma.split(':')[0].strip() if ':' in lemma else lemma.split()[0].strip() for lemma in coq_executor.coq.local_lemmas[:-1]]
         local_lemmas_discovered_so_far = set([l for l in local_lemmas_discovered_so_far if len(l) > 0])
         return local_lemmas_discovered_so_far
+    
+    def _get_local_lemmas_discovered_so_far(self, coq_executor: CoqExecutor):
+        local_lemmas_discovered_so_far = []
+        for lemma in coq_executor.coq.local_lemmas[:-1]:
+            defn = lemma.split(":")
+            defn_name = defn[0].strip()
+            if len(defn_name) == 0:
+                continue
+            if len(defn) > 1:
+                defn_val = ("".join(defn[1:])).strip()
+            else:
+                defn_val = ""
+            local_lemmas_discovered_so_far.append((defn_name, defn_val))
+        return local_lemmas_discovered_so_far
 
-    def _search_exact_with_diff(self, coq_executor: CoqExecutor, tok: str):
-        exact_search_res = self.search_executor.search_exact(tok)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
-        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
+    def _search_exact_with_diff(self, coq_executor: CoqExecutor, tok: str, should_print_symbol: bool = False, only_local: bool = False):
+        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far(coq_executor)
+        local_lemmas_name = set([defn for defn, _ in local_lemmas_discovered_so_far])
+        if only_local:
+            exact_search_res = local_lemmas_discovered_so_far
+        else:
+            exact_search_res = self.search_executor.search_exact(tok, should_print_symbol=should_print_symbol)
+            exact_search_res_set = set([res[0] for res in exact_search_res])
+            for defn, defn_val in local_lemmas_discovered_so_far:
+                if defn not in exact_search_res_set:
+                    exact_search_res.append((defn, defn_val))
+
+        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_name)
         # Remove future lemmas which are yet to be discovered
         exact_search_res = [res for res in exact_search_res if res[0] not in diff]
         return exact_search_res
 
-    def _search_defn_with_diff(self, coq_executor: CoqExecutor, name: str, match_until: typing.Tuple[str, ...], max_search_res: typing.Optional[int] = None):
-        search_defn_res = self.search_executor.search_defn(name, match_until, max_search_res=max_search_res)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
-        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
+    def _search_defn_with_diff(self, coq_executor: CoqExecutor, name: str, match_until: typing.Tuple[str, ...], max_search_res: typing.Optional[int] = None, should_print_symbol: bool = False, only_local: bool = False):
+        local_lemmas_discovered_so_far = [(defn_name, defn_val, False) for defn_name, defn_val in  self._get_local_lemmas_discovered_so_far(coq_executor)]
+        local_lemmas_name = set([defn for defn, _ in local_lemmas_discovered_so_far])
+        if only_local:
+            search_defn_res = local_lemmas_discovered_so_far
+        else:
+            search_defn_res = self.search_executor.search_defn(name, match_until, max_search_res=max_search_res, should_print_symbol=should_print_symbol)
+            search_defn_res_set = set([res[0] for res in search_defn_res])
+            for defn, defn_val, _ in local_lemmas_discovered_so_far:
+                if defn not in search_defn_res_set:
+                    search_defn_res.append((defn, defn_val, False))
+        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_name)
         # Remove future lemmas which are yet to be discovered
         search_defn_res = [res for res in search_defn_res if res[0] not in diff]
         return search_defn_res
 
-    def _get_all_type_matching_defns_with_diff(self, coq_executor: CoqExecutor, tok: str):
-        exact_search_res = self.search_executor.get_all_type_matching_defns(tok)
-        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far_set(coq_executor)
-        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_discovered_so_far)
+    def _get_all_type_matching_defns_with_diff(self, coq_executor: CoqExecutor, tok: str, should_print_symbol: bool = False, only_local: bool = False):
+        local_lemmas_discovered_so_far = self._get_local_lemmas_discovered_so_far(coq_executor)
+        local_lemmas_name = set([defn for defn, _ in local_lemmas_discovered_so_far])
+        if only_local:
+            exact_search_res : typing.List[typing.Tuple[str, str]] = local_lemmas_discovered_so_far
+        else:            
+            exact_search_res = self.search_executor.get_all_type_matching_defns(tok, should_print_symbol=should_print_symbol)
+            exact_search_res_set = set([res[0] for res in exact_search_res])
+            for defn, defn_val in local_lemmas_discovered_so_far:
+                if defn not in exact_search_res_set:
+                    exact_search_res.append((defn, defn_val))
+        diff = self.search_exec_local_lemmas_discovered_so_far.difference(local_lemmas_name)
         # Remove future lemmas which are yet to be discovered
         exact_search_res = [res for res in exact_search_res if res[0] not in diff]
         return exact_search_res
@@ -126,7 +165,7 @@ class CoqContextHelper(object):
                 lemmas.append((lemma_name, lemma_val))
         return lemmas
 
-    def set_relevant_defns_in_training_data_point(self, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None):
+    def set_relevant_defns_in_training_data_point(self, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None, should_print_symbol: bool = False, only_local: bool = False):
         logger = logger if logger is not None else self.logger
         depth = self.depth if depth is None else depth
         unique_defns = {defn: idx for idx, defn in enumerate(training_data_point.all_useful_defns_theorems)}
@@ -148,7 +187,7 @@ class CoqContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val in self._search_exact_with_diff(coq_executor, tok):
+                for defn, denf_val in self._search_exact_with_diff(coq_executor, tok, should_print_symbol=should_print_symbol, only_local=only_local):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                         useful_defns_maps[defn] = denf_val
@@ -168,7 +207,7 @@ class CoqContextHelper(object):
             useful_defns = [LemmaRefWithScore(unique_defns[defn], score) for defn, _, score in useful_defns]
             goal.relevant_defns = useful_defns
 
-    def set_all_type_matched_query_result(self, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None):
+    def set_all_type_matched_query_result(self, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None, should_print_symbol: bool = False, only_local: bool = False):
         # Use the hypothesis to find the definition
         # Recursively find the definition of the definition to a fixed depth
         # dump useful_hyps and current stmt into a stack
@@ -193,7 +232,7 @@ class CoqContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val in self._get_all_type_matching_defns_with_diff(coq_executor, tok):
+                for defn, denf_val in self._get_all_type_matching_defns_with_diff(coq_executor, tok, should_print_symbol=should_print_symbol, only_local=only_local):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                     else:
@@ -223,7 +262,7 @@ class CoqContextHelper(object):
             goal.possible_useful_theorems_external = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_external_theorems if score <= CoqContextHelper.max_relevance_score]
             goal.possible_useful_theorems_local = [LemmaRefWithScore(defn_idx, score) for defn_idx, score in useful_local_theorems if score <= CoqContextHelper.max_relevance_score]
 
-    def set_useful_defns_theorems_for_training_data_generation(self, current_stmt: str, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None, max_search_res: typing.Optional[int] = None):
+    def set_useful_defns_theorems_for_training_data_generation(self, current_stmt: str, training_data_point: TrainingDataFormat, coq_executor: CoqExecutor, logger: logging.Logger = None, depth: int = None, max_search_res: typing.Optional[int] = None, should_print_symbol: bool = False, only_local: bool = False):
         # Use the hypothesis to find the definition
         # Recursively find the definition of the definition to a fixed depth
         # dump useful_hyps and current stmt into a stack
@@ -252,7 +291,7 @@ class CoqContextHelper(object):
                     continue
                 else:
                     toks_executed.add(tok)
-                for defn, denf_val, is_used in self._search_defn_with_diff(coq_executor, tok, current_stmt_toks, max_search_res=max_search_res):
+                for defn, denf_val, is_used in self._search_defn_with_diff(coq_executor, tok, current_stmt_toks, max_search_res=max_search_res, should_print_symbol=should_print_symbol, only_local=only_local):
                     if defn in depth_map:
                         depth_map[defn] = min(depth_map[defn], current_depth)
                         old_val, was_used_earlier = useful_defns_maps[defn]
