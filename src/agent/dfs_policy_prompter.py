@@ -320,8 +320,8 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         success = False
         retries = 3
         time_to_sleep = 60
-        exp_factor = 1.25
-        tokens_factor = 1.25
+        exp_factor = 1.06
+        tokens_factor = 1.75
         temp_factor = 0.025
         max_temp = 0.4
         temperature = self.temperature
