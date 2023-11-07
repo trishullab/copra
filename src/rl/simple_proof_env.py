@@ -50,6 +50,7 @@ class ProofEnvReRankStrategy(Enum):
     BM25_WITH_PRINT_NO_DFNS = "BM25_WITH_PRINT_NO_DFNS"
     BM25_WITH_PRINT_ONLY_LOCAL_NO_DFNS = "BM25_WITH_PRINT_ONLY_LOCAL_NO_DFNS"
     BM25_ONLY_LOCAL_NO_DFNS = "BM25_ONLY_LOCAL_NO_DFNS"
+    BM25_NO_DFNS = "BM25_NO_DFNS"
 
     def __str__(self):
         return self.value
@@ -90,7 +91,8 @@ class ProofEnv(Env):
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_ONLY_LOCAL or \
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_NO_DFNS or \
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_ONLY_LOCAL_NO_DFNS or \
-            self.retrieve_strategy == ProofEnvReRankStrategy.BM25_ONLY_LOCAL_NO_DFNS:
+            self.retrieve_strategy == ProofEnvReRankStrategy.BM25_ONLY_LOCAL_NO_DFNS or \
+            self.retrieve_strategy == ProofEnvReRankStrategy.BM25_NO_DFNS:
             self._re_ranker = CoqBm25ReRanker()
         else:
             raise NotImplementedError(f"Retrieval strategy {self.retrieve_strategy} not implemented")

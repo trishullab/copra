@@ -88,7 +88,7 @@ class CoqContextHelper(object):
         if only_local:
             exact_search_res : typing.List[typing.Tuple[str, str]] = local_lemmas_discovered_so_far
         else:            
-            exact_search_res = self.search_executor.get_all_type_matching_defns(tok, should_print_symbol=should_print_symbol)
+            exact_search_res = list(self.search_executor.get_all_type_matching_defns(tok, should_print_symbol=should_print_symbol))
             exact_search_res_set = set([res[0] for res in exact_search_res])
             for defn, defn_val in local_lemmas_discovered_so_far:
                 if defn not in exact_search_res_set:

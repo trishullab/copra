@@ -11,60 +11,68 @@ If you think you know the next proof step, then start your response with `[RUN T
 
 You can refer to the example conversation to understand the response format better. It might also contain some similar proof states and their corresponding proof-steps.
 
-Please take a note of the following: 
+ Please take a note of the following: 
  1. Make sure to end all your responses with the keyword `[END]`. Follow the specified format strictly. 
  2. While generating `[RUN TACTIC]` keyword, do NOT generate the tactics mentioned under `[INCORRECT STEPS]` in the proof state description because they are failed tactics which have been tried earlier. Similary do NOT generate the last tactic if it was NOT successful. Re-generating proof-steps which mentioned in `[INCORRECT STEPS]` or failed `[LAST STEPS]` will lead to backtracking and early termination of proof search. 
  3. Do NOT finish the proof in one shot ending with Qed. Always go step by step. Ideally individual tactics are NOT long, so don't generate too many tokens, unless necessary. Generating single step allows the user to give proof state after each step, which will help in writing correct proof-steps.
- 4. You can assume access to the following lemmas from `List` library (which can be used to prove theorems):
- ```
-app_nil_end: forall (A : Type) (l : list A), l = l ++ nil
-app_nil_r: forall (A : Type) (l : list A), l ++ nil = l
-app_nil_l: forall (A : Type) (l : list A), nil ++ l = l
-incl_appr: forall (A : Type) (l m n : list A), incl l n -> incl l (m ++ n)
-incl_appl: forall (A : Type) (l m n : list A), incl l n -> incl l (n ++ m)
-Add_app:
-  forall (A : Type) (a : A) (l1 l2 : list A),
-  Add a (l1 ++ l2) (l1 ++ a :: l2)
-rev_append_rev:
-  forall (A : Type) (l l' : list A), rev_append l l' = rev l ++ l'
-incl_app:
-  forall (A : Type) (l m n : list A), incl l n -> incl m n -> incl (l ++ m) n
-NoDup_remove_1:
-  forall (A : Type) (l l' : list A) (a : A),
-  NoDup (l ++ a :: l') -> NoDup (l ++ l')
-firstn_skipn:
-  forall (A : Type) (n : nat) (l : list A), firstn n l ++ skipn n l = l
-in_or_app:
-  forall (A : Type) (l m : list A) (a : A), In a l \/ In a m -> In a (l ++ m)
-app_inv_tail:
-  forall (A : Type) (l l1 l2 : list A), l1 ++ l = l2 ++ l -> l1 = l2
-app_inv_head:
-  forall (A : Type) (l l1 l2 : list A), l ++ l1 = l ++ l2 -> l1 = l2
-app_assoc_reverse:
-  forall (A : Type) (l m n : list A), (l ++ m) ++ n = l ++ m ++ n
-app_assoc: forall (A : Type) (l m n : list A), l ++ m ++ n = (l ++ m) ++ n
-in_app_or:
-  forall (A : Type) (l m : list A) (a : A), In a (l ++ m) -> In a l \/ In a m
-rev_app_distr:
-  forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x
-app_comm_cons:
-  forall (A : Type) (x y : list A) (a : A), a :: x ++ y = (a :: x) ++ y
-app_length:
-  forall (A : Type) (l l' : list A), length (l ++ l') = length l + length l'
-app_cons_not_nil:
-  forall (A : Type) (x y : list A) (a : A), nil <> x ++ a :: y
-seq_app:
-  forall len1 len2 start : nat,
-  seq start (len1 + len2) = seq start len1 ++ seq (start + len1) len2
-in_app_iff:
-  forall (A : Type) (l l' : list A) (a : A),
-  In a (l ++ l') <-> In a l \/ In a l'
-concat_cons:
-  forall (A : Type) (x : list A) (l : list (list A)),
-  concat (x :: l) = x ++ concat l
-concat_app:
-  forall (A : Type) (l1 l2 : list (list A)),
-  concat (l1 ++ l2) = concat l1 ++ concat l2
-rev_unit:
-  forall (A : Type) (l : list A) (a : A), rev (l ++ a :: nil) = a :: rev l
+
+ For all the proofs you can assume that you have access to List, Arith and Bool library in Coq. Additionally, you the following definitions are available to you:
+ ```coq
+ From Coq Require Extraction.
+Require Import Bool Arith List.
+
+(*Define the source language first*)
+Inductive binop : Set := Plus | Times.
+
+Inductive exp : Set := 
+ Const : nat -> exp
+| Binop : binop -> exp -> exp -> exp. (* Binop is a function which takes exp and exp and gives exp. This is just currying*)
+
+Definition binopDenote (b : binop) : nat -> nat -> nat :=
+match b with 
+    | Plus => plus
+    | Times => mult
+end.
+
+Fixpoint expDenote (e: exp) : nat :=
+    match e with
+    | Const n => n
+    | Binop b e1 e2 => (binopDenote b) (expDenote e1) (expDenote e2)
+    end.
+
+(*Define the target language*)
+
+Inductive instr: Set :=
+| iConst : nat -> instr
+| iBinop : binop -> instr. (*Instructions can be either constants or binary operation*)
+
+Definition prog := list instr. (*Program is a list of instructions*)
+Definition stack := list nat. (*Instruction either pushes a constant to the stack or applies binop on two elements on the stack*)
+
+Definition instrDenote (i : instr) (s: stack): option stack :=
+match i with
+ | iConst n => Some (n :: s)
+ | iBinop b =>
+    match s with
+     | arg1 :: arg2 :: s' => Some ((binopDenote b) arg1 arg2 :: s')
+     | _ => None
+    end    
+end.
+
+Fixpoint progDenote (p : prog) (s: stack) : option stack :=
+match p with
+ | nil => Some s
+ | i::p' =>
+   match instrDenote i s with
+    | None => None
+    | Some s' => progDenote p' s'
+   end
+end. (*Run instructions one by one*)
+
+(*Translation for the language i.e. Compiler*)
+Fixpoint compile (e : exp): prog := 
+    match e with
+       | Const n => iConst n::nil
+       | Binop b e1 e2 => compile e2 ++ compile e1 ++ iBinop b :: nil
+    end.
 ```

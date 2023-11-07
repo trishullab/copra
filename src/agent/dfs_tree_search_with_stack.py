@@ -122,6 +122,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         next_state_action_pair = StateActionPair(next_state, action)
         new_node = DFSTreeNode(current_state_action_pair, next_state_action_pair, action, info, reward, done)
         current_node_is_correct = True
+        bad_action_state = state in self._bad_state_action_map and action in self._bad_state_action_map[state]
         if new_node.info.progress == ProgressState.FAILED:
             assert new_node.info.progress == ProgressState.FAILED, "The progress should be FAILED"
             new_node.next_state_action_pair.state = self.failed_proof_state # This is to ensure that there are no cycles in the tree
@@ -144,11 +145,43 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             new_node.incorrect_actions = list(self._bad_state_action_map[new_node.state_action_pair.state])
             # sort the incorrect actions by name
             new_node.incorrect_actions.sort(key=lambda x: x.name)
-
-        if last_node is None or last_node.next_state_action_pair.state != self.failed_proof_state:
+        
+        if bad_action_state:
+            # We know that the action is a repition of a bad action, so we should not run it again
+            if current_node_is_correct:
+                # We must undo the current action because it is a repetition of a bad action which eventually leads to a failed state
+                self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
+            # We know that last_node is no longer useful, so we pop it from the stack
+            if last_node is None:
+                # There is nothing in the queue the search is over
+                self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
+            else:
+                last_node = self._search_stack.pop()
+                # Check if the last node is a failed node
+                if last_node.next_state_action_pair.state == self.failed_proof_state:
+                    # If the last node is a failed node, we should pop the next node
+                    last_node = self._search_stack[-1] if len(self._search_stack) > 0 else None
+                if last_node is None:
+                    # There is nothing in the queue the search is over
+                    self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
+                else:
+                    # This node should not be a failed node
+                    assert last_node.next_state_action_pair.state != self.failed_proof_state, "The last node's next state should not be self.failed_proof_state"
+                    if last_node.action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                        # Add backtracking if the last action was a tactic
+                        self._action_queue.append(TreeSearchAction(TreeSearchActionType.BACKTRACK, state, summary=None))
+                    # Deem the last action as invalid
+                    last_node.next_state_action_pair.state = self.failed_proof_state
+                    last_node.info.progress = ProgressState.FAILED
+                    last_node.info.error_message = subsequent_failed_action_message
+                    # Add the action to failed state
+                    if last_node.state_action_pair.state not in self._bad_state_action_map:
+                        self._bad_state_action_map[last_node.state_action_pair.state] = set()
+                    self._bad_state_action_map[last_node.state_action_pair.state].add(last_node.action)
+        elif last_node is None or last_node.next_state_action_pair.state != self.failed_proof_state:
             if last_node is not None:
                 new_node.actions_till_now = last_node.actions_till_now + [last_node.action]
-            if last_node is None and state in self._bad_state_action_map and action in self._bad_state_action_map[state]:
+            if last_node is None and bad_action_state:
                 self._action_queue.append(TreeSearchAction(TreeSearchActionType.STOP, state, summary=None))
             else:
                 self._search_stack.append(new_node)
@@ -161,7 +194,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
             # Pop the failed node from the stack
             self._search_stack.pop()
-            if action == last_node.next_state_action_pair.action or action in last_node.incorrect_actions:
+            if action == last_node.next_state_action_pair.action or action in last_node.incorrect_actions or bad_action_state:
+                if bad_action_state and action not in last_node.incorrect_actions:
+                    last_node.incorrect_actions.append(action)
                 last_node = self._search_stack[-1] if len(self._search_stack) > 0 else None
                 if action.action_type == ProofAction.ActionType.RUN_TACTIC:
                     # Add backtracking if the last action was a tactic
@@ -199,7 +234,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         else:
             assert last_node.state_action_pair.state == new_node.state_action_pair.state, "There cannot be a jump in the states"
             assert last_node.next_state_action_pair.state == self.failed_proof_state, "The last node's next state should be self.failed_proof_state"
-            if action in last_node.incorrect_actions or new_node.action == last_node.action:
+            if action in last_node.incorrect_actions or new_node.action == last_node.action or bad_action_state:
+                if bad_action_state and action not in last_node.incorrect_actions:
+                    last_node.incorrect_actions.append(action)
                 # Pop from the stack, because we no longer want to use this action again
                 self._search_stack.pop()
                 # Update the last node as the older node is popped
@@ -230,6 +267,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
                 if last_node.state_action_pair.state not in self._bad_state_action_map:
                     self._bad_state_action_map[last_node.state_action_pair.state] = set()
                 self._bad_state_action_map[last_node.state_action_pair.state].add(last_node.action)
+                if state not in self._bad_state_action_map:
+                    self._bad_state_action_map[state] = set()
+                self._bad_state_action_map[state].add(action)
                 last_node.action = new_node.action
                 last_node.next_state_action_pair.action = new_node.next_state_action_pair.action
                 last_node.next_state_action_pair.state = self.failed_proof_state
