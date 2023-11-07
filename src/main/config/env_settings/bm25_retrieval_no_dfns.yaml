@@ -1,0 +1,2 @@
+name: bm25_retrieval_no_dfns
+retrieval_strategy: BM25_NO_DFNS

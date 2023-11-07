@@ -1,8 +1,12 @@
 defaults:
-  - benchmark: simple_benchmark_lean
-  - eval_settings: n_500_dfs_codellama_always_retrieve_no_ex
-  - prompt_settings: lean_dfs
+  - benchmark: stack_machine
+  - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  - env_settings: bm25_retrieval_only_local_no_dfns
+  - prompt_settings: coq_dfs_always_retrieve_stack_machine
   - override hydra/job_logging: 'disabled'
+
+eval_settings:
+  max_theorems_in_prompt: 14
 
 # To run this experiment, execute the following command:
 

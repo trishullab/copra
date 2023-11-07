@@ -95,29 +95,4 @@ with "S (n + 0 + 0)".
 [RUN TACTIC][STP]- simpl. rewrite IHn. reflexivity.
 [END]
 
-
-`example_user`
-[RUN TACTIC RESULT][SUCCESS]
-[END]
-
-Goals to prove:
-[GLS]
-[DESCRIPTION]
-Proof finished.
-[END]
-
-`example_assistant`
-[RUN TACTIC][STP]Qed.
-[END]
-
-`example_user`
-[RUN TACTIC RESULT][SUCCESS]
-[END]
-
-Goals to prove:
-[GLS]
-[DESCRIPTION]
-Not in proof mode.
-[END]
-
 `conv end`
