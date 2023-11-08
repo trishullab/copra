@@ -116,7 +116,8 @@ class Lean3Executor(object):
     goal_match = re.compile(goal_regex, re.MULTILINE)
     proof_context_generation_tactic = "\nend"
     proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
-    def __init__(self, project_root: str = None, prefix: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
+    search_tools: typing.Dict[str, typing.Any] = {}
+    def __init__(self, project_root: str = None, prefix: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False, mathlib_root: typing.Optional[str] = None, enable_search: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -153,7 +154,30 @@ class Lean3Executor(object):
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self._proof_start_idx: typing.Optional[int] = None
         self._import_end_idx: typing.Optional[int] = None
+        if mathlib_root is not None:
+            self._mathlib_root = mathlib_root
+        else:
+            self._mathlib_root = os.path.join(self.project_root, "_target", "deps", "mathlib")
+        self._mathlib_src_root = os.path.join(self._mathlib_root, "src")
+        self._enable_search = enable_search
+        if self._enable_search:
+            Lean3Executor._init_search(self._mathlib_root)
 
+    def _init_search(mathlib_root: str):
+        assert os.path.exists(mathlib_root), f"Mathlib root {mathlib_root} does not exist"
+        assert os.path.isdir(mathlib_root), f"Mathlib root {mathlib_root} is not a directory"
+        mathlib_root_src = os.path.join(mathlib_root, "src")
+        assert os.path.exists(mathlib_root_src), f"Mathlib root src {mathlib_root_src} does not exist"
+        assert os.path.isdir(mathlib_root_src), f"Mathlib root src {mathlib_root_src} is not a directory"
+        if mathlib_root in Lean3Executor.search_tools:
+            return
+        search_tool = None
+        for root, dirs, files in os.walk(mathlib_root_src):
+            for file in files:
+                if file.endswith(".lean"):
+                    full_path = os.path.join(root, file)
+                    # Index the file and store it in the re_ranker_dict
+        Lean3Executor.search_tools[mathlib_root] = search_tool
     def __enter__(self):
         self.lean_server = LeanCmdServer(memory_in_mibs=self._max_memory_in_mib, cwd=self.project_root, debug=False)
         if self.main_file_iter is None:

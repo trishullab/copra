@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -15,6 +16,7 @@ from collections import OrderedDict
 from src.tools.lean_parse_utils import LeanLineByLineReader
 from src.lean_server.lean_sync_server import SyncLeanServer
 from src.lean_server.commands import Message
+from src.retrieval.abstraction import ReRanker
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):
@@ -109,6 +111,7 @@ class Lean3Executor(object):
         "^c", "≃c", "≅c", "×c", "×f", "×n", "+c", "+f", "+n", "ℕ₋₂"
     }
     theorem_regex = r"(((theorem ([\w+|\d+]*))|example)([\S|\s]*?):=[\S|\s]*?)(begin|by|calc)"
+    theorem_lemma_search_regex = r"(theorem|lemma) ([\w+|\d+]*) ([\S|\s]*?):="
     proof_context_separator = "⊢"
     proof_context_regex = r"((\d+) goals)*([\s|\S]*?)\n\n"
     goal_regex = rf"([\s|\S]*?){proof_context_separator}([\s|\S]*)"
@@ -117,7 +120,8 @@ class Lean3Executor(object):
     goal_match = re.compile(goal_regex, re.MULTILINE)
     proof_context_generation_tactic = "\nend"
     proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
-    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
+    bm25_reranker : typing.Optional[ReRanker] = None
+    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False, mathlib_root: typing.Optional[str] = None, enable_search: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -152,6 +156,17 @@ class Lean3Executor(object):
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self._proof_start_idx: typing.Optional[int] = None
         self._import_end_idx: typing.Optional[int] = None
+        if mathlib_root is not None:
+            self._mathlib_root = mathlib_root
+        else:
+            self._mathlib_root = os.path.join(self.project_root, "_target", "deps", "mathlib")
+        self._mathlib_src_root = os.path.join(self._mathlib_root, "src")
+        self._enable_search = enable_search
+        if self._enable_search:
+            Lean3Executor.init_search(self._mathlib_root)
+    
+    def init_search(_mathlib_root: str):
+        pass
 
     def __enter__(self):
         lean_cmd = f"lean --server --memory={self._max_memory_in_mib}" + (" --quiet" if self.suppress_error_log else "")
