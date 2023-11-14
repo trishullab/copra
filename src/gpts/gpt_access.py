@@ -22,6 +22,11 @@ class GptAccess(object):
             "request_limit_per_min": 100,
             "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
         },
+        "gpt-4-1106-preview": {
+            "token_limit_per_min": 150000,
+            "request_limit_per_min": 20,
+            "max_token_per_prompt": int(1.2*10**5) # less than 128k because additional tokens are added at times
+        },
         'codellama/CodeLlama-7b-Instruct-hf': {
             "token_limit_per_min": 10**6,
             "request_limit_per_min": 10**6,
