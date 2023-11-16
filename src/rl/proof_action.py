@@ -19,6 +19,10 @@ class ProofAction(Action):
     class Language(Enum):
         COQ = 'COQ'
         LEAN = 'LEAN'
+
+        def __str__(self):
+            return self.name
+
     class ActionType(Enum):
         GET_DFNS_THMS = 'GET_DFNS_THMS'
         RUN_TACTIC = 'RUN_TACTIC'

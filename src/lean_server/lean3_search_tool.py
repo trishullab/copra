@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import sys
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
 import typing
 import re
+from src.lean_server.lean_utils import Lean3Utils
 
 class Lean3Lemma(object):
     def __init__(self, namespace: str, name: str, dfn: str) -> None:
@@ -22,10 +24,11 @@ class Lean3SearchTool(object):
     def __init__(self) -> None:
         self._namespaces_to_theorems : typing.Dict[str, typing.List[Lean3Lemma]] = {}
         self._theorem_lemma_search_regex = re.compile(Lean3SearchTool.theorem_lemma_search_regex)
+        self._lemmas = []
     
     @property
     def lemmas(self) -> typing.List[Lean3Lemma]:
-        return [lemma for lemmas in self._namespaces_to_theorems.values() for lemma in lemmas]
+        return self._lemmas
     
     @property
     def namespaces(self) -> typing.List[str]:
@@ -37,7 +40,7 @@ class Lean3SearchTool(object):
         with open(lean_file_path, "r") as f:
             text = f.read()
             # Remove comments
-            text = self._remove_comments(text)
+            text = Lean3Utils.remove_comments(text)
             matches = self._theorem_lemma_search_regex.findall(text)
             for match in matches:
                 name = str(match[1]).strip()
@@ -46,51 +49,7 @@ class Lean3SearchTool(object):
                 if namespace not in self._namespaces_to_theorems:
                     self._namespaces_to_theorems[namespace] = []
                 self._namespaces_to_theorems[namespace].append(lemma)
-    
-    def _remove_comments(self, text: str) -> str:
-        # Remove comments
-        #1. First remove all nested comments
-        #2. Then remove all single line comments
-        # Comments are of the form:
-        # 1. /- ... -/
-        # 2. -- ...
-        # Let's do 1
-        # First, let's find all the comments
-        new_text = []
-        idx = 0
-        while idx < len(text):
-            if text[idx] == '/' and text[idx+1] == '-':
-                # We found a comment
-                # Find the end of the comment
-                end_of_comment_idx = idx + 2
-                while end_of_comment_idx < len(text) and \
-                    not (text[end_of_comment_idx] == '-' and \
-                    end_of_comment_idx + 1 < len(text) and \
-                    text[end_of_comment_idx + 1] == '/'):
-                    end_of_comment_idx += 1
-                # Remove the comment
-                idx = end_of_comment_idx + 2
-            if idx < len(text):
-                new_text.append(text[idx])
-                idx += 1
-        text = "".join(new_text)
-        new_text = []
-        # Now let's do 2
-        idx = 0
-        while idx < len(text):
-            if text[idx] == '-' and text[idx+1] == '-':
-                # We found a comment
-                # Find the end of the comment
-                end_of_comment_idx = idx + 2
-                while end_of_comment_idx < len(text) and text[end_of_comment_idx] != '\n':
-                    end_of_comment_idx += 1
-                # Remove the comment
-                idx = end_of_comment_idx
-            if idx < len(text):
-                new_text.append(text[idx])
-                idx += 1
-        text = "".join(new_text)
-        return text
+                self._lemmas.append(lemma)
     
     def keep_only_namespaces(self, namespaces: typing.List[str]) -> None:
         namespaces_to_match = [ns.strip('.') for ns in namespaces if len(ns.strip('.')) > 0]
@@ -98,6 +57,9 @@ class Lean3SearchTool(object):
         namespaces_to_match = list(set(namespaces_to_match))
         namespaces = [ns for ns in self._namespaces_to_theorems.keys() if any([ns.startswith(n) or ns.endswith(n[:-1]) for n in namespaces_to_match])]
         self._namespaces_to_theorems = {ns: self._namespaces_to_theorems[ns] for ns in namespaces}
+        self._lemmas = []
+        for namespace in namespaces:
+            self._lemmas += self._namespaces_to_theorems[namespace]
     
     # def transform_namespace(self, namespace: str) -> None:
     #     match_end = namespace.strip('.') + "."

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
+
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -8,13 +10,106 @@ import subprocess
 import os
 import logging
 import typing
-import functools
 import random
 import re
+import copy
 from collections import OrderedDict
 from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.lean_server.lean_cmd_server import LeanCmdServer, LeanCmdServerResponse
+from src.lean_server.lean_cmd_server import LeanCmdServer
+from src.lean_server.lean_utils import Lean3Utils
+from src.lean_server.lean3_search_tool import Lean3Lemma, Lean3SearchTool
 logger = logging.getLogger()
+
+class Constants(object):
+    minif2f_namespaces = [
+        "algebra.algebra.basic",
+        "algebra.order.floor",
+        "algebra.associated",
+        "algebra.big_operators.basic",
+        "algebra.big_operators.enat",
+        "algebra.big_operators.order",
+        "algebra.big_operators.pi",
+        "algebra.geom_sum",
+        "algebra.group.pi",
+        "algebra.group.commute",
+        "algebra.group_power.basic",
+        "algebra.group_power.identities",
+        "algebra.order.floor",
+        "algebra.quadratic_discriminant",
+        "algebra.ring.basic",
+        "analysis.asymptotics.asymptotic_equivalent",
+        "analysis.mean_inequalities",
+        "analysis.normed_space.basic",
+        "analysis.inner_product_space.basic",
+        "analysis.inner_product_space.euclidean_dist",
+        "analysis.normed_space.pi_Lp",
+        "analysis.special_functions.exp",
+        "analysis.special_functions.exp_deriv",
+        "analysis.special_functions.log",
+        "analysis.special_functions.logb",
+        "analysis.special_functions.log_deriv",
+        "analysis.special_functions.pow",
+        "analysis.special_functions.sqrt",
+        "analysis.special_functions.trigonometric.basic",
+        "analysis.special_functions.trigonometric.complex",
+        "combinatorics.simple_graph.basic",
+        "data.complex.basic",
+        "data.complex.exponential",
+        "data.finset.basic",
+        "data.fintype.card",
+        "data.int.basic",
+        "data.int.gcd",
+        "data.int.modeq",
+        "data.int.parity",
+        "data.list.intervals",
+        "data.list.palindrome",
+        "data.multiset.basic",
+        "data.nat.basic",
+        "data.nat.choose.basic",
+        "data.nat.digits",
+        "data.nat.factorial.basic",
+        "data.nat.fib",
+        "data.nat.modeq",
+        "data.nat.multiplicity",
+        "data.nat.parity",
+        "data.nat.prime",
+        "data.pnat.basic",
+        "data.pnat.prime",
+        "data.polynomial",
+        "data.polynomial.basic",
+        "data.polynomial.eval",
+        "data.rat.basic",
+        "data.real.basic",
+        "data.real.ennreal",
+        "data.real.irrational",
+        "data.real.nnreal",
+        "data.real.sqrt",
+        "data.real.golden_ratio",
+        "data.set.finite",
+        "data.sym.sym2",
+        "data.zmod.basic",
+        "dynamics.fixed_points.basic",
+        "field_theory.finite.basic",
+        "geometry.euclidean.basic",
+        "geometry.euclidean.circumcenter",
+        "geometry.euclidean.monge_point",
+        "geometry.euclidean.sphere",
+        "init.data.nat.gcd",
+        "linear_algebra.affine_space.affine_map",
+        "linear_algebra.affine_space.independent",
+        "linear_algebra.affine_space.ordered",
+        "linear_algebra.finite_dimensional",
+        "logic.equiv.basic",
+        "measure_theory.integral.interval_integral",
+        "number_theory.arithmetic_function",
+        "number_theory.legendre_symbol.quadratic_reciprocity",
+        "number_theory.primes_congruent_one",
+        "order.bounds",
+        "order.filter.basic",
+        "order.well_founded",
+        "topology.basic",
+        "topology.instances.nnreal"
+    ]
 
 class Obligation(typing.NamedTuple):
     hypotheses: typing.List[str]
@@ -97,15 +192,16 @@ class Lean3Executor(object):
         "end", "this", "using", "using_well_founded", "namespace", "section",
         "attribute", "local", "set_option", "extends", "include", "omit", "classes", "class",
         "attributes", "raw", "replacing", "calc", "have", "show", "suffices", "by", "in", "at", 
-        "do", "let", "forall", "Pi", "fun", "exists", "if", "then", "else", "assume", "from", "mutual", "def", "run_cmd",
+        "do", "let", "forall", #"Pi", 
+        "fun", "exists", "if", "then", "else", "assume", "from", "mutual", "def", "run_cmd"
         # Note that there are UTF-8 characters in the following list
-        "#", "@", "!", "$", "->", "∼", "↔", "/", "==", "=", ":=", "<->", "/\\", "\\/", "∧", "∨",
-        "≠", "<", ">", "≤", "≥", "¬", "<=", ">=", "⁻¹", "⬝", "▸", "+", "*", "-", "/", "λ",
-        "→", "∃", "∀", "∘", "×", "Σ", "Π", "~", "||", "&&", "≃", "≡", "≅",
-        "ℕ", "ℤ", "ℚ", "ℝ", "ℂ", "𝔸",
-        "⬝e", "⬝i", "⬝o", "⬝op", "⬝po", "⬝h", "⬝v", "⬝hp", "⬝vp", "⬝ph", "⬝pv", "⬝r", "◾", "◾o",
-        "∘n", "∘f", "∘fi", "∘nf", "∘fn", "∘n1f", "∘1nf", "∘f1n", "∘fn1",
-        "^c", "≃c", "≅c", "×c", "×f", "×n", "+c", "+f", "+n", "ℕ₋₂"
+        # "#", "@", "!", "$", "->", "∼", "↔", "/", "==", "=", ":=", "<->", "/\\", "\\/", "∧", "∨",
+        # "≠", "<", ">", "≤", "≥", "¬", "<=", ">=", "⁻¹", "⬝", "▸", "+", "*", "-", "/", "λ",
+        # "→", "∃", "∀", "∘", "×", "Σ", "Π", "~", "||", "&&", "≃", "≡", "≅",
+        # "ℕ", "ℤ", "ℚ", "ℝ", "ℂ", "𝔸",
+        # "⬝e", "⬝i", "⬝o", "⬝op", "⬝po", "⬝h", "⬝v", "⬝hp", "⬝vp", "⬝ph", "⬝pv", "⬝r", "◾", "◾o",
+        # "∘n", "∘f", "∘fi", "∘nf", "∘fn", "∘n1f", "∘1nf", "∘f1n", "∘fn1",
+        # "^c", "≃c", "≅c", "×c", "×f", "×n", "+c", "+f", "+n", "ℕ₋₂"
     }
     theorem_regex = r"(((theorem ([\w+|\d+]*))|example)([\S|\s]*?):=[\S|\s]*?)(begin|by|calc)"
     proof_context_separator = "⊢"
@@ -117,7 +213,7 @@ class Lean3Executor(object):
     proof_context_generation_tactic = "\nend"
     proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
     search_tools: typing.Dict[str, typing.Any] = {}
-    def __init__(self, project_root: str = None, prefix: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False, mathlib_root: typing.Optional[str] = None, enable_search: bool = False):
+    def __init__(self, project_root: str = None, prefix: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False, mathlib_root: typing.Optional[str] = None, enable_search: bool = False, namespaces: typing.List[str] = None):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -160,24 +256,45 @@ class Lean3Executor(object):
             self._mathlib_root = os.path.join(self.project_root, "_target", "deps", "mathlib")
         self._mathlib_src_root = os.path.join(self._mathlib_root, "src")
         self._enable_search = enable_search
+        self._namespaces = namespaces if namespaces is not None else Constants.minif2f_namespaces
         if self._enable_search:
-            Lean3Executor._init_search(self._mathlib_root)
+            self._search_tool = Lean3Executor._init_search(self._mathlib_root, self._namespaces)
+            assert self._search_tool is not None, "Search tool cannot be None"
+        else:
+            self._search_tool = Lean3SearchTool()
 
-    def _init_search(mathlib_root: str):
+    def _init_search(mathlib_root: str, namespaces: typing.List[str]) -> Lean3SearchTool:
         assert os.path.exists(mathlib_root), f"Mathlib root {mathlib_root} does not exist"
         assert os.path.isdir(mathlib_root), f"Mathlib root {mathlib_root} is not a directory"
-        mathlib_root_src = os.path.join(mathlib_root, "src")
-        assert os.path.exists(mathlib_root_src), f"Mathlib root src {mathlib_root_src} does not exist"
-        assert os.path.isdir(mathlib_root_src), f"Mathlib root src {mathlib_root_src} is not a directory"
         if mathlib_root in Lean3Executor.search_tools:
-            return
-        search_tool = None
-        for root, dirs, files in os.walk(mathlib_root_src):
-            for file in files:
-                if file.endswith(".lean"):
-                    full_path = os.path.join(root, file)
-                    # Index the file and store it in the re_ranker_dict
-        Lean3Executor.search_tools[mathlib_root] = search_tool
+            search_tool = Lean3Executor.search_tools[mathlib_root]
+            deep_copy = copy.deepcopy(search_tool)
+            return deep_copy
+        else:
+            mathlib_root_src = os.path.join(mathlib_root, "src")
+            assert os.path.exists(mathlib_root_src), f"Mathlib root src {mathlib_root_src} does not exist"
+            assert os.path.isdir(mathlib_root_src), f"Mathlib root src {mathlib_root_src} is not a directory"
+            lean_lib_dir = Lean3Utils.get_lean_lib_path()
+            search_tool = Lean3SearchTool()
+            for root, _, files in os.walk(mathlib_root_src):
+                for file in files:
+                    if file.endswith(".lean"):
+                        namespace = root.split(mathlib_root_src)[1].strip("/")
+                        namespace = namespace.replace("/", ".")
+                        namespace = namespace + "." + file.replace(".lean", "")
+                        if any([namespace.startswith(ns) for ns in namespaces]):
+                            search_tool.add(os.path.join(root, file), namespace)
+            for root, _, files in os.walk(lean_lib_dir):
+                for file in files:
+                    if file.endswith(".lean"):
+                        namespace = root.split(lean_lib_dir)[1].strip("/")
+                        namespace = namespace.replace("/", ".")
+                        namespace = namespace + "." + file.replace(".lean", "")
+                        search_tool.add(os.path.join(root, file), namespace)
+            Lean3Executor.search_tools[mathlib_root] = search_tool
+            deep_copy = copy.deepcopy(search_tool)
+            return deep_copy
+
     def __enter__(self):
         self.lean_server = LeanCmdServer(memory_in_mibs=self._max_memory_in_mib, cwd=self.project_root, debug=False)
         if self.main_file_iter is None:
@@ -291,24 +408,24 @@ class Lean3Executor(object):
     def tokenize(stmt: str) -> typing.Generator[str, None, None]:
         for tok in re.split(Lean3Executor.get_token_separator_regex(), stmt):
             tok1 = tok.strip()
-            if len(tok1) > 0:
+            if len(tok1) > 0 and tok1 not in Lean3Executor.keywords:
                 yield tok1
 
     # Make this chacheable
-    @functools.lru_cache(maxsize=10000)
-    def search_type_matching_defns(self, name: str) -> typing.List[typing.Tuple[str, str]]:
+    # @functools.lru_cache(maxsize=10000)
+    def search_type_matching_defns(self, name: str) -> typing.List[Lean3Lemma]:
         if name in Lean3Executor.keywords:
             return []
-        raise NotImplementedError("search_type_matching_defns is not implemented")
+        return self._search_tool.lemmas
     
-    def get_all_type_matching_defns(self, name: str) -> typing.Generator[typing.Tuple[str, str], None, None]:
-        raise NotImplementedError("get_all_type_matching_defns is not implemented")
+    def get_all_type_matching_defns(self, name: str) -> typing.Generator[Lean3Lemma, None, None]:
+        return self.search_type_matching_defns(name)
 
-    def search_exact(self, name: str) -> typing.List[typing.Tuple[str, str]]:
-        raise NotImplementedError("search_exact is not implemented")
+    def search_exact(self, name: str) -> typing.List[Lean3Lemma]:
+        return self.search_type_matching_defns(name)
 
     def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None) -> typing.List[typing.Tuple[str, str, bool]]:
-        raise NotImplementedError("search_defn is not implemented")
+        return self.search_type_matching_defns(name)
     
     def run_without_executing(self, stmt: str):
         while True:
@@ -457,6 +574,8 @@ class Lean3Executor(object):
             self._file_content += "\n" + stmt.strip()
         else:
             self._file_content = stmt.strip()
+        # Remove comments
+        self._file_content = Lean3Utils.remove_comments(self._file_content)
     
     def _check_matching_end(self, file_content: str) -> bool:
         # The file_content must end with a matching end
@@ -569,16 +688,18 @@ class Lean3Executor(object):
                 return
             self.current_stmt = stmt
             self.line_num += 1
-            idx = len(self._lines_executed)
-            if stmt.startswith("theorem") and self._import_end_idx is None:
-                self._import_end_idx = idx - 1
             file_content = self._file_content
+            self._lines_executed = file_content.split("\n")
+            idx = len(self._lines_executed)
+            if (stmt.startswith("theorem") or stmt.startswith("lemma")) and self._import_end_idx is None:
+                self._import_end_idx = idx - 1
             # Now add this new line to the context
             if len(file_content) > 0:
                 # First create a context of all the lines executed so far
                 file_content += "\n" + stmt.strip()
             else:
                 file_content = stmt.strip()
+            file_content = Lean3Utils.remove_comments(file_content)
             last_thm_details = Lean3Executor.theorem_match.findall(file_content)
             if last_thm_details:
                 # We might have found a new theorem
