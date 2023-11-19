@@ -1,4 +1,4 @@
-name: n_60_dfs_gpt4_128k_always_retrieve_no_ex
+name: n_60_dfs_gpt4_128k_no_retrieve_no_ex
 setting_type: Agent
 use_hammer: False
 max_proof_depth: 100
@@ -22,5 +22,5 @@ use_human_readable_proof_context: True
 sample: 1.0
 sample_seed: 0xf00
 use_example_retrieval: False
-always_use_useful_theorem_retrieval: True
+always_use_useful_theorem_retrieval: False
 num_goal_per_prompt:

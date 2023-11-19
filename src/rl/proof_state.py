@@ -21,6 +21,7 @@ class ProofState(State):
     was_reset: bool = False
     language: ProofAction.Language = ProofAction.Language.COQ
     theorem_statement_with_name: typing.Optional[str] = None
+    theorem_name: typing.Optional[str] = None
 
     def _post_init(self):
         self.proof_tree = None

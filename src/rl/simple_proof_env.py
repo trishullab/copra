@@ -142,7 +142,8 @@ class ProofEnv(Env):
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
         lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
-        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt) # always make a copy of goals to avoid side effects
+        lemma_name = self._dynamic_proof_executor.get_current_lemma_name()
+        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt, theorem_name=lemma_name) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         state.was_reset = len(self._history) == 0
         return state

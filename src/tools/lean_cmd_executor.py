@@ -10,6 +10,7 @@ import subprocess
 import os
 import logging
 import typing
+import time
 import random
 import re
 import copy
@@ -228,7 +229,11 @@ class Lean3Executor(object):
         self.use_human_readable_proof_context = use_human_readable_proof_context
         self.project_root = project_root if project_root is not None else "."
         self.main_file = main_file
-        self.temp_file = os.path.join(prefix, f"temptodel{random.randint(0, 100000000)}.lean") if prefix is not None else f"temptodel{random.randint(0, 100000000)}.lean"
+        self.ticks = str(time.time()).replace(".", "") # This ensures that the temp file name is unique and doesn't clash with other temp files
+        # This helps in running parallel instances of prover
+        self.random_num = str(random.randint(0, 100000000))
+        self.temp_filename_suffix = f"temptodel{self.ticks}{self.random_num}.lean"
+        self.temp_file = os.path.join(prefix, self.temp_filename_suffix) if prefix is not None else self.temp_filename_suffix
         self.temp_file_full_path = os.path.join(self.project_root, self.temp_file)
         self.use_hammer = use_hammer
         self.timeout_in_sec = min(timeout_in_sec, 120) # Maximum 120s timeout
@@ -566,6 +571,12 @@ class Lean3Executor(object):
                 return self.local_theorem_lemma_description[self.curr_lemma_name]
             except:
                 return None
+        
+    def get_current_lemma_name(self) -> typing.Optional[str]:
+        if self.curr_lemma_name is None:
+            return None
+        else:
+            return self.curr_lemma_name
 
     def _set_content_to_run(self, stmt: str) -> str:
         # Now add this new line to the context
