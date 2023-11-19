@@ -15,19 +15,18 @@ datasets:
           - typesize_pos
           - typealign_pos
           - typealign_typesize
-          - Loc.same_not_diff
-          - Loc.diff_sym
-          - Loc.disjoint_cons_left
-          - Loc.disjoint_cons_right
-          - Locmap.gss
-          - Locmap.gss_reg
-          - Locmap.getpair_exten
-          - IndexedTyp.index_inj
-          - IndexedSlot.index_inj
-          - OrderedLoc.eq_refl
-          - OrderedLoc.eq_sym
-          - OrderedLoc.eq_trans
-          - OrderedLoc.lt_trans
+          - same_not_diff # In env Loc
+          - diff_sym
+          - disjoint_cons_left
+          - disjoint_cons_right
+          - gss # Locmap.gss
+          - gss_reg # Locmap.gss_reg
+          - getpair_exten # Locmap.getpair_exten
+          - index_inj # Repeated twice in env IndexedTyp and IndexedSlot
+          - eq_refl
+          - eq_sym
+          - eq_trans
+          - lt_trans
       - path: backend/Selectionproof.v
         theorems:
           - set_optvar_lessdef
@@ -41,11 +40,11 @@ datasets:
           - val_inject_vptrofs
           - notbool_bool_val
           - cast_idempotent
-          - ArithConv.eq_int_type
-          - ArithConv.typeconv_integer_promotion
+          - eq_int_type # In env ArithConv
+          - typeconv_integer_promotion
       - path: common/Globalenvs.v
         theorems:
-          - shift_symbol_address # Same theorem is repeated in multiple environments, we prove it once only.
+          - shift_symbol_address # Same theorem is repeated in multiple environments Senv and Genv, we prove it once only.
           - shift_symbol_address_32
           - shift_symbol_address_64
           # - Obligation4
