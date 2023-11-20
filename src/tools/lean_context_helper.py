@@ -172,13 +172,13 @@ class Lean3ContextHelper(object):
         relevant_thms = self.search_executor.search_type_matching_defns("") # Here the search simply returns everything
         # Add all lemma references to unique_defns
         for thm in relevant_thms:
-            thm_name = f"[{thm.namespace}] {thm.name}"
+            thm_name = f"{thm.namespace}.{thm.name}"
             if thm.name not in unique_thms:
                 _idx = len(training_data_point.all_useful_defns_theorems)
                 unique_thms[thm_name] = _idx
                 training_data_point.all_useful_defns_theorems.append(LemmaReferences(_idx, thm_name, thm.dfn))
         for _, goal in enumerate(training_data_point.start_goals):
-            goal.possible_useful_theorems_external = [LemmaRefWithScore(unique_thms[f"[{thm.namespace}] {thm.name}"], 1.0) for thm in relevant_thms]
+            goal.possible_useful_theorems_external = [LemmaRefWithScore(unique_thms[f"{thm.namespace}.{thm.name}"], 1.0) for thm in relevant_thms]
             goal.possible_useful_theorems_local = []
         # Use the hypothesis to find the definition
         # Recursively find the definition of the definition to a fixed depth

@@ -47,7 +47,6 @@ class Lean3Bm25ReRanker(ReRanker):
         assert self._responses is not None, "Responses not set. Please call reindex(responses) first."
         assert self.bm25 is not None, "BM25 not initialized. Please call reindex(responses) first."
         query_tokens = list(Lean3Executor.tokenize(query))
-        print(f"Query: {query_tokens}")
         scores = self.bm25.get_scores(query_tokens)
         return [float(score) for score in scores]
     
@@ -59,8 +58,9 @@ class Lean3Bm25ReRanker(ReRanker):
 if __name__ == "__main__":
     from src.lean_server.lean3_search_tool import Lean3SearchTool
     from src.tools.lean_cmd_executor import Constants
-    lean3_search_tool = Lean3SearchTool()
-    mathlib_src_path = "data/test/lean_proj/_target/deps/mathlib/src"
+    mathlib_path = "data/benchmarks/miniF2F/_target/deps/mathlib"
+    lean3_search_tool = Lean3SearchTool(mathlib_path=mathlib_path)
+    lean3_search_tool.initialize()
     # for root, dirs, files in os.walk(mathlib_src_path):
     #     for file in files:
     #         if file.endswith(".lean"):
@@ -68,15 +68,6 @@ if __name__ == "__main__":
     #             namespace = namespace.replace("/", ".")
     #             namespace = namespace + "." + file.replace(".lean", "")
     #             lean3_search_tool.add(os.path.join(root, file), namespace)
-    lean_lib_path = Lean3Utils.get_lean_lib_path()
-    for root, dirs, files in os.walk(lean_lib_path):
-        for file in files:
-            if file.endswith(".lean"):
-                namespace = root.split(lean_lib_path)[1].strip("/")
-                namespace = namespace.replace("/", ".")
-                namespace = namespace + "." + file.replace(".lean", "")
-                lean3_search_tool.add(os.path.join(root, file), namespace)
-    lean3_search_tool.keep_only_namespaces(["data.nat.basic"])
     lean3_bm25_reranker = Lean3Bm25ReRanker()
     lean3_bm25_reranker.reindex([str(lemma) for lemma in lean3_search_tool.lemmas])
     inp = ""

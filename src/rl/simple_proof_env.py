@@ -169,6 +169,16 @@ class ProofEnv(Env):
             except Exception:
                 pass
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
+        if self.dynamic_proof_executor_callback.language == ProofAction.Language.LEAN:
+            lean_proof_executor = self._dynamic_proof_executor
+            # Initialize the lemma search
+            if self._always_retrieve_thms and \
+            str(self.language) == str(self.dynamic_proof_executor_callback.language) and \
+            len(self._re_ranker.responses) == 0: # This is done only once
+                search_tool = lean_proof_executor.lean_context_helper.search_executor._search_tool
+                if len(search_tool.lemmas) > 0:
+                    all_lemmas = [str(lemma) for lemma in search_tool.lemmas]
+                    self._re_ranker.reindex(all_lemmas)
         # if isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
         #     self._always_retrieve_thms = False # Lean does not support retrieval of theorems as of now
         self._dynamic_proof_executor.__enter__()
@@ -357,10 +367,13 @@ class ProofEnv(Env):
         self.retrieve_strategy == ProofEnvReRankStrategy.BM25_ONLY_LOCAL_NO_DFNS
         relevant_defns_thms = self._dynamic_proof_executor.get_all_relevant_defns_and_thms(should_print_symbol, only_local)
         if should_have_relevant_dfns:
-            for goal in relevant_defns_thms.start_goals:
-                query = goal.goal
+            for idx, goal in enumerate(relevant_defns_thms.start_goals):
+                query = relevant_defns_thms.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
                 responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.relevant_defns]
-                response_scores = self._re_ranker.rerank(query, responses)
+                if len(self._re_ranker.responses) > 0 and len(responses) == len(self._re_ranker.responses):
+                    response_scores = self._re_ranker.get_scores(query) # When the response are globally same
+                else:
+                    response_scores = self._re_ranker.rerank(query, responses)
                 relevant_defns_idx = [(idx, score) for idx, score in enumerate(response_scores)]
                 relevant_defns_idx.sort(key=lambda x: x[1], reverse=True)
                 relevant_defns_reranked = [goal.relevant_defns[idx] for idx, _ in relevant_defns_idx]
@@ -372,15 +385,21 @@ class ProofEnv(Env):
             for goal in relevant_defns_thms.start_goals:
                 goal.relevant_defns = []
 
-        for goal in relevant_defns_thms.start_goals:
-            query = goal.goal
+        for idx, goal in enumerate(relevant_defns_thms.start_goals):
+            query = relevant_defns_thms.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
             local_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
             if self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_ONLY_LOCAL:
                 global_responses = []
             else:
                 global_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
-            local_scores = self._re_ranker.rerank(query, local_responses)
-            global_scores = self._re_ranker.rerank(query, global_responses)
+            if len(self._re_ranker.responses) > 0 and len(local_responses) == len(self._re_ranker.responses):
+                local_scores = self._re_ranker.get_scores(query)
+            else:
+                local_scores = self._re_ranker.rerank(query, local_responses)
+            if len(self._re_ranker.responses) > 0 and len(global_responses) == len(self._re_ranker.responses):
+                global_scores = self._re_ranker.rerank(query, global_responses)
+            else:
+                global_scores = self._re_ranker.rerank(query, global_responses)
             local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
             global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
             local_idx.sort(key=lambda x: x[1], reverse=True)

@@ -18,99 +18,8 @@ from collections import OrderedDict
 from src.tools.lean_parse_utils import LeanLineByLineReader
 from src.lean_server.lean_cmd_server import LeanCmdServer
 from src.lean_server.lean_utils import Lean3Utils
-from src.lean_server.lean3_search_tool import Lean3Lemma, Lean3SearchTool
+from src.lean_server.lean3_search_tool import Constants, Lean3Lemma, Lean3SearchTool
 logger = logging.getLogger()
-
-class Constants(object):
-    minif2f_namespaces = [
-        "algebra.algebra.basic",
-        "algebra.order.floor",
-        "algebra.associated",
-        "algebra.big_operators.basic",
-        "algebra.big_operators.enat",
-        "algebra.big_operators.order",
-        "algebra.big_operators.pi",
-        "algebra.geom_sum",
-        "algebra.group.pi",
-        "algebra.group.commute",
-        "algebra.group_power.basic",
-        "algebra.group_power.identities",
-        "algebra.order.floor",
-        "algebra.quadratic_discriminant",
-        "algebra.ring.basic",
-        "analysis.asymptotics.asymptotic_equivalent",
-        "analysis.mean_inequalities",
-        "analysis.normed_space.basic",
-        "analysis.inner_product_space.basic",
-        "analysis.inner_product_space.euclidean_dist",
-        "analysis.normed_space.pi_Lp",
-        "analysis.special_functions.exp",
-        "analysis.special_functions.exp_deriv",
-        "analysis.special_functions.log",
-        "analysis.special_functions.logb",
-        "analysis.special_functions.log_deriv",
-        "analysis.special_functions.pow",
-        "analysis.special_functions.sqrt",
-        "analysis.special_functions.trigonometric.basic",
-        "analysis.special_functions.trigonometric.complex",
-        "combinatorics.simple_graph.basic",
-        "data.complex.basic",
-        "data.complex.exponential",
-        "data.finset.basic",
-        "data.fintype.card",
-        "data.int.basic",
-        "data.int.gcd",
-        "data.int.modeq",
-        "data.int.parity",
-        "data.list.intervals",
-        "data.list.palindrome",
-        "data.multiset.basic",
-        "data.nat.basic",
-        "data.nat.choose.basic",
-        "data.nat.digits",
-        "data.nat.factorial.basic",
-        "data.nat.fib",
-        "data.nat.modeq",
-        "data.nat.multiplicity",
-        "data.nat.parity",
-        "data.nat.prime",
-        "data.pnat.basic",
-        "data.pnat.prime",
-        "data.polynomial",
-        "data.polynomial.basic",
-        "data.polynomial.eval",
-        "data.rat.basic",
-        "data.real.basic",
-        "data.real.ennreal",
-        "data.real.irrational",
-        "data.real.nnreal",
-        "data.real.sqrt",
-        "data.real.golden_ratio",
-        "data.set.finite",
-        "data.sym.sym2",
-        "data.zmod.basic",
-        "dynamics.fixed_points.basic",
-        "field_theory.finite.basic",
-        "geometry.euclidean.basic",
-        "geometry.euclidean.circumcenter",
-        "geometry.euclidean.monge_point",
-        "geometry.euclidean.sphere",
-        "init.data.nat.gcd",
-        "linear_algebra.affine_space.affine_map",
-        "linear_algebra.affine_space.independent",
-        "linear_algebra.affine_space.ordered",
-        "linear_algebra.finite_dimensional",
-        "logic.equiv.basic",
-        "measure_theory.integral.interval_integral",
-        "number_theory.arithmetic_function",
-        "number_theory.legendre_symbol.quadratic_reciprocity",
-        "number_theory.primes_congruent_one",
-        "order.bounds",
-        "order.filter.basic",
-        "order.well_founded",
-        "topology.basic",
-        "topology.instances.nnreal"
-    ]
 
 class Obligation(typing.NamedTuple):
     hypotheses: typing.List[str]
@@ -261,7 +170,7 @@ class Lean3Executor(object):
             self._mathlib_root = os.path.join(self.project_root, "_target", "deps", "mathlib")
         self._mathlib_src_root = os.path.join(self._mathlib_root, "src")
         self._enable_search = enable_search
-        self._namespaces = namespaces if namespaces is not None else Constants.minif2f_namespaces
+        self._namespaces = namespaces if namespaces is not None else Constants.lean_useful_imports + Constants.mathlib_useful_imports
         if self._enable_search:
             self._search_tool = Lean3Executor._init_search(self._mathlib_root, self._namespaces)
             assert self._search_tool is not None, "Search tool cannot be None"
@@ -273,32 +182,12 @@ class Lean3Executor(object):
         assert os.path.isdir(mathlib_root), f"Mathlib root {mathlib_root} is not a directory"
         if mathlib_root in Lean3Executor.search_tools:
             search_tool = Lean3Executor.search_tools[mathlib_root]
-            deep_copy = copy.deepcopy(search_tool)
-            return deep_copy
         else:
-            mathlib_root_src = os.path.join(mathlib_root, "src")
-            assert os.path.exists(mathlib_root_src), f"Mathlib root src {mathlib_root_src} does not exist"
-            assert os.path.isdir(mathlib_root_src), f"Mathlib root src {mathlib_root_src} is not a directory"
-            lean_lib_dir = Lean3Utils.get_lean_lib_path()
-            search_tool = Lean3SearchTool()
-            for root, _, files in os.walk(mathlib_root_src):
-                for file in files:
-                    if file.endswith(".lean"):
-                        namespace = root.split(mathlib_root_src)[1].strip("/")
-                        namespace = namespace.replace("/", ".")
-                        namespace = namespace + "." + file.replace(".lean", "")
-                        if any([namespace.startswith(ns) for ns in namespaces]):
-                            search_tool.add(os.path.join(root, file), namespace)
-            for root, _, files in os.walk(lean_lib_dir):
-                for file in files:
-                    if file.endswith(".lean"):
-                        namespace = root.split(lean_lib_dir)[1].strip("/")
-                        namespace = namespace.replace("/", ".")
-                        namespace = namespace + "." + file.replace(".lean", "")
-                        search_tool.add(os.path.join(root, file), namespace)
+            search_tool = Lean3SearchTool(mathlib_root, imports=namespaces)
+            search_tool.initialize()
             Lean3Executor.search_tools[mathlib_root] = search_tool
-            deep_copy = copy.deepcopy(search_tool)
-            return deep_copy
+        deep_copy = copy.deepcopy(search_tool)
+        return deep_copy
 
     def __enter__(self):
         self.lean_server = LeanCmdServer(memory_in_mibs=self._max_memory_in_mib, cwd=self.project_root, debug=False)
@@ -413,7 +302,9 @@ class Lean3Executor(object):
     def tokenize(stmt: str) -> typing.Generator[str, None, None]:
         for tok in re.split(Lean3Executor.get_token_separator_regex(), stmt):
             tok1 = tok.strip()
-            if len(tok1) > 0 and tok1 not in Lean3Executor.keywords:
+            if len(tok1) > 0 and \
+            tok1 not in Lean3Executor.keywords and \
+            not (len(tok1) == 1 and tok1.isascii() and tok1.isalpha()):
                 yield tok1
 
     # Make this chacheable
