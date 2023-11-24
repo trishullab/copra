@@ -90,6 +90,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             timeout_in_secs=eval_settings.timeout_in_secs,
             use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
             suppress_error_log=True,
+            always_use_retrieval=eval_settings.always_use_useful_theorem_retrieval,
             logger=logger)
         def _get_all_lemmas(ret_dict, logger):
             try:

@@ -22,6 +22,16 @@ class GptAccess(object):
             "request_limit_per_min": 100,
             "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
         },
+        "gpt-4-0314": {
+            "token_limit_per_min": 20000,
+            "request_limit_per_min": 100,
+            "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
+        },
+        "gpt-4-0613": {
+            "token_limit_per_min": 20000,
+            "request_limit_per_min": 100,
+            "max_token_per_prompt": int(7.75*2**10) # less than 8k because additional tokens are added at times
+        },
         "gpt-4-1106-preview": {
             "token_limit_per_min": 150000,
             "request_limit_per_min": 20,

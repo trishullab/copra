@@ -357,6 +357,14 @@ class CoqExecutor:
                 return self.coq.cur_lemma
             except:
                 return None
+    
+    def get_current_lemma_name(self) -> typing.Optional[str]:
+        if not self.is_in_proof_mode():
+            return None
+        try:
+            return self.coq.cur_lemma_name
+        except:
+            return None
 
 class CoqStdInOutExecutor:
     def __init__(self):

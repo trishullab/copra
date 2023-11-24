@@ -19,6 +19,7 @@ from src.tools.training_data_format import TrainingDataFormat
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
+from src.retrieval.lean3_bm25_reranker import Lean3Bm25ReRanker
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from enum import Enum
@@ -59,6 +60,7 @@ class ProofEnv(Env):
     max_depth_penalty = -0.1
     max_proof_completion_reward = 1.0
     progress_reward = 0.2
+    _re_ranker = None
     def __init__(self, 
         name: str, 
         dynamic_proof_executor_callback: ProofExecutorCallback,
@@ -93,7 +95,14 @@ class ProofEnv(Env):
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_ONLY_LOCAL_NO_DFNS or \
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_ONLY_LOCAL_NO_DFNS or \
             self.retrieve_strategy == ProofEnvReRankStrategy.BM25_NO_DFNS:
-            self._re_ranker = CoqBm25ReRanker()
+            if ProofEnv._re_ranker is None or str(self.language) != ProofEnv._re_ranker.language:
+                if self.language == ProofAction.Language.COQ:
+                    ProofEnv._re_ranker = CoqBm25ReRanker(language=str(self.language))
+                elif self.language == ProofAction.Language.LEAN:
+                    ProofEnv._re_ranker = Lean3Bm25ReRanker(language=str(self.language))
+                else:
+                    raise NotImplementedError(f"Language {self.language} not implemented")
+            self._re_ranker = ProofEnv._re_ranker
         else:
             raise NotImplementedError(f"Retrieval strategy {self.retrieve_strategy} not implemented")
         self.logger = logger if logger is not None else logging.getLogger(__name__)
@@ -133,7 +142,8 @@ class ProofEnv(Env):
         current_goals = copy.deepcopy(current_goals)
         current_proof_tree = copy.deepcopy(self._p_tree)
         lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
-        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt) # always make a copy of goals to avoid side effects
+        lemma_name = self._dynamic_proof_executor.get_current_lemma_name()
+        state = ProofState(current_goals, language=self.language, theorem_statement_with_name=lemma_stmt, theorem_name=lemma_name) # always make a copy of goals to avoid side effects
         state.proof_tree = current_proof_tree
         state.was_reset = len(self._history) == 0
         return state
@@ -159,8 +169,18 @@ class ProofEnv(Env):
             except Exception:
                 pass
         self._dynamic_proof_executor = self.dynamic_proof_executor_callback.get_proof_executor()
-        if isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
-            self._always_retrieve_thms = False # Lean does not support retrieval of theorems as of now
+        if self.dynamic_proof_executor_callback.language == ProofAction.Language.LEAN:
+            lean_proof_executor = self._dynamic_proof_executor
+            # Initialize the lemma search
+            if self._always_retrieve_thms and \
+            str(self.language) == str(self.dynamic_proof_executor_callback.language) and \
+            len(self._re_ranker.responses) == 0: # This is done only once
+                search_tool = lean_proof_executor.lean_context_helper.search_executor._search_tool
+                if len(search_tool.lemmas) > 0:
+                    all_lemmas = [str(lemma) for lemma in search_tool.lemmas]
+                    self._re_ranker.reindex(all_lemmas)
+        # if isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
+        #     self._always_retrieve_thms = False # Lean does not support retrieval of theorems as of now
         self._dynamic_proof_executor.__enter__()
         self._history.clear()
         self._p_tree = ProofTree()
@@ -347,10 +367,13 @@ class ProofEnv(Env):
         self.retrieve_strategy == ProofEnvReRankStrategy.BM25_ONLY_LOCAL_NO_DFNS
         relevant_defns_thms = self._dynamic_proof_executor.get_all_relevant_defns_and_thms(should_print_symbol, only_local)
         if should_have_relevant_dfns:
-            for goal in relevant_defns_thms.start_goals:
-                query = goal.goal
+            for idx, goal in enumerate(relevant_defns_thms.start_goals):
+                query = relevant_defns_thms.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
                 responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.relevant_defns]
-                response_scores = self._re_ranker.rerank(query, responses)
+                if len(self._re_ranker.responses) > 0 and len(responses) == len(self._re_ranker.responses):
+                    response_scores = self._re_ranker.get_scores(query) # When the response are globally same
+                else:
+                    response_scores = self._re_ranker.rerank(query, responses)
                 relevant_defns_idx = [(idx, score) for idx, score in enumerate(response_scores)]
                 relevant_defns_idx.sort(key=lambda x: x[1], reverse=True)
                 relevant_defns_reranked = [goal.relevant_defns[idx] for idx, _ in relevant_defns_idx]
@@ -362,15 +385,21 @@ class ProofEnv(Env):
             for goal in relevant_defns_thms.start_goals:
                 goal.relevant_defns = []
 
-        for goal in relevant_defns_thms.start_goals:
-            query = goal.goal
+        for idx, goal in enumerate(relevant_defns_thms.start_goals):
+            query = relevant_defns_thms.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
             local_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_local]
             if self.retrieve_strategy == ProofEnvReRankStrategy.BM25_WITH_PRINT_ONLY_LOCAL:
                 global_responses = []
             else:
                 global_responses = [str(relevant_defns_thms.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in goal.possible_useful_theorems_external]
-            local_scores = self._re_ranker.rerank(query, local_responses)
-            global_scores = self._re_ranker.rerank(query, global_responses)
+            if len(self._re_ranker.responses) > 0 and len(local_responses) == len(self._re_ranker.responses):
+                local_scores = self._re_ranker.get_scores(query)
+            else:
+                local_scores = self._re_ranker.rerank(query, local_responses)
+            if len(self._re_ranker.responses) > 0 and len(global_responses) == len(self._re_ranker.responses):
+                global_scores = self._re_ranker.rerank(query, global_responses)
+            else:
+                global_scores = self._re_ranker.rerank(query, global_responses)
             local_idx = [(idx, score) for idx, score in enumerate(local_scores)]
             global_idx = [(idx, score) for idx, score in enumerate(global_scores)]
             local_idx.sort(key=lambda x: x[1], reverse=True)
@@ -509,19 +538,22 @@ if __name__ == "__main__":
         )
         theorem_name = "algb_add_comm"
         language = ProofAction.Language.COQ
+        always_retrieve_thms = False
     elif inp == 'lean':
         proof_exec_callback = ProofExecutorCallback(
             project_folder="data/benchmarks/miniF2F",
             file_path="data/benchmarks/miniF2F/lean/src/test.lean",
-            language=ProofAction.Language.LEAN
+            language=ProofAction.Language.LEAN,
+            always_use_retrieval=True
         )
         theorem_name = "mathd_algebra_478"
         language = ProofAction.Language.LEAN
+        always_retrieve_thms = True
         pass
     else:
         raise Exception(f"Invalid input {inp} for choosing coq/lean")
     logger = logging.getLogger(__name__)
-    with ProofEnv("test", proof_exec_callback, theorem_name, max_proof_depth=10, logger=logger) as env:
+    with ProofEnv("test", proof_exec_callback, theorem_name, max_proof_depth=10, always_retrieve_thms=always_retrieve_thms, logger=logger) as env:
         done = env.done
         action = scan_action(language)
         while action.action_type != ProofAction.ActionType.EXIT and not done:

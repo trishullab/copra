@@ -1,0 +1,73 @@
+name: reprover_with_retrieval
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval: 
+few_shot_metadata_filename_for_retrieval: 
+dfs_data_path_for_retrieval: 
+dfs_metadata_filename_for_retrieval: 
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+          - aime_1989_p8
+          - amc12a_2021_p9
+          - amc12b_2002_p2
+          - amc12b_2020_p2
+          - mathd_algebra_107
+          - mathd_algebra_125
+          - mathd_algebra_129
+          - mathd_algebra_139
+          - mathd_algebra_142
+          - mathd_algebra_143
+          - mathd_algebra_148
+          - mathd_algebra_160
+          - mathd_algebra_171
+          - mathd_algebra_176
+          - mathd_algebra_188
+          - mathd_algebra_24
+          - mathd_algebra_246
+          - mathd_algebra_270
+          - mathd_algebra_275
+          - mathd_algebra_302
+          - mathd_algebra_304
+          - mathd_algebra_329
+          - mathd_algebra_33
+          - mathd_algebra_346
+          - mathd_algebra_354
+          - mathd_algebra_359
+          - mathd_algebra_388
+          - mathd_algebra_400
+          - mathd_algebra_412
+          - mathd_algebra_419
+          - mathd_algebra_432
+          - mathd_algebra_44
+          - mathd_algebra_440
+          - mathd_algebra_441
+          - mathd_algebra_478
+          - mathd_algebra_513
+          - mathd_algebra_76
+          - mathd_numbertheory_1124
+          - mathd_numbertheory_12
+          - mathd_numbertheory_127
+          - mathd_numbertheory_175
+          - mathd_numbertheory_207
+          - mathd_numbertheory_212
+          - mathd_numbertheory_229
+          - mathd_numbertheory_235
+          - mathd_numbertheory_239
+          - mathd_numbertheory_254
+          - mathd_numbertheory_293
+          - mathd_numbertheory_299
+          - mathd_numbertheory_3
+          - mathd_numbertheory_341
+          - mathd_numbertheory_342
+          - mathd_numbertheory_343
+          - mathd_numbertheory_345
+          - mathd_numbertheory_447
+          - mathd_numbertheory_517
+          - mathd_numbertheory_551
+          - mathd_numbertheory_66
+          - mathd_numbertheory_728
+          - mathd_numbertheory_769
+          - mathd_numbertheory_85

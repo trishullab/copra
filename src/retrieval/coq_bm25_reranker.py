@@ -9,6 +9,7 @@ if root_dir not in sys.path:
 import os
 import logging
 import typing
+import copy
 from rank_bm25 import BM25Okapi
 from src.tools.coq_executor import CoqExecutor
 from src.tools.training_data import TrainingData
@@ -16,12 +17,22 @@ from src.tools.training_data_format import TrainingDataFormat
 from src.retrieval.abstraction import ReRanker
 
 class CoqBm25ReRanker(ReRanker):
-    def __init__(self, k1: float = 1.0, b: float = 0.75, epsilon: float = 0.25) -> None:
+    def __init__(self, k1: float = 1.0, b: float = 0.75, epsilon: float = 0.25, language: str = '') -> None:
         super().__init__()
         self.bm25: BM25Okapi = None
         self.k1 = k1
         self.b = b
         self.epsilon = epsilon
+        self._responses = None
+        self._language = language
+    
+    @property
+    def language(self) -> str:
+        return self._language
+    
+    @property
+    def responses(self) -> typing.List[str]:
+        return self._responses if self._responses is not None else []
 
     def rerank(self, query: str, responses: typing.List[str]) -> typing.List[float]:
         tokenized_index_data = [list(CoqExecutor.tokenize(response)) for response in responses]
@@ -34,6 +45,18 @@ class CoqBm25ReRanker(ReRanker):
         query_tokens = list(CoqExecutor.tokenize(query))
         scores = bm25.get_scores(query_tokens)
         return [float(score) for score in scores]
+
+    def get_scores(self, query: str) -> typing.List[float]:
+        assert self._responses is not None, "Responses not set. Please call reindex(responses) first."
+        assert self.bm25 is not None, "BM25 not initialized. Please call reindex(responses) first."
+        query_tokens = list(CoqExecutor.tokenize(query))
+        scores = self.bm25.get_scores(query_tokens)
+        return [float(score) for score in scores]
+    
+    def reindex(self, responses: typing.List[str]) -> None:
+        self._responses = copy.deepcopy(responses)
+        tokenized_index_data = [list(CoqExecutor.tokenize(response)) for response in responses]
+        self.bm25 = BM25Okapi(tokenized_index_data, k1=self.k1, b=self.b)
 
 class CoqBM25TrainingDataRetriever(object):
     def __init__(self, 

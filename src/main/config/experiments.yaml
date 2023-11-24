@@ -1,8 +1,13 @@
 defaults:
-  - benchmark: stack_machine
+  # - benchmark: stack_machine
+  # - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  # - env_settings: bm25_retrieval_only_local_no_dfns
+  # - prompt_settings: coq_dfs_always_retrieve_stack_machine
+  # - override hydra/job_logging: 'disabled'
+  - benchmark: simple_benchmark_lean
   - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
-  - env_settings: bm25_retrieval_only_local_no_dfns
-  - prompt_settings: coq_dfs_always_retrieve_stack_machine
+  - env_settings: bm25_retrieval
+  - prompt_settings: lean_dfs
   - override hydra/job_logging: 'disabled'
 
 # To run this experiment, execute the following command:

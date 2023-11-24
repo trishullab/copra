@@ -90,8 +90,11 @@ class FewShotGptPolicy(Policy):
                     lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
                 )
             elif self.language == ProofAction.Language.LEAN:
+                theorem_statement_with_name = state.theorem_statement_with_name
+                # Replace the theorem name with the some anonymous name
+                theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
                 gpt_response = FewShotGptResponse(
-                    theorem=state.theorem_statement_with_name,
+                    theorem=theorem_statement_with_name,
                     defintions=[],
                     lemmas=[],
                 )
