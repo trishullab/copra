@@ -1,0 +1,5 @@
+{
+    "problem_name": "ab_square",
+    "informal_statement": "For all real numbers $a$ and $b$, $(a + b)^2 = a^2 + b^2 + 2ab$.",
+    "informal_proof": "Let $a$ and $b$ be real numbers. Then $(a + b)^2 = (a + b)(a + b) = a(a + b) + b(a + b) = a^2 + ab + ba + b^2 = a^2 + 2ab + b^2$."
+}

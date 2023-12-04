@@ -6,12 +6,15 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
+import os
+import json
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from enum import Enum
 from src.rl.proof_tree import ProofSearchResult
 from src.rl.proof_action import ProofAction
 from src.rl.simple_proof_env import ProofEnvReRankStrategy
+from src.tools.informal_proof_repo import InformalProofRepo
 
 class SettingType(Enum):
     Agent = "Agent"
@@ -24,6 +27,7 @@ class PolicyName(Enum):
     # WARN: Don't make enums dataclasses because deserialization has some weird bug which matches the deserialized enum to all the enum values
     Dfs = "Dfs"
     FewShot = "FewShot"
+    InformalFewShot = "InformalFewShot"
 
     def __str__(self):
         return self.value
@@ -40,6 +44,33 @@ class PromptSettings(object):
     name: str
     main_prompt: str
     conv_prompt: str
+    informal_proof_repo: str = None
+
+    def get_informal_proof_repo(self) -> InformalProofRepo:
+        # Check if self has _informal_proof_repo
+        if hasattr(self, "_informal_proof_repo"):
+            return self._informal_proof_repo
+        # Add informal proofs attributes to self
+        if self.informal_proof_repo is None:
+            self._informal_proof_repo = InformalProofRepo()
+        else:
+            informal_proof_repo = InformalProofRepo()
+            if os.path.isdir(self.informal_proof_repo):
+                # Get all the files in the directory
+                for file in os.listdir(self.informal_proof_repo):
+                    if file.endswith(".json"):
+                        # Open the file and read the json
+                        with open(os.path.join(self.informal_proof_repo, file), "r") as f:
+                            file_content = f.read()
+                            json_content = json.loads(file_content)
+                        informal_proof_repo.add_informal_thm_proof(json_content['problem_name'], json_content['informal_statement'], json_content['informal_proof'])
+            elif os.path.isfile(self.informal_proof_repo):
+                # Open the file and read the json
+                informal_proof_repo = InformalProofRepo.load_from_file(self.informal_proof_repo)
+            else:
+                raise Exception(f"Invalid informal proof repo path: {self.informal_proof_repo}")
+            self._informal_proof_repo = informal_proof_repo
+        return self._informal_proof_repo
 
 @dataclass_json
 @dataclass
@@ -143,7 +174,8 @@ def parse_config(cfg):
     prompt_settings = PromptSettings(
         name=prompt_settings_cfg["name"],
         main_prompt=prompt_settings_cfg["main_prompt"],
-        conv_prompt=prompt_settings_cfg["conv_prompt"])
+        conv_prompt=prompt_settings_cfg["conv_prompt"],
+        informal_proof_repo=prompt_settings_cfg["informal_proof_repo"])
     eval_settings_cfg = cfg["eval_settings"]
     eval_settings = EvalSettings(
         name=eval_settings_cfg["name"],

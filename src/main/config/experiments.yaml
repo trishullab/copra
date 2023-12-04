@@ -5,10 +5,13 @@ defaults:
   # - prompt_settings: coq_dfs_always_retrieve_stack_machine
   # - override hydra/job_logging: 'disabled'
   - benchmark: simple_benchmark_lean
-  - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  - eval_settings: n_4_informal_gpt35
   - env_settings: bm25_retrieval
-  - prompt_settings: lean_dfs
+  - prompt_settings: lean_few_shot_informal
   - override hydra/job_logging: 'disabled'
+
+prompt_settings:
+  informal_proof_repo: data/test/informal_lean_proj
 
 # To run this experiment, execute the following command:
 

@@ -16,6 +16,7 @@ from src.prompt_generator.prompter import PolicyPrompter
 from src.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
 from src.rl.abstraction import Policy
 from src.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
+from src.tools.informal_proof_repo import InformalProofRepo
 
 class TreeSearchActionType(Enum):
     # The action to generate a summary prompt
@@ -144,13 +145,15 @@ class TreeSearchAlgorithm(ABC):
         pass
 
 class GptGuidedTreeSearchPolicy(Policy):
-    def __init__(self, 
+    def __init__(self,
+        lemma_name: str, 
         checkpoint_dir: str, 
         checkpoint_filename: str,
         policy_prompter: PolicyPrompter,
         tree_search_algorithm: TreeSearchAlgorithm, 
         checkpoint_on_exit: bool = True,
-        language: ProofAction.Language = ProofAction.Language.COQ):
+        language: ProofAction.Language = ProofAction.Language.COQ,
+        informal_proof_repo: typing.Optional[InformalProofRepo] = None):
         assert tree_search_algorithm is not None, "Tree search algorithm cannot be None"
         assert policy_prompter is not None, "Policy prompter cannot be None"
         os.path.exists(checkpoint_dir), f"Checkpoint file {checkpoint_dir} does not exist"
@@ -164,6 +167,8 @@ class GptGuidedTreeSearchPolicy(Policy):
         self._policy_prompter = policy_prompter
         self._loaded = False
         self.language = language
+        self.lemma_name = lemma_name
+        self.informal_proof_repo = informal_proof_repo
     
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
@@ -224,7 +229,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         checkpoint_filename_without_ext, ext = os.path.splitext(self.checkpoint_filename)
         checkpoint_filename = f"{checkpoint_filename_without_ext}-{guid}.{ext}"
         self._checkpoint_in_file(os.path.join(self.checkpoint_dir, checkpoint_filename))
-        copy_obj = GptGuidedTreeSearchPolicy(self.checkpoint_dir, checkpoint_filename)
+        copy_obj = GptGuidedTreeSearchPolicy(checkpoint_filename, self.checkpoint_dir, checkpoint_filename)
         return copy_obj
 
     def _checkpoint_in_file(self, checkpoint_path: str):

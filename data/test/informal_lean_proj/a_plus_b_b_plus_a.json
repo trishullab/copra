@@ -1,0 +1,5 @@
+{
+    "problem_name": "a_plus_b_b_plus_a",
+    "informal_statement": "Prove that for any two natural numbers $a$ and $b$, $a + b = b + a$.",
+    "informal_proof": "This can be proved using basic properties of natural numbers."
+}

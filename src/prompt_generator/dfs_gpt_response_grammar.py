@@ -27,6 +27,8 @@ class CoqGptResponse(object):
     error_message: typing.Optional[str] = None
     last_step: typing.Optional[str] = None
     training_data_format: typing.Optional[TrainingDataFormat] = None
+    informal_proof: typing.Optional[str] = None
+    informal_theorem: typing.Optional[str] = None
 
 class CoqGPTResponseDfsGrammar(Grammar):
     grammar = """

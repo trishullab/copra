@@ -29,6 +29,7 @@ class ProofAction(Action):
         BACKTRACK = 'BACKTRACK'
         EXIT = 'EXIT'
         NONE = 'NONE'
+        INFORMAL = 'INFORMAL'
 
         @staticmethod
         def get_order(action_type: 'ProofAction.ActionType'):
@@ -80,6 +81,8 @@ class ProofAction(Action):
             assert len(self.kwargs["tactics"]) > 0, f"kwargs['tactics'] must be a non-empty list"
             for tactic in self.kwargs["tactics"]:
                 assert isinstance(tactic, str), f"kwargs['tactics'] must be of type str, not {type(tactic)}"
+        elif self.action_type == ProofAction.ActionType.INFORMAL:
+            assert "proof" in self.kwargs, f"kwargs must contain a 'proof' key for action_type {self.action_type}"
         else:
             assert len(self.kwargs) == 0, f"kwargs must be empty for action_type {self.action_type}"
         self._post_init()
@@ -97,6 +100,8 @@ class ProofAction(Action):
                 # reader = LeanLineByLineReader(file_content=all_tactics)
                 tactics = [all_tactics]
                 self.kwargs['tactics'] = tactics
+        elif type == ProofAction.ActionType.INFORMAL:
+            self.kwargs['tactics'] = [self.kwargs['proof']]
         self.original_message : typing.Any = None
         pass
 
