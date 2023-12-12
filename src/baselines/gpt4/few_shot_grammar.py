@@ -22,14 +22,16 @@ class FewShotGptCoqKeywords(object):
     END = "[END]"
 
 class FewShotGptLeanKeywords(object):
-    PROOF = "begin"
-    QED = "end"
+    PROOF = "[PROOF]"
+    QED = "[END]"
     THEOREM = "[THEOREM]"
     DEFINITION = "[DEFINITION]"
     DEFINITIONS = "[DEFINITIONS]"
     LEMMAS = "[LEMMAS]"
     LEMMA = "[LEMMA]"
     END = "[END]"
+    INFORMAL_THEOREM = "[INFORMAL-THEOREM]"
+    INFORMAL_PROOF = "[INFORMAL-PROOF]"
 
 @dataclass_json
 @dataclass
@@ -43,12 +45,15 @@ class FewShotGptResponse(object):
     theorem: str
     defintions: typing.List[str] = field(default_factory=list)
     lemmas: typing.List[str] = field(default_factory=list)
+    informal_theorem: typing.Optional[str] = None
+    informal_proof: typing.Optional[str] = None
 
 class FewShotGptResponseGrammar(Grammar):
     grammar = f"""
 Prog:
   Thm String End
-| Thm String DfnsResponses LmsResponses End;
+| Thm String DfnsResponses LmsResponses End
+| Thm String InfThm String InfPrf String End;
 DfnsResponses:
     Dfns DfnResponses
 |   EMPTY;
@@ -80,7 +85,7 @@ LmResponse:
         if language == ProofAction.Language.COQ:
             self.keywords = [FewShotGptCoqKeywords.THEOREM, FewShotGptCoqKeywords.DEFINITION, FewShotGptCoqKeywords.DEFINITIONS, FewShotGptCoqKeywords.LEMMA, FewShotGptCoqKeywords.LEMMAS, FewShotGptCoqKeywords.END]
         elif language == ProofAction.Language.LEAN:
-            self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END]
+            self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END, FewShotGptLeanKeywords.INFORMAL_THEOREM, FewShotGptLeanKeywords.INFORMAL_PROOF]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -105,7 +110,9 @@ Thm: "{FewShotGptLeanKeywords.THEOREM}";
 Dfn: "{FewShotGptLeanKeywords.DEFINITION}";
 Dfns: "{FewShotGptLeanKeywords.DEFINITIONS}";
 Lm: "{FewShotGptLeanKeywords.LEMMA}";
-Lms: "{FewShotGptLeanKeywords.LEMMAS}";
+Lms: "{FewShotGptLeanKeywords.LEMMAS}"
+InfThm: "{FewShotGptLeanKeywords.INFORMAL_THEOREM}"
+InfPrf: "{FewShotGptLeanKeywords.INFORMAL_PROOF}";
 String:;
 """
         else:
@@ -124,6 +131,8 @@ String:;
             self.DEFINITIONS = FewShotGptLeanKeywords.DEFINITIONS
             self.LEMMA = FewShotGptLeanKeywords.LEMMA
             self.LEMMAS = FewShotGptLeanKeywords.LEMMAS
+            self.INFORMAL_THEOREM = FewShotGptLeanKeywords.INFORMAL_THEOREM
+            self.INFORMAL_PROOF = FewShotGptLeanKeywords.INFORMAL_PROOF
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptResponseGrammar.grammar + terminals
@@ -136,7 +145,7 @@ String:;
         lines_map = {
             self.THEOREM : [],
             self.DEFINITIONS : [],
-            self.LEMMAS : []
+            self.LEMMAS : [],
         }
         lines_order = [
             self.THEOREM,
@@ -148,6 +157,23 @@ String:;
             self.DEFINITIONS,
             self.THEOREM
         ]
+        if self.language == ProofAction.Language.LEAN:
+            lines_map[self.INFORMAL_THEOREM] = []
+            lines_map[self.INFORMAL_PROOF] = []
+            lines_order = [
+                self.THEOREM,
+                self.INFORMAL_THEOREM,
+                self.INFORMAL_PROOF,
+                self.DEFINITIONS,
+                self.LEMMAS
+            ]
+            priority_order_lo_hi = [
+                self.LEMMAS,
+                self.DEFINITIONS,
+                self.INFORMAL_PROOF,
+                self.INFORMAL_THEOREM,
+                self.THEOREM
+            ]
         new_line = f"{self.THEOREM}\n{coq_gpt_response.theorem}"
         lines_map[self.THEOREM] = [new_line]
 
@@ -164,6 +190,15 @@ String:;
             if k is not None and idx >= k:
                 break
             lines_map[self.LEMMAS].append(f"{self.LEMMA} {lm}")
+        
+        if self.language == ProofAction.Language.LEAN:
+            if coq_gpt_response.informal_theorem is not None:
+                lines_map[self.INFORMAL_THEOREM] = ["\n" + self.INFORMAL_THEOREM]
+                lines_map[self.INFORMAL_THEOREM].append(coq_gpt_response.informal_theorem)
+            if coq_gpt_response.informal_proof is not None:
+                lines_map[self.INFORMAL_PROOF] = [self.INFORMAL_PROOF]
+                lines_map[self.INFORMAL_PROOF].append(coq_gpt_response.informal_proof)
+
         keywords = [keyword for keyword in lines_map.keys()]
         # Convert all the lines under each keyword to a single string
         for keyword in keywords:
@@ -246,7 +281,16 @@ String:;
     def _parse_expr(self, nonTerminal: str, nodes) -> FewShotGptRequest:
         if nonTerminal == "Prog":
             assert len(nodes) >= 3
-            actions = str(nodes[1]).strip() + f"\n{self.QED}"
+            if self.language == ProofAction.Language.COQ:
+                actions = str(nodes[1]).strip() + f"\n{self.QED}"
+            elif self.language == ProofAction.Language.LEAN:
+                actions = str(nodes[1]).strip()
+                if actions.startswith("begin"):
+                    actions = actions[len("begin"):]
+                if not actions.endswith("end"):
+                    actions += "end"
+            else:
+                raise NotImplementedError(f"language {self.language} not supported")
             proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=[actions])
             return FewShotGptRequest(action=proof_action, proof_string=actions)
         else:
@@ -271,7 +315,7 @@ String:;
             return self.defensive_parsing(message)
         else:
             return self.normal_parsing(message)
-    
+        
     def normal_parsing(self, message):
         message_temp = message
         message_temp += f"\n{self.QED}"
@@ -334,11 +378,13 @@ Qed."""
     print(run_result)
 
     code = """
+[PROOF]
 begin
   rw [h₂, h₃] at h₁,
   rw h₁,
   norm_num
 end
+[END]
 """
     grammar = FewShotGptRequestGrammar(language=ProofAction.Language.LEAN)
     result = grammar.compile(code)
@@ -360,7 +406,7 @@ end
     print(response_text)
     print('-' * 80)
 
-    response_grammar = FewShotGptResponseGrammar()
+    response_grammar = FewShotGptResponseGrammar(language=ProofAction.Language.LEAN)
     response = FewShotGptResponse(theorem="""
 some_random_theorem
   (b a x : ℝ)
@@ -372,6 +418,25 @@ some_random_theorem
 """, 
         defintions=[], 
         lemmas=[])
+    response_text = response_grammar.format_as_per_grammar(response, k=3)
+    print('-' * 80)
+    print(response_text)
+    print('-' * 80)
+
+    response = FewShotGptResponse(theorem="""
+some_random_theorem
+(a : ℕ) : a + 0 = a :=
+""", 
+        defintions=[], 
+        lemmas=[],
+        informal_theorem="""For any natural number a, prove that a + 0 = a.""",
+        informal_proof="""Let a be an arbitrary natural number.
+We must show that a + 0 = a. We will prove this by induction on a.
+First, suppose a = 0. We must show that 0 + 0 = 0. This follows directly from the definition of addition.
+Next, by induction hypothesis, suppose that a + 0 = a. We must show that (a + 1) + 0 = a + 1. 
+By associativity, (a + 1) + 0 = a + (1 + 0).
+We know that 1 + 0 = 1. Therefore, (a + 1) + a = a + 1, as required.
+""")
     response_text = response_grammar.format_as_per_grammar(response, k=3)
     print('-' * 80)
     print(response_text)

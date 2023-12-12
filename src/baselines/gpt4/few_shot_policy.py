@@ -104,6 +104,10 @@ class FewShotGptPolicy(Policy):
                     defintions=[],
                     lemmas=[],
                 )
+                if self.informal_proof_repo is not None:
+                    informal_thm, informal_proof = self.informal_proof_repo.get_informal_thm_proof(self.lemma_name)
+                    gpt_response.informal_theorem = informal_thm
+                    gpt_response.informal_proof = informal_proof
             else:
                 raise Exception(f"Unsupported language {self.language}")
             while not success and tries > 0:

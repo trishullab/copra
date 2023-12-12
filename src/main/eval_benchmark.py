@@ -150,6 +150,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             policy_prompter : PolicyPrompter = None
 
             if eval_settings.policy_name == PolicyName.Dfs:
+                if prompt_settings.informal_proof_repo is not None:
+                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                else:
+                    informal_proof_repo = None
                 policy_prompter = DfsCoqGptPolicyPrompter(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
@@ -163,10 +167,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
                     metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
                     language=eval_benchmark.language,
-                    logger=logger)
+                    logger=logger,
+                    informal_proof_repo=informal_proof_repo,
+                    lemma_name=lemma_name)
                 dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
-                    lemma_name,
                     eval_settings.checkpoint_dir, 
                     lemma_name, 
                     policy_prompter,
@@ -174,6 +179,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     checkpoint_on_exit=eval_settings.should_checkpoint,
                     language=eval_benchmark.language)
             elif eval_settings.policy_name == PolicyName.FewShot:
+                if prompt_settings.informal_proof_repo is not None:
+                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                else:
+                    informal_proof_repo = None
                 policy_prompter = FewShotGptPolicyPrompter(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
@@ -194,7 +203,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     policy_prompter,
                     checkpoint_on_exit=eval_settings.should_checkpoint,
                     language=eval_benchmark.language,
-                    logger=logger)
+                    logger=logger,
+                    informal_proof_repo=informal_proof_repo)
             elif eval_settings.policy_name == PolicyName.InformalFewShot:
                 informal_proof_repo = prompt_settings.get_informal_proof_repo()
                 informal_proof_dump_directory = os.path.join(eval_settings.proof_dump_dir, "informal_proofs")

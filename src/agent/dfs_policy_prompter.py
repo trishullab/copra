@@ -21,7 +21,7 @@ from src.prompt_generator.prompter import PolicyPrompter
 from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
 from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from src.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
-
+from src.tools.informal_proof_repo import InformalProofRepo
 
 class DfsCoqGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
@@ -40,7 +40,9 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             training_data_path: typing.Optional[str] = None,
             metadata_filename: typing.Optional[str] = None,
             language: ProofAction.Language = ProofAction.Language.COQ,
-            logger = None):
+            logger = None,
+            informal_proof_repo: typing.Optional[InformalProofRepo] = None,
+            lemma_name: typing.Optional[str] = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
@@ -79,6 +81,10 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self.incorrect_repeat_count = 0 # 1 # Give only one warning
         self.incorrect_repeat_warning = "warning: You are trying to repeat the same incorrect step. Please try a different step, otherwise this will lead to backtracking or termination of proof search. Only repeat if you have run out of all other options, and want to backtrack to the previous state."
         self.last_message_has_error = False
+        self.informal_proof_repo = informal_proof_repo
+        self.lemma_name = lemma_name
+        if self.informal_proof_repo is not None:
+            assert self.lemma_name is not None, "Lemma name must be provided if informal proof repo is provided"
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
             assert self._training_data_path is not None, "Training data path must be provided if retrieve_prompt_examples is True"
@@ -184,6 +190,10 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
     def _get_prompt_message(self, request: CoqGptResponse, max_tokens_in_prompt: int) -> str:
         assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
         retrieve_prompt_examples = self._retrieve_prompt_examples and request.training_data_format is not None and len(request.training_data_format.start_goals) > 0
+
+        if self.informal_proof_repo is not None:
+            request.informal_theorem, request.informal_proof = self.informal_proof_repo.get_informal_thm_proof(self.lemma_name)
+
         if self._num_goal_per_prompt is not None and request.training_data_format is not None and len(request.training_data_format.start_goals) > 0:
             num_goals = max(min(self._num_goal_per_prompt, len(request.training_data_format.start_goals)), 1)
             request = copy.deepcopy(request)
