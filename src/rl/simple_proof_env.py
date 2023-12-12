@@ -206,6 +206,9 @@ class ProofEnv(Env):
             self._get_dfns_thms(history_idx)
         elif action.action_type == ProofAction.ActionType.BACKTRACK:
             self._backtrack(history_idx)
+        elif action.action_type == ProofAction.ActionType.INFORMAL:
+            training_data_format = TrainingDataFormat(proof_steps=[action.kwargs['proof']])
+            self._p_tree.try_add_tactic(1, training_data_format, force_add=True, action=action)
         else:
             raise NotImplementedError(f"Action type {action.action_type} not implemented")
         self.inferences_used += 1

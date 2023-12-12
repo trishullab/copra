@@ -1,0 +1,4 @@
+name: lean_few_shot_informal_to_formal
+main_prompt: data/prompts/baseline/simple-prompt-lean-informal-to-formal.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-lean-informal-to-formal.md
+informal_proof_repo:

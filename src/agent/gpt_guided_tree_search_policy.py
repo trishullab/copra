@@ -144,7 +144,7 @@ class TreeSearchAlgorithm(ABC):
         pass
 
 class GptGuidedTreeSearchPolicy(Policy):
-    def __init__(self, 
+    def __init__(self,
         checkpoint_dir: str, 
         checkpoint_filename: str,
         policy_prompter: PolicyPrompter,
@@ -224,7 +224,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         checkpoint_filename_without_ext, ext = os.path.splitext(self.checkpoint_filename)
         checkpoint_filename = f"{checkpoint_filename_without_ext}-{guid}.{ext}"
         self._checkpoint_in_file(os.path.join(self.checkpoint_dir, checkpoint_filename))
-        copy_obj = GptGuidedTreeSearchPolicy(self.checkpoint_dir, checkpoint_filename)
+        copy_obj = GptGuidedTreeSearchPolicy(checkpoint_filename, self.checkpoint_dir, checkpoint_filename)
         return copy_obj
 
     def _checkpoint_in_file(self, checkpoint_path: str):

@@ -4,11 +4,18 @@ defaults:
   # - env_settings: bm25_retrieval_only_local_no_dfns
   # - prompt_settings: coq_dfs_always_retrieve_stack_machine
   # - override hydra/job_logging: 'disabled'
-  - benchmark: simple_benchmark_lean
-  - eval_settings: n_60_dfs_gpt35_always_retrieve_no_ex
+  - benchmark: miniF2F_test
+  - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex
   - env_settings: bm25_retrieval
-  - prompt_settings: lean_dfs
+  # - prompt_settings: lean_few_shot_informal_to_formal_gpt4_turbo
+  - prompt_settings: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
   - override hydra/job_logging: 'disabled'
+
+# prompt_settings:
+#   # Informal proof human written
+#   informal_proof_repo: data/test/informal_lean_proj
+#   # Informal proof gpt35
+#   informal_proof_file: .log/proofs/eval_driver/informal_few_shot/miniF2F_test/20231204-233231/informal_proofs
 
 # To run this experiment, execute the following command:
 

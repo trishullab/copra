@@ -1,0 +1,4 @@
+name: lean_dfs_informal
+main_prompt: data/prompts/system/lean-proof-agent-with-dfs-and-informal.md
+conv_prompt: data/prompts/conversation/lean-proof-agent-example-long-conv-dfs-and-informal.md
+informal_proof_repo:

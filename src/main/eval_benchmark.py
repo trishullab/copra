@@ -2,6 +2,7 @@
 
 import sys
 
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -31,6 +32,9 @@ from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
+from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
+from src.tools.informal_proof_repo import InformalProofRepo
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -146,6 +150,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             policy_prompter : PolicyPrompter = None
 
             if eval_settings.policy_name == PolicyName.Dfs:
+                if prompt_settings.informal_proof_repo is not None:
+                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                else:
+                    informal_proof_repo = None
                 policy_prompter = DfsCoqGptPolicyPrompter(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
@@ -159,7 +167,9 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
                     metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
                     language=eval_benchmark.language,
-                    logger=logger)
+                    logger=logger,
+                    informal_proof_repo=informal_proof_repo,
+                    lemma_name=lemma_name)
                 dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
                     eval_settings.checkpoint_dir, 
@@ -169,6 +179,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     checkpoint_on_exit=eval_settings.should_checkpoint,
                     language=eval_benchmark.language)
             elif eval_settings.policy_name == PolicyName.FewShot:
+                if prompt_settings.informal_proof_repo is not None:
+                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                else:
+                    informal_proof_repo = None
                 policy_prompter = FewShotGptPolicyPrompter(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
@@ -183,12 +197,41 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     language=eval_benchmark.language,
                     logger=logger)
                 search_guidance_policy = FewShotGptPolicy(
+                    lemma_name,
                     eval_settings.checkpoint_dir,
                     lemma_name,
                     policy_prompter,
                     checkpoint_on_exit=eval_settings.should_checkpoint,
                     language=eval_benchmark.language,
+                    logger=logger,
+                    informal_proof_repo=informal_proof_repo)
+            elif eval_settings.policy_name == PolicyName.InformalFewShot:
+                informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                informal_proof_dump_directory = os.path.join(eval_settings.proof_dump_dir, "informal_proofs")
+                os.makedirs(informal_proof_dump_directory, exist_ok=True)
+                policy_prompter = InformalFewShotGptPolicyPrompter(
+                    main_sys_prompt_path=prompt_settings.main_prompt,
+                    example_conv_prompt_path=prompt_settings.conv_prompt,
+                    temperature=eval_settings.temperature,
+                    max_tokens_per_action=eval_settings.max_tokens_per_action,
+                    max_history_messages=eval_settings.max_history_messages,
+                    gpt_model_name=eval_settings.gpt_model_name,
+                    k=eval_settings.max_theorems_in_prompt,
+                    retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
+                    metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
+                    language=eval_benchmark.language,
                     logger=logger)
+                search_guidance_policy = InformalFewShotGptPolicy(
+                    lemma_name,
+                    eval_settings.checkpoint_dir,
+                    lemma_name,
+                    policy_prompter,
+                    informal_proof_repo,
+                    checkpoint_on_exit=eval_settings.should_checkpoint,
+                    language=eval_benchmark.language,
+                    logger=logger,
+                    informal_proof_dump_dir=informal_proof_dump_directory)
             else:
                 raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
 
@@ -205,8 +248,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                     episodes=eval_settings.max_number_of_episodes,
                                     render=eval_settings.render,
                                     stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
-                                    policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode)
-                                )
+                                    policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode))
                             proof_res = env.proof_search_res
                             ret_dict["proof_res"] = proof_res
                             ret_dict["attempted_success"] = True

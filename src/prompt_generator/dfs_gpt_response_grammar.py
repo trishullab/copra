@@ -27,6 +27,8 @@ class CoqGptResponse(object):
     error_message: typing.Optional[str] = None
     last_step: typing.Optional[str] = None
     training_data_format: typing.Optional[TrainingDataFormat] = None
+    informal_proof: typing.Optional[str] = None
+    informal_theorem: typing.Optional[str] = None
 
 class CoqGPTResponseDfsGrammar(Grammar):
     grammar = """
@@ -128,6 +130,8 @@ ErrorString:;
         END = "[END]"
         DESCRIPTION = "[DESCRIPTION]"
         LAST_STEP = "[LAST STEP]"
+        INFORMAL_PROOF = "[INFORMAL-PROOF]"
+        INFORMAL_THEOREM = "[INFORMAL-THEOREM]"
 
         def __str__(self) -> str:
             return self.value
@@ -170,6 +174,8 @@ ErrorString:;
         elif coq_gpt_response.action == CoqGptResponseActions.GOALS:
             lines_map = {
                 CoqGPTResponseDfsGrammar.Keywords.GOALS : [],
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM : [],
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF : [],
                 CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS : [],
                 CoqGPTResponseDfsGrammar.Keywords.THEOREMS : [],
                 CoqGPTResponseDfsGrammar.Keywords.STEPS : [],
@@ -180,6 +186,8 @@ ErrorString:;
             }
             lines_order = [
                 CoqGPTResponseDfsGrammar.Keywords.GOALS,
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM,
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF,
                 CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS,
                 CoqGPTResponseDfsGrammar.Keywords.THEOREMS,
                 CoqGPTResponseDfsGrammar.Keywords.STEPS,
@@ -192,6 +200,8 @@ ErrorString:;
                 CoqGPTResponseDfsGrammar.Keywords.THEOREMS,
                 CoqGPTResponseDfsGrammar.Keywords.DEFINITIONS,
                 CoqGPTResponseDfsGrammar.Keywords.STEPS,
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF,
+                CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM,
                 CoqGPTResponseDfsGrammar.Keywords.GOALS, # trim down the goals
                 CoqGPTResponseDfsGrammar.Keywords.INCORRECT_STEPS,
                 CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE,
@@ -258,6 +268,14 @@ ErrorString:;
                 new_line = f"\n{CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE}"
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE] = [new_line]
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.ERROR_MESSAGE].append(coq_gpt_response.error_message)
+            if coq_gpt_response.informal_theorem is not None:
+                new_line = f"\n{CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM}"
+                lines_map[CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM] = [new_line]
+                lines_map[CoqGPTResponseDfsGrammar.Keywords.INFORMAL_THEOREM].append(coq_gpt_response.informal_theorem)
+            if coq_gpt_response.informal_proof is not None:
+                new_line = f"\n{CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF}"
+                lines_map[CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF] = [new_line]
+                lines_map[CoqGPTResponseDfsGrammar.Keywords.INFORMAL_PROOF].append(coq_gpt_response.informal_proof)
             keywords = [keyword for keyword in lines_map.keys()]
             # Convert all the lines under each keyword to a single string
             for keyword in keywords:

@@ -1,0 +1,5 @@
+{
+    "problem_name": "a_plus_zero",
+    "informal_statement": "For all natural numbers $a$, $a + 0 = a$.",
+    "informal_proof": "By induction on $a$.\n\nBase case: $a = 0$. Then $a + 0 = 0 + 0 = 0$.\n\nInductive step: Assume $a + 0 = a$. Then $(a + 1) + 0 = a + 1 = (a + 0) + 1 = a + (0 + 1) = a + 1$."
+}

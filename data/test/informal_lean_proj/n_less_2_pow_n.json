@@ -1,0 +1,5 @@
+{
+    "problem_name": "n_less_2_pow_n",
+    "informal_statement": "For all natural numbers $n \\ge 1$, $n < 2^n$.",
+    "informal_proof": "We will prove this by induction on $n$.\nFirst, we prove the base case $n = 1$.\nWe have $1 \\le 1$, so $1 < 2^1$.\nNow, suppose that $1 < n$.\nBy the inductive hypothesis, $n < 2^n$ \\dots (1)\nCombining these two inequalities, we have $1 < n < 2^n$.\nSo $1 < 2^n$ \\dots (2)\nBy (1) and (2), we have $n + 1 < 2^n + 2^n$.\nwhich can be rewritten as $n + 1 < 2^{n + 1}$.\nThis completes the proof."
+}
