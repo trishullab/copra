@@ -12,8 +12,8 @@ import enum
 import logging
 from src.tools.training_data_format import Goal, TrainingDataFormat
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader
-from src.tools.coq_executor import CoqExecutor
-from src.tools.coq_context_helper import CoqContextHelper
+from src.tools.isabelle_executor import IsabelleExecutor
+from src.tools.isabelle_context_helper import IsabelleContextHelper
 
 class IntertwinedIterator(object):
     def __init__(self, iterator: typing.Optional[typing.Iterator[str]] = None):
@@ -51,7 +51,7 @@ class IntertwinedIterator(object):
             self.base_iterator.close()
         pass
 
-class DynamicProofExecutor(CoqExecutor):
+class DynamicProofExecutor(IsabelleExecutor):
     class RunState(object):
         def __init__(self):
             self.tatics_ran = []
@@ -85,24 +85,24 @@ class DynamicProofExecutor(CoqExecutor):
             return -1
 
 
-    def __init__(self, coq_context_helper: CoqContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: bool = False, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
+    def __init__(self, isabelle_context_helper: IsabelleContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: bool = False, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
         assert proof_file is None or os.path.exists(proof_file), f"Proof file {proof_file} does not exist"
-        assert coq_context_helper is not None, "coq_context_helper must not be None"
+        assert isabelle_context_helper is not None, "isabelle_context_helper must not be None"
         self.proof_file = proof_file
         self.context_type = context_type
-        self.coq_file_iter = IsabelleLineByLineReader(proof_file).instruction_step_generator() if proof_file is not None else instruction_iter
-        self.tactic_switch_iterator = IntertwinedIterator(self.coq_file_iter)
+        self.isabelle_file_iter = IsabelleLineByLineReader(proof_file).instruction_step_generator() if proof_file is not None else instruction_iter
+        self.tactic_switch_iterator = IntertwinedIterator(self.isabelle_file_iter)
         self.run_state = DynamicProofExecutor.RunState()
         self.logger = None
-        self.coq_context_helper = coq_context_helper
+        self.isabelle_context_helper = isabelle_context_helper
         super().__init__(project_root=project_folder, proof_step_iter=self.tactic_switch_iterator, use_hammer=use_hammer, timeout_in_sec=timeout_in_seconds, use_human_readable_proof_context=use_human_readable_proof_context, suppress_error_log=suppress_error_log)
 
     def __enter__(self):
-        self.coq_context_helper.__enter__()
+        self.isabelle_context_helper.__enter__()
         return super().__enter__()
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.coq_context_helper.__exit__(exc_type, exc_val, exc_tb)
+        self.isabelle_context_helper.__exit__(exc_type, exc_val, exc_tb)
         super().__exit__(exc_type, exc_val, exc_tb)
 
     def set_logger(self, logger: logging.Logger):
@@ -112,12 +112,12 @@ class DynamicProofExecutor(CoqExecutor):
     def get_focussed_goals(self) -> typing.List[Goal]:
         if not self.is_in_proof_mode():
             return []
-        return self.coq_context_helper.get_focussed_goals(self)
+        return self.isabelle_context_helper.get_focussed_goals(self)
     
     def get_unfocussed_goals(self) -> typing.List[Goal]:
         if not self.is_in_proof_mode():
             return []
-        return self.coq_context_helper.get_unfocussed_goals(self)
+        return self.isabelle_context_helper.get_unfocussed_goals(self)
 
     def get_current_proof_state_as_training_data(self) -> TrainingDataFormat:
         # get the current goal
@@ -142,24 +142,24 @@ class DynamicProofExecutor(CoqExecutor):
     
     def get_all_relevant_thms(self, should_print_symbol: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=should_print_symbol)
+        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=should_print_symbol)
         return training_data_format
     
     def get_all_relevant_thms_within_local_context(self) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_local_thms_dfns(training_data_format, self, self.logger)
+        self.isabelle_context_helper.set_local_thms_dfns(training_data_format, self, self.logger)
         return training_data_format
     
     def get_all_relevant_defns(self) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
+        self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
     
     def get_all_relevant_defns_and_thms(self, should_print_symbol: bool = False, only_local: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.coq_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger, should_print_symbol=should_print_symbol, only_local=only_local)
+        self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger, should_print_symbol=should_print_symbol, only_local=only_local)
         # Don't print symbols for theorems as it will print the proof as well which is not needed to apply the theorem
-        self.coq_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=False, only_local=only_local)
+        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=False, only_local=only_local)
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:
