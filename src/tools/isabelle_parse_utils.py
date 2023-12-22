@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# TODO : jimmy
+# TODO : jimmy - currently splits based on newlines; I expect some smarter parsing will probably be required
 
 import os
 import sys
@@ -55,81 +55,10 @@ class IsabelleLineByLineReader:
         self.file_content = "".join(code_without_comments)
 
     def instruction_step_generator(self) -> typing.Iterator[str]:
-        CODE_MODE = 0
-        CODE_QT_MODE = 1
-        all_code = self.file_content
-        idx = 0
-        mode = CODE_MODE
-        instr_start = 0
-        special_context_starting_chars = ["+", "-", "*", "{", "}"]
-        while idx < len(all_code):
-            ch = all_code[idx]
-            if mode == CODE_MODE and ch == '.' and idx + 1 < len(all_code) and len(all_code[idx + 1].strip()) == 0:
-                code_to_yield = all_code[instr_start: idx + 1].strip()
-                contexts = []
-                context = ""
-                while any([code_to_yield.startswith(ctx) for ctx in special_context_starting_chars]):
-                    context += code_to_yield[0]
-                    if len(context) >= 2 and context[-2] != context[-1]:
-                        # Split the context
-                        contexts.append(context[:-1])
-                        context = context[-1]
-                    code_to_yield = code_to_yield[1:].strip()
-                    if len(code_to_yield) == 0:
-                        break
-                if len(context) > 0:
-                    contexts.append(context) # Add the last context if it was missed
-                for ctx in contexts:
-                    yield ctx.strip()
-                code_to_yield = code_to_yield.strip()
-                if len(code_to_yield) > 0:
-                    yield code_to_yield
-                idx += 1
-                mode = CODE_MODE
-                instr_start = idx
-            elif mode == CODE_MODE and ch == '.' and idx + 1 == len(all_code):
-                code_to_yield = all_code[instr_start: idx + 1].strip()
-                contexts = []
-                context = ""
-                while any([code_to_yield.startswith(ctx) for ctx in special_context_starting_chars]):
-                    context += code_to_yield[0]
-                    if len(context) >= 2 and context[-2] != context[-1]:
-                        # Split the context
-                        contexts.append(context[:-1])
-                        context = context[-1]
-                    code_to_yield = code_to_yield[1:].strip()
-                    if len(code_to_yield) == 0:
-                        break
-                code_to_yield = code_to_yield.strip()
-                if len(context) > 0:
-                    contexts.append(context) # Add the last context if it was missed
-                for ctx in contexts:
-                    yield ctx.strip()
-                if len(code_to_yield) > 0:
-                    yield code_to_yield
-                idx += 1
-                mode = CODE_MODE
-                instr_start = idx
-            elif mode == CODE_MODE and ch == "\"":
-                idx += 1
-                mode = CODE_QT_MODE
-            elif mode == CODE_QT_MODE and ch == "\"" and idx + 1 < len(all_code) and all_code[idx + 1] == "\"":
-                idx += 1
-                mode = CODE_QT_MODE
-            elif mode == CODE_QT_MODE and ch == "\"":
-                idx += 1
-                mode = CODE_MODE
-            elif mode == CODE_MODE:
-                mode = CODE_MODE
-                idx += 1
-            elif mode == CODE_QT_MODE:
-                mode = CODE_QT_MODE
-                idx += 1
-                # instruction start doesn't change
-            else:
-                raise Exception("This case is not possible")
-        if instr_start < len(all_code):
-            yield all_code[instr_start:].strip()
+        lines = self.file_content.split('\n')
+        for line in lines:
+            if not len(line.strip()) == 0:
+                yield line.strip()
 
 class IsabelleStepByStepStdInReader:
     def __init__(self):
@@ -147,7 +76,42 @@ class IsabelleStepByStepStdInReader:
 
 if __name__ == "__main__":
     file_content = """
-{reflexivity. }
+(*
+  Authors: Wenda Li
+*)
+
+theory aime_1983_p1 imports Complex_Main
+begin
+
+theorem aime_1983_p1:
+  fixes x y z w :: nat
+  assumes ht : "1 < x \<and> 1 < y \<and> 1 < z"
+    and hw : "0 \<le> w"
+    and h0 : "ln w / ln x = 24"
+    and h1 : "ln w / ln y = 40"
+    and h2 : "ln w / ln (x * y * z) = 12"
+  shows "ln w / ln z = 60"
+proof -
+  define xx yy zz ww where "xx=ln x" and "yy = ln y" 
+      and "zz = ln z" and "ww = ln w"
+  have "xx= ww/24" using h0 ht unfolding xx_def ww_def 
+    by (auto simp:field_simps)
+  moreover have "yy = ww / 40" using ht h1 unfolding yy_def ww_def
+    by (auto simp:field_simps)
+  moreover have "xx+yy+zz > 0" 
+    unfolding xx_def yy_def zz_def using ht 
+    by (metis ln_gt_zero of_nat_1 of_nat_less_iff pos_add_strict)
+  then have "ww = 12*(xx+yy+zz)"using ht h2
+    unfolding xx_def yy_def zz_def ww_def
+    by (auto simp:field_simps ln_mult)
+  ultimately have "ww = 12*(ww/24 + ww/40 + zz)"
+    by blast
+  then have "ww=60*zz"
+    by (auto simp:field_simps)
+  then show ?thesis unfolding ww_def zz_def using ht by auto
+qed
+
+end
 """
     isabelle_reader = IsabelleLineByLineReader(file_content=file_content)
     assert isabelle_reader.file_content is not None
