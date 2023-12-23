@@ -572,10 +572,9 @@ if __name__ == "__main__":
         language = ProofAction.Language.LEAN
         always_retrieve_thms = True
     elif inp == 'isabelle':
-        # TODO : jimmy - currently uses Coq benchmarks
         proof_exec_callback = ProofExecutorCallback(
-            project_folder=".",
-            file_path="data/test/SimpleAlgebra.v",
+            project_folder="data/benchmarks/miniF2F",
+            file_path="data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy",
             language=ProofAction.Language.ISABELLE
         )
         theorem_name = "algb_add_comm"

@@ -26,6 +26,7 @@ class IsabelleContextHelper(object):
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
+    # TODO : jimmy - currently uses Coq backend
     def get_focussed_goals(self, isabelle_executor: IsabelleExecutor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
         return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in isabelle_executor.coq.proof_context.fg_goals]

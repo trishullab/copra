@@ -451,5 +451,5 @@ if __name__ == "__main__":
     # with IsabelleStdInOutExecutor() as isabelle_exec:
     #     isabelle_exec.run_in_loop()
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/test/SimpleAlgebra.v") as isabelle_exec:
+    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy") as isabelle_exec:
         isabelle_exec.run_in_loop()
