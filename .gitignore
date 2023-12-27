@@ -184,3 +184,6 @@ outputs/
 
 # Ignore the api_log.json file
 api_log.json
+
+# Misc. (MacOS)
+*.DS_Store

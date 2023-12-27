@@ -11,23 +11,76 @@ import typing
 import functools
 import random
 import re
-from src.coq_ser_api import SerapiInstance
+from collections import OrderedDict
+from src.qisabelle.client.model import DummyHammerModel, Model
+from src.qisabelle.client.session import QIsabelleSession, get_exception_kind
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
 logger = logging.getLogger()
 
+class Obligation(typing.NamedTuple):
+    hypotheses: typing.List[str]
+    goal: str
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(**data)
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        return {"hypotheses": self.hypotheses,
+                "goal": self.goal}
+
+
+class ProofContext(typing.NamedTuple):
+    fg_goals: typing.List[Obligation]
+    bg_goals: typing.List[Obligation]
+    shelved_goals: typing.List[Obligation]
+    given_up_goals: typing.List[Obligation]
+
+    @classmethod
+    def empty(cls: typing.Type['ProofContext']):
+        return ProofContext([], [], [], [])
+
+    @classmethod
+    def from_dict(cls, data):
+        fg_goals = list(map(Obligation.from_dict, data["fg_goals"]))
+        bg_goals = list(map(Obligation.from_dict, data["bg_goals"]))
+        shelved_goals = list(map(Obligation.from_dict, data["shelved_goals"]))
+        given_up_goals = list(map(Obligation.from_dict,
+                                  data["given_up_goals"]))
+        return cls(fg_goals, bg_goals, shelved_goals, given_up_goals)
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        return {"fg_goals": list(map(Obligation.to_dict, self.fg_goals)),
+                "bg_goals": list(map(Obligation.to_dict, self.bg_goals)),
+                "shelved_goals": list(map(Obligation.to_dict,
+                                          self.shelved_goals)),
+                "given_up_goals": list(map(Obligation.to_dict,
+                                           self.given_up_goals))}
+
+    @property
+    def all_goals(self) -> typing.List[Obligation]:
+        return self.fg_goals + self.bg_goals + \
+            self.shelved_goals + self.given_up_goals
+
+    @property
+    def focused_goal(self) -> str:
+        if self.fg_goals:
+            return self.fg_goals[0].goal
+        else:
+            return ""
+
+    @property
+    def focused_hyps(self) -> typing.List[str]:
+        if self.fg_goals:
+            return self.fg_goals[0].hypotheses
+        else:
+            return []
+
 class IsabelleExecutor:
     keywords = {
-        "Theorem", "Lemma", "Fact", "Remark", "Corollary", "Proposition", "Example", "Proof", "Qed", "Defined", "Admitted", "Abort",
-        "Fixpoint", "CoFixpoint", "Function", "Program Fixpoint", "Program CoFixpoint", "Program Function", "Let", "Let Fixpoint", 
-        "Let CoFixpoint", "Let Function", "Let Program Fixpoint", "Let Program CoFixpoint", "Let Program Function",
-        "forall", "exists", "fun", "match", "if", "then", "else", "with", "as", "in", "end", "return", "Type", "Set", "Prop",
-        "Require", "Import", "Export", "From", "Module", "Section", "End", "Variable", "Axiom", "Parameter", "Hypothesis", "Context",
-        "Notation", "Reserved Notation", "Infix", "Notation", "Reserved Notation", "Infix", "Reserved Infix", "Notation", "Reserved Notation", "Definition",
-        "intros", "intro", "apply", "assumption", "exact", "reflexivity", "symmetry", "transitivity", "rewrite", "simpl", "unfold", "cbn", "cbv", "compute",
-        "destruct", "induction", "inversion", "injection", "split", "exists", "left", "right", "constructor", "auto", "eauto", "tauto", "omega", "lia", "ring",
-        "repeat", "try", "assert", "cut", "cutrewrite", "pose", "pose proof", "remember", "set", "setoid_rewrite", "generalize", "generalize dependent",
-        "move", "move =>", "move ->", "move => ->", 
-        ":", ".", "=>", "{", "}"
+        "section", "theory", "imports", "begin", "end", "text", "lemma", "theorem", "assumes", "shows", "proof", "have",
+        "assume", "fix", "show", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction", "datatype",
+        "fun", "where", "subsection", "term", "value", "declare", "primrec", "if", "and", "using", "case", "inductive"
     }
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
@@ -36,8 +89,8 @@ class IsabelleExecutor:
             "Either main_file or proof_step_iter must be provided"
         assert main_file is None or proof_step_iter is None, \
             "Only one of main_file or proof_step_iter must be provided"
-        assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".v")), \
-            "main_file must be a valid path to a '.v' file"
+        assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".thy")), \
+            "main_file must be a valid path to a '.thy' file"
         assert project_root is None or (os.path.exists(project_root) and os.path.isdir(project_root)), \
             "project_root must be a valid path to a directory"
         self.use_human_readable_proof_context = use_human_readable_proof_context
@@ -49,17 +102,30 @@ class IsabelleExecutor:
         self.line_num = 0
         self.main_file_iter = proof_step_iter
         self.suppress_error_log = suppress_error_log
-        self.coq : SerapiInstance = None
+        self.isabelle_session : QIsabelleSession = None
+        self.proof_context : ProofContext = None
+        self.curr_lemma_name : typing.Optional[str] = None
+        self.curr_lemma : typing.Optional[str] = None
+        self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
     
     def __enter__(self):
         self._all_dep_handles = []
-        self.coq = SerapiInstance(["sertop", "--implicit"], None, self.project_root,
-                             use_hammer=self.use_hammer,
-                             log_outgoing_messages=None,
-                             timeout=self.timeout_in_sec,
-                             use_human_readable_str=self.use_human_readable_proof_context)
-        self.coq.quiet = self.suppress_error_log
+
+        if self.main_file:
+            self.isabelle_session = QIsabelleSession(theory_path=self.main_file)
+            self.isabelle_session.load_theory(
+                self.main_file, "", inclusive=False, new_state_name="state"+self.line_num, init_only=True
+            )
+        else:
+            self.isabelle_session = QIsabelleSession(session_name="HOL", session_roots=[])
+            self.isabelle_session.new_theory(
+                theory_name="InitTheory",
+                new_state_name="state"+self.line_num,
+                imports=["Main"], # TODO: pass in any additional imports
+                only_import_from_session_heap=False,
+            )
+        
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
         return self
@@ -69,7 +135,6 @@ class IsabelleExecutor:
             self.main_file_iter.close() # Close the file handle
         except:
             pass
-        self.coq.kill() # Kill the coq instance after use
 
     @property
     def token_separator_set(self):
@@ -98,14 +163,15 @@ class IsabelleExecutor:
             ""#"|\+|-|\*|/|=|<|>|!|~"
     
     def is_in_proof_mode(self):
-        return True if self.coq.proof_context else False
+        return True if self.proof_context else False
     
     def needs_qed(self):
-        return self.coq.proof_context is not None and len(self.coq.proof_context.all_goals) == 0
+        return self.proof_context is not None and len(self.proof_context.all_goals) == 0
     
     def needs_cut_close(self):
-        return self.coq.proof_context is not None and len(self.coq.proof_context.fg_goals) == 0 and len(self.coq.proof_context.all_goals) > 0
+        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and len(self.proof_context.all_goals) > 0
 
+    # BIG TODO - jimmy
     def run_next(self) -> bool:
         try:
             stmt = next(self.main_file_iter)
@@ -140,81 +206,23 @@ class IsabelleExecutor:
             if len(tok1) > 0:
                 yield tok1
 
-    @functools.lru_cache(maxsize=10000)
-    def print_dfns(self, name: str) -> str:
-        if name in IsabelleExecutor.keywords:
-            return ""
-        return self.coq.print_symbols(name)
-
+    # TODO : implement Isabelle search tool
+                
     # Make this chacheable
     @functools.lru_cache(maxsize=10000)
     def search_type_matching_defns(self, name: str) -> typing.List[str]:
         if name in IsabelleExecutor.keywords:
             return []
-        return self.coq.search_about(name)
+        raise NotImplementedError("Isabelle search tool is not implemented")
     
-    def get_all_type_matching_defns(self, name: str, should_print_symbol: bool = False) -> typing.Generator[typing.Tuple[str, str], None, None]:
-        all_defns = self.search_type_matching_defns(name)
-        # Try for an exact match
-        for defn in all_defns:
-            defn = defn.split(":")
-            defn_name = defn[0].strip()
-            if len(defn) > 1:
-                if should_print_symbol:
-                    defn_val = self.print_dfns(defn_name).strip()
-                else:
-                    defn_val = ("".join(defn[1:])).strip()
-            else:
-                defn_val = ""
-            yield defn_name, defn_val
+    def get_all_type_matching_defns(self, name: str) -> typing.Generator[str, None, None]:
+        return self.search_type_matching_defns(name)
 
-    def search_exact(self, name: str, should_print_symbol: bool = False) -> typing.List[typing.Tuple[str, str]]:
-        symb_defn = self.search_type_matching_defns(name)
-        main_matches = []
-        match_until = set([name])
-        # Try for an exact match
-        for defn in symb_defn:
-            defn = defn.split(":")
-            defn_name = defn[0].strip()
-            if len(defn) > 1:
-                if should_print_symbol:
-                    defn_val = self.print_dfns(defn_name).strip()
-                else:                    
-                    defn_val = ("".join(defn[1:])).strip()
-                # print(f"should_print_symbol: {should_print_symbol}")
-                # print(defn_name)
-                # print(defn_val)
-            else:
-                defn_val = ""
-            if defn_name in match_until:
-                main_matches.append((defn_name, defn_val))
-                break
-        return main_matches
+    def search_exact(self, name: str) -> typing.List[str]:
+        return self.search_type_matching_defns(name)
 
-    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None, should_print_symbol: bool = False) -> typing.List[typing.Tuple[str, str, bool]]:
-        symb_defn = self.search_type_matching_defns(name)
-        match_defns = []
-        main_matches = []
-        match_until = set(match_until)
-        # Try for an exact match
-        for defn in symb_defn:
-            defn = defn.split(":")
-            defn_name = defn[0].strip()
-            if len(defn) > 1:
-                if should_print_symbol:
-                    defn_val = self.print_dfns(defn_name).strip()
-                else:
-                    defn_val = ("".join(defn[1:])).strip()
-            else:
-                defn_val = ""
-            if defn_name in match_until:
-                main_matches.append((defn_name, defn_val, True))
-            else:
-                match_defns.append((defn_name, defn_val, False))
-        if max_search_res is not None:
-            match_defns = random.sample(match_defns, max(0, min(max_search_res - 1, len(match_defns))))
-        match_defns.extend(main_matches)
-        return match_defns
+    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None) -> typing.List[typing.Tuple[str, str, bool]]:
+        return self.search_type_matching_defns(name)
     
     def run_without_executing(self, stmt: str):
         while True:
@@ -231,25 +239,16 @@ class IsabelleExecutor:
                 stmt = next(self.main_file_iter)
                 self.current_stmt = stmt
                 self.line_num += 1
-                if "Qed." in stmt or "Defined." in stmt or "Admitted." in stmt:
+                if "qed" in stmt or "sorry" in stmt:
                     return True
             except StopIteration:
                 return False
     
     def rewind_proof_steps(self) -> str:
-        # rewind the proof steps until the last lemma is found
-        current_lemma = None
-        while self.is_in_proof_mode():
-            if current_lemma is None:
-                current_lemma = self.coq.cur_lemma
-            # If we are already in proof mode, then we have already found a lemma
-            # should call run_to_finish_lemma instead
-            self.coq.cancel_last(force_update_nonfg_goals=True)
-            self.line_num -= 1
-        return "Theorem " + current_lemma if current_lemma is not None else None
-
+        raise NotImplementedError("rewind_proof_steps is not implemented")
+    
     def run_till_next_lemma(self) -> typing.Tuple[bool, typing.Optional[str]]:
-        # Run the coq file until the next lemma is found
+        # Run the file until the next lemma is found
         next_stmt = None
         in_proof_mode = self.is_in_proof_mode()
         if in_proof_mode or self.execution_complete:
@@ -270,11 +269,11 @@ class IsabelleExecutor:
                 next_stmt = self.current_stmt
                 if in_proof_mode:
                     assigned = True
-        lemma_name = next_stmt if next_stmt.startswith("Theorem") or next_stmt.startswith("Lemma") else prev_stmt
+        lemma_name = next_stmt if next_stmt.startswith("theorem") or next_stmt.startswith("lemma") else prev_stmt
         return in_proof_mode, lemma_name
 
     def run_till_next_lemma_return_exec_stmt(self) -> typing.Generator[str, None, None]:
-        # Run the coq file until the next lemma is found
+        # Run the file until the next lemma is found
         next_stmt = None
         in_proof_mode = self.is_in_proof_mode()
         if in_proof_mode or self.execution_complete:
@@ -295,7 +294,7 @@ class IsabelleExecutor:
                 in_proof_mode = self.is_in_proof_mode()
 
     def run_to_finish_lemma_return_exec(self) -> typing.Generator[str, None, None]:
-        # Run the coq file until the next lemma is found
+        # Run the file until the next lemma is found
         next_stmt = None
         in_proof_mode = self.is_in_proof_mode()
         if not in_proof_mode or self.execution_complete:
@@ -316,7 +315,7 @@ class IsabelleExecutor:
                 in_proof_mode = self.is_in_proof_mode()
 
     def run_to_finish_lemma(self) -> bool:
-        # Run the coq file and finish the current lemma
+        # Run the file and finish the current lemma
         in_proof_mode = self.is_in_proof_mode()
         if not in_proof_mode or self.execution_complete:
             # If we are not in proof mode, then we are not finishing a lemma
@@ -330,6 +329,7 @@ class IsabelleExecutor:
         return not in_proof_mode
 
     def run_till_line_num(self, line_num: int):
+    # this doesn't quite work right in Isabelle because the initialization transition lines are ignored
         assert line_num >= self.line_num
         ran_last_cmd = True
         while ran_last_cmd and self.line_num < line_num:
@@ -346,7 +346,7 @@ class IsabelleExecutor:
             return None
         else:
             try:
-                return self.coq.cur_lemma_name
+                return self.curr_lemma_name
             except:
                 return None
     
@@ -355,17 +355,15 @@ class IsabelleExecutor:
             return None
         else:
             try:
-                return self.coq.cur_lemma
+                return self.local_theorem_lemma_description[self.curr_lemma_name]
             except:
                 return None
-    
+        
     def get_current_lemma_name(self) -> typing.Optional[str]:
-        if not self.is_in_proof_mode():
+        if self.curr_lemma_name is None:
             return None
-        try:
-            return self.coq.cur_lemma_name
-        except:
-            return None
+        else:
+            return self.curr_lemma_name
 
 class IsabelleStdInOutExecutor:
     def __init__(self):
@@ -388,8 +386,8 @@ class IsabelleStdInOutExecutor:
                 cmd_ran = self.isabelle_exec.run_next()
                 if not cmd_ran:
                     break
-                print(f"Coq> {self.isabelle_exec.current_stmt}")
-                print(f"{self.isabelle_exec.coq.proof_context}")
+                print(f"Isabelle> {self.isabelle_exec.current_stmt}")
+                print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
             except:
                 pass
@@ -418,29 +416,29 @@ class IsabelleCustomFileExec:
                 if opt == "c" and last_stmt is not None:
                     if self.isabelle_exec.is_in_proof_mode():
                         print(f"Goals before cancelling")
-                        print(self.isabelle_exec.coq.proof_context.all_goals)
+                        print(self.isabelle_exec.proof_context.all_goals)
                     else:
                         print("No goals before cancelling")
-                    self.isabelle_exec.coq.cancel_last()
+                    print("cancel_last() not implemented")
                     if self.isabelle_exec.is_in_proof_mode():
                         print(f"Goals after cancelling")
-                        print(self.isabelle_exec.coq.proof_context.all_goals)
+                        print(self.isabelle_exec.proof_context.all_goals)
                     else:
                         print("No goals after cancelling")
                     print(f"Canceled last statement: {last_stmt}")
                     print(f"Re-running: {last_stmt}")
-                    self.isabelle_exec.coq.run_stmt(last_stmt)
-                    print(f"Coq> Ran {last_stmt} again")
+                    print("re-running not implemented")
+                    print(f"Isabelle> Ran {last_stmt} again")
                     continue
                 cmd_ran = self.isabelle_exec.run_next()
                 last_stmt = self.isabelle_exec.current_stmt
                 if self.isabelle_exec.is_in_proof_mode():
                     print(f"Goals after running {last_stmt}")
-                    print(self.isabelle_exec.coq.proof_context.all_goals)
+                    print(self.isabelle_exec.proof_context.all_goals)
                 if not cmd_ran:
                     break
-                print(f"Coq> {self.isabelle_exec.current_stmt}")
-                print(f"{self.isabelle_exec.coq.proof_context}")
+                print(f"Isabelle> {self.isabelle_exec.current_stmt}")
+                print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
             except:
                 pass
