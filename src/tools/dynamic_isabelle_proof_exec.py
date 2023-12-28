@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # TODO : jimmy
 
+# NOT YET IMPLEMENTED
+
 import sys
 
 root_dir = f"{__file__.split('src')[0]}"

@@ -577,7 +577,7 @@ if __name__ == "__main__":
             file_path="data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy",
             language=ProofAction.Language.ISABELLE
         )
-        theorem_name = "algb_add_comm"
+        theorem_name = "amc12_2000_p6"
         language = ProofAction.Language.ISABELLE
         always_retrieve_thms = False
     else:

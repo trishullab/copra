@@ -82,6 +82,11 @@ class IsabelleExecutor:
         "assume", "fix", "show", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction", "datatype",
         "fun", "where", "subsection", "term", "value", "declare", "primrec", "if", "and", "using", "case", "inductive"
     }
+    theorem_regex = r"((((theorem |lemma )([\w+|\d+'_]*)))(:)([\S|\s]*?))(proof|by|sorry|oops)"
+    theorem_match = re.compile(theorem_regex, re.MULTILINE)
+    proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*):\s*([\s|\S]*)"
+    proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
+
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
@@ -100,12 +105,14 @@ class IsabelleExecutor:
         self.timeout_in_sec = min(timeout_in_sec, 120) # Maximum 120s timeout
         self.current_stmt = None
         self.line_num = 0
+        self.current_state = 0
         self.main_file_iter = proof_step_iter
         self.suppress_error_log = suppress_error_log
         self.isabelle_session : QIsabelleSession = None
         self.proof_context : ProofContext = None
         self.curr_lemma_name : typing.Optional[str] = None
-        self.curr_lemma : typing.Optional[str] = None
+        self.curr_lemma : typing.Optional[str] = ""
+        self._proof_running = False
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
     
@@ -115,13 +122,13 @@ class IsabelleExecutor:
         if self.main_file:
             self.isabelle_session = QIsabelleSession(theory_path=self.main_file)
             self.isabelle_session.load_theory(
-                self.main_file, "", inclusive=False, new_state_name="state"+self.line_num, init_only=True
+                self.main_file, "", inclusive=False, new_state_name="state"+str(self.current_state), init_only=True
             )
         else:
             self.isabelle_session = QIsabelleSession(session_name="HOL", session_roots=[])
             self.isabelle_session.new_theory(
                 theory_name="InitTheory",
-                new_state_name="state"+self.line_num,
+                new_state_name="state"+str(self.current_state),
                 imports=["Main"], # TODO: pass in any additional imports
                 only_import_from_session_heap=False,
             )
@@ -171,7 +178,6 @@ class IsabelleExecutor:
     def needs_cut_close(self):
         return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and len(self.proof_context.all_goals) > 0
 
-    # BIG TODO - jimmy
     def run_next(self) -> bool:
         try:
             stmt = next(self.main_file_iter)
@@ -181,10 +187,10 @@ class IsabelleExecutor:
         self.current_stmt = stmt
         self.line_num += 1
         try:
-            self.coq.run_stmt(stmt, timeout=self.timeout_in_sec)
+            self._run_stmt_on_isabelle_server(stmt)
         except:
             if not self.suppress_error_log:
-                logger.error(f"Got an exception while running '{stmt}' on coq. File name: {self.main_file}")
+                logger.error(f"Got an exception while running '{stmt}' on isabelle. File name: {self.main_file}")
                 logger.exception(f"Exception Log")
             raise
         return True
@@ -239,7 +245,7 @@ class IsabelleExecutor:
                 stmt = next(self.main_file_iter)
                 self.current_stmt = stmt
                 self.line_num += 1
-                if "qed" in stmt or "sorry" in stmt:
+                if "qed" in stmt or "sorry" in stmt or "oops" in stmt:
                     return True
             except StopIteration:
                 return False
@@ -364,6 +370,71 @@ class IsabelleExecutor:
             return None
         else:
             return self.curr_lemma_name
+        
+    def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
+        if not self._proof_running:
+            self.curr_lemma += stmt # Add current line to buffer
+            last_thm_details = IsabelleExecutor.theorem_match.findall(self.curr_lemma)
+        else:
+            last_thm_details = []
+        
+        if last_thm_details:
+            # Complete lemma found! Enter proof mode
+            stmt = self.curr_lemma # Store buffer in stmt
+            full_thm_stmt, _, _, _, thm_name, _, thm_value, _ = last_thm_details[-1]
+            full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
+
+            self.local_theorem_lemma_description[thm_name] = full_thm_stmt
+            self._proof_running = True
+            self.curr_lemma_name, self.curr_lemma = thm_name, thm_value
+
+        if self._proof_running:
+            # If in proof mode, run statement
+            stmt = stmt.strip()
+
+            # TODO: add a timeout
+            is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1))
+            self.current_state += 1
+            description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
+
+            # Parse proof context
+            self.proof_context = self._parse_proof_context(description)
+
+            # Proof finished
+            if is_proof_done:
+                self._proof_running = False
+                self.curr_lemma_name, self.curr_lemma = None, ""
+                self.proof_context = None
+
+    def _parse_proof_context(self, proof_context_str: str) -> ProofContext:
+        if proof_context_str is None or len(proof_context_str) == 0:
+            return None
+        
+        all_matches = self.proof_context_match.findall(proof_context_str)
+        if len(all_matches) == 0:
+            return None
+        
+        _, _, _, this_hyps_str, _, goals_str = all_matches[0]
+        this_hyps_str, goals_str = this_hyps_str.strip(), goals_str.strip()
+        if(goals_str == "No subgoals!"):
+            return ProofContext.empty()
+        
+        goals_list = goals_str.split("\n")
+        this_hyps = this_hyps_str.split("\n")
+
+        # TODO: remove numbers / bullet points from hyps and goals?
+        # TODO: need to do some work to distinguish foreground / background goals; Isabelle doesn't do very well at tracking latent goals
+
+        goals = []
+        for i, goal_str in enumerate(goals_list):
+            if i == 0:
+                goal = Obligation(this_hyps, goal_str)
+            else:
+                goal = Obligation([], goal_str)
+            goals.append(goal)
+        
+        return ProofContext(goals, [], [], [])
+
 
 class IsabelleStdInOutExecutor:
     def __init__(self):
@@ -446,8 +517,10 @@ class IsabelleCustomFileExec:
 
 if __name__ == "__main__":
     logging.basicConfig(filename='isabelle_executor.log', filemode='w', level=logging.INFO)
-    # with IsabelleStdInOutExecutor() as isabelle_exec:
-    #     isabelle_exec.run_in_loop()
-    os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy") as isabelle_exec:
+    with IsabelleStdInOutExecutor() as isabelle_exec:
         isabelle_exec.run_in_loop()
+
+    # TODO: get the following to work
+    # os.chdir(root_dir)
+    # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy") as isabelle_exec:
+    #     isabelle_exec.run_in_loop()
