@@ -77,6 +77,10 @@ class ProofContext(typing.NamedTuple):
             return []
 
 class IsabelleExecutor:
+    # Like Lean, right now this doesn't do the best job of capturing each state changing
+    # tactic separately. It relies on the fact the tactics are usually written in an
+    # atomic way on separate lines. However for a simple REPL, we can just assume that 
+    # the user writes tactics in an atomic way.
     keywords = {
         "section", "theory", "imports", "begin", "end", "text", "lemma", "theorem", "assumes", "shows", "proof", "have",
         "assume", "fix", "show", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction", "datatype",
@@ -87,7 +91,9 @@ class IsabelleExecutor:
     proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*):\s*([\s|\S]*)"
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
 
-    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
+    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, 
+                 use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
+                 suppress_error_log: bool = False, imports: typing.List[str] = ["Main"]):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -115,6 +121,7 @@ class IsabelleExecutor:
         self._proof_running = False
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
+        self.imports = imports
     
     def __enter__(self):
         self._all_dep_handles = []
@@ -129,7 +136,7 @@ class IsabelleExecutor:
             self.isabelle_session.new_theory(
                 theory_name="InitTheory",
                 new_state_name="state"+str(self.current_state),
-                imports=["Main"], # TODO: pass in any additional imports
+                imports=self.imports,
                 only_import_from_session_heap=False,
             )
         
@@ -437,11 +444,12 @@ class IsabelleExecutor:
 
 
 class IsabelleStdInOutExecutor:
-    def __init__(self):
+    def __init__(self, imports: typing.List[str] = ["Main"]):
         self.isabelle_stdin_reader = IsabelleStepByStepStdInReader()
         self.isabelle_exec : IsabelleExecutor = IsabelleExecutor(
             use_human_readable_proof_context=True, 
-            proof_step_iter=self.isabelle_stdin_reader.instruction_step_generator())
+            proof_step_iter=self.isabelle_stdin_reader.instruction_step_generator(),
+            imports = imports)
     
     def __enter__(self):
         self.isabelle_exec.__enter__()
@@ -517,10 +525,10 @@ class IsabelleCustomFileExec:
 
 if __name__ == "__main__":
     logging.basicConfig(filename='isabelle_executor.log', filemode='w', level=logging.INFO)
-    with IsabelleStdInOutExecutor() as isabelle_exec:
+    with IsabelleStdInOutExecutor(imports = ["Main"]) as isabelle_exec:
         isabelle_exec.run_in_loop()
 
     # TODO: get the following to work
     # os.chdir(root_dir)
-    # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy") as isabelle_exec:
+    # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1984_p1.thy") as isabelle_exec:
     #     isabelle_exec.run_in_loop()

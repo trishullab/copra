@@ -574,10 +574,10 @@ if __name__ == "__main__":
     elif inp == 'isabelle':
         proof_exec_callback = ProofExecutorCallback(
             project_folder="data/benchmarks/miniF2F",
-            file_path="data/benchmarks/miniF2F/isabelle/test/amc12_2000_p6.thy",
+            file_path="data/benchmarks/miniF2F/isabelle/test/aime_1984_p1.thy",
             language=ProofAction.Language.ISABELLE
         )
-        theorem_name = "amc12_2000_p6"
+        theorem_name = "aime_1984_p1"
         language = ProofAction.Language.ISABELLE
         always_retrieve_thms = False
     else:

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# TODO : jimmy - currently splits based on newlines; I expect some smarter parsing will probably be required
 
 import os
 import sys
