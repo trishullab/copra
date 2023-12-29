@@ -90,10 +90,12 @@ class IsabelleExecutor:
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
     proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*):\s*([\s|\S]*)"
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
+    begin_theory_regex = r"theory ([\s\S]*)imports ([\s\S]*)begin"
+    begin_theory_match = re.compile(begin_theory_regex, re.MULTILINE)
 
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, 
                  use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
-                 suppress_error_log: bool = False, imports: typing.List[str] = ["Main"]):
+                 suppress_error_log: bool = False, imports: typing.List[str] = ["Main"], theory_name: str = "DefaultTheory"):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -113,6 +115,7 @@ class IsabelleExecutor:
         self.line_num = 0
         self.current_state = 0
         self.main_file_iter = proof_step_iter
+        self.buffer = ""
         self.suppress_error_log = suppress_error_log
         self.isabelle_session : QIsabelleSession = None
         self.proof_context : ProofContext = None
@@ -122,26 +125,30 @@ class IsabelleExecutor:
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
         self.imports = imports
+        self.theory_name = theory_name
     
     def __enter__(self):
         self._all_dep_handles = []
 
-        if self.main_file:
-            self.isabelle_session = QIsabelleSession(theory_path=self.main_file)
-            self.isabelle_session.load_theory(
-                self.main_file, "", inclusive=False, new_state_name="state"+str(self.current_state), init_only=True
-            )
-        else:
-            self.isabelle_session = QIsabelleSession(session_name="HOL", session_roots=[])
-            self.isabelle_session.new_theory(
-                theory_name="InitTheory",
-                new_state_name="state"+str(self.current_state),
-                imports=self.imports,
-                only_import_from_session_heap=False,
-            )
-        
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
+
+        if self.main_file:
+            # Main file provided: for compatibility, skip initialization transitions
+
+            # Parse imports
+
+            # Parse theory name
+            pass
+
+        self.isabelle_session = QIsabelleSession(session_name="HOL", session_roots=[])
+        self.isabelle_session.new_theory(
+            theory_name=self.theory_name,
+            new_state_name="state"+str(self.current_state),
+            imports=self.imports,
+            only_import_from_session_heap=False,
+        )
+        
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -380,14 +387,14 @@ class IsabelleExecutor:
         
     def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
         if not self._proof_running:
-            self.curr_lemma += stmt # Add current line to buffer
-            last_thm_details = IsabelleExecutor.theorem_match.findall(self.curr_lemma)
+            self.buffer += stmt # Add current line to buffer
+            last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
         else:
             last_thm_details = []
         
         if last_thm_details:
             # Complete lemma found! Enter proof mode
-            stmt = self.curr_lemma # Store buffer in stmt
+            stmt = self.buffer # Store buffer in stmt
             full_thm_stmt, _, _, _, thm_name, _, thm_value, _ = last_thm_details[-1]
             full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
 
@@ -409,6 +416,7 @@ class IsabelleExecutor:
 
             # Proof finished
             if is_proof_done:
+                self.buffer = ""
                 self._proof_running = False
                 self.curr_lemma_name, self.curr_lemma = None, ""
                 self.proof_context = None
@@ -474,11 +482,10 @@ class IsabelleStdInOutExecutor:
 
 class IsabelleCustomFileExec:
     def __init__(self, file_path: str):
-        self.isabelle_stdin_reader = IsabelleLineByLineReader(file_path)
         self.isabelle_exec : IsabelleExecutor = IsabelleExecutor(
             use_human_readable_proof_context=True, 
-            proof_step_iter=self.isabelle_stdin_reader.instruction_step_generator())
-    
+            main_file=file_path)
+            
     def __enter__(self):
         self.isabelle_exec.__enter__()
         return self
@@ -528,7 +535,6 @@ if __name__ == "__main__":
     with IsabelleStdInOutExecutor(imports = ["Main"]) as isabelle_exec:
         isabelle_exec.run_in_loop()
 
-    # TODO: get the following to work
     # os.chdir(root_dir)
     # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1984_p1.thy") as isabelle_exec:
     #     isabelle_exec.run_in_loop()
