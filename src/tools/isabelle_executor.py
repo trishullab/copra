@@ -334,7 +334,6 @@ class IsabelleExecutor:
         return not in_proof_mode
 
     def run_till_line_num(self, line_num: int):
-    # this doesn't quite work right in Isabelle because the initialization transition lines are ignored
         assert line_num >= self.line_num
         ran_last_cmd = True
         while ran_last_cmd and self.line_num < line_num:
@@ -374,10 +373,10 @@ class IsabelleExecutor:
         begin_clause = []
         last_thm_details = []
         if self._top_level:
-            self.buffer += stmt
+            self.buffer += stmt + '\n' # Add current line to buffer
             begin_clause = IsabelleExecutor.begin_theory_match.findall(self.buffer)
         elif not self._proof_running:
-            self.buffer += stmt # Add current line to buffer
+            self.buffer += stmt + '\n' # Add current line to buffer
             last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
         # Complete initialization transitions found! Exit top-level mode
@@ -411,7 +410,7 @@ class IsabelleExecutor:
             # If in proof mode, run statement
             stmt = stmt.strip()
 
-            # TODO: add a timeout
+            # TODO: add a timeout & handle errors
             is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1))
             self.current_state += 1
             description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
@@ -540,5 +539,5 @@ if __name__ == "__main__":
     #     isabelle_exec.run_in_loop()
 
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1984_p1.thy") as isabelle_exec:
+    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy") as isabelle_exec:
         isabelle_exec.run_in_loop()
