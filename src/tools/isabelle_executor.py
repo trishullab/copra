@@ -441,11 +441,14 @@ class IsabelleExecutor:
         goals_list = goals_str.split("\n")
         this_hyps = this_hyps_str.split("\n")
 
-        # TODO: remove numbers / bullet points from hyps and goals?
         # TODO: need to do some work to distinguish foreground / background goals; Isabelle doesn't do very well at tracking latent goals
 
+        for h in range(len(this_hyps)):
+            this_hyps[h] = this_hyps[h].strip()
+        
         goals = []
         for i, goal_str in enumerate(goals_list):
+            goal_str = re.sub("\d+.", "", goal_str, 1).strip()
             if i == 0:
                 goal = Obligation(this_hyps, goal_str)
             else:
