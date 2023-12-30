@@ -410,8 +410,7 @@ class IsabelleExecutor:
             # If in proof mode, run statement
             stmt = stmt.strip()
 
-            # TODO: add a timeout & handle errors
-            is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1))
+            is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1), timeout=self.timeout_in_sec)
             self.current_state += 1
             description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
 
@@ -438,10 +437,9 @@ class IsabelleExecutor:
         if(goals_str == "No subgoals!"):
             return ProofContext.empty()
         
+        # TODO: add any additional latent hypotheses and goals (Isar proof contexts are a bit strange)
         goals_list = goals_str.split("\n")
         this_hyps = this_hyps_str.split("\n")
-
-        # TODO: need to do some work to distinguish foreground / background goals; Isabelle doesn't do very well at tracking latent goals
 
         for h in range(len(this_hyps)):
             this_hyps[h] = this_hyps[h].strip()
