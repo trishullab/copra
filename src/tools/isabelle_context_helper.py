@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO (Isabelle & Lean3 search tool)
+
 import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
@@ -26,14 +28,13 @@ class IsabelleContextHelper(object):
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
-    # TODO : jimmy - currently uses Coq backend
     def get_focussed_goals(self, isabelle_executor: IsabelleExecutor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
-        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in isabelle_executor.coq.proof_context.fg_goals]
+        return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in isabelle_executor.proof_context.fg_goals]
     
     def get_unfocussed_goals(self, isabelle_executor: IsabelleExecutor) -> List[Goal]:
         # Only consider the foreground goals because we can handle the multi-line tactics
-        other_goals = isabelle_executor.coq.proof_context.bg_goals + isabelle_executor.coq.proof_context.shelved_goals + isabelle_executor.coq.proof_context.given_up_goals
+        other_goals = isabelle_executor.proof_context.bg_goals + isabelle_executor.proof_context.shelved_goals + isabelle_executor.proof_context.given_up_goals
         return [Goal(hypotheses=goal.hypotheses, goal=goal.goal) for goal in other_goals]
 
     def get_local_lemmas(self, isabelle_executor: IsabelleExecutor, logger: logging.Logger = None) -> List[typing.Tuple[str, str]]:
