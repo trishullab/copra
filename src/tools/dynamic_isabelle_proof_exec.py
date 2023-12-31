@@ -10,6 +10,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 import os
+import copy
 import enum
 import logging
 from src.tools.training_data_format import Goal, TrainingDataFormat
@@ -58,6 +59,8 @@ class DynamicProofExecutor(IsabelleExecutor):
         def __init__(self):
             self.tatics_ran = []
             self.last_exception : typing.Optional[str] = None
+            self.line_tactic_map = {}
+            self.line_proof_context_map = {}
     UnfocussedGoalsDescription = "There are unfocussed goals."
     ProofFinishedDescription = "Proof finished."
     NotInProofModeDescription = "Not in proof mode."
@@ -144,7 +147,7 @@ class DynamicProofExecutor(IsabelleExecutor):
     
     def get_all_relevant_thms(self, should_print_symbol: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=should_print_symbol)
+        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
         return training_data_format
     
     def get_all_relevant_thms_within_local_context(self) -> TrainingDataFormat:
@@ -157,11 +160,11 @@ class DynamicProofExecutor(IsabelleExecutor):
         self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
     
-    def get_all_relevant_defns_and_thms(self, should_print_symbol: bool = False, only_local: bool = False) -> TrainingDataFormat:
+    # TODO: add option to distinguish between local and global defns
+    def get_all_relevant_defns_and_thms(self, only_local: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger, should_print_symbol=should_print_symbol, only_local=only_local)
-        # Don't print symbols for theorems as it will print the proof as well which is not needed to apply the theorem
-        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger, should_print_symbol=False, only_local=only_local)
+        # self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
+        self.isabelle_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:
@@ -180,19 +183,22 @@ class DynamicProofExecutor(IsabelleExecutor):
                     break
         return start_line_num, not cmd_failed
 
+    # TODO: make sure this error handling is correct for isabelle
     def run_tactics(self, tactics: typing.List[str]) -> typing.Tuple[int, bool]:
         tactic_failed = False
         start_line_num = self.line_num
+        self.run_state.line_tactic_map[self.line_num] = len(self.run_state.tatics_ran)
+        self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
         for tactic in tactics:
             self.tactic_switch_iterator.set_next_instruction(tactic)
             try:
                 self.run_next()
                 self.run_state.tatics_ran.append(tactic)
+                self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
             except Exception as e:
                 self.line_num -= 1
                 tactic_failed = True
                 self.run_state.last_exception = str(e)
-                #self.coq.cancel_failed()
                 break
         return start_line_num, not tactic_failed
     
@@ -205,17 +211,20 @@ class DynamicProofExecutor(IsabelleExecutor):
         assert tactic_line_num <= self.line_num, "tactic_line_num must be <= self.line_num"
         assert tactic_line_num >= 0, "tactic_line_num must be >= 0"
         cancelled_some_tactics = False
-        # if self.logger is not None:
-        #     self.logger.info(f"Cancellation called till line {tactic_line_num}, now at line {self.line_num}")
-        while self.line_num > tactic_line_num:
-            self.coq.cancel_last(force_update_nonfg_goals=True)
-            tactic = self.run_state.tatics_ran.pop()
-            # if self.logger is not None:
-            #     self.logger.info(f"Canceling tactic {tactic}")
-            self.line_num -= 1
+        if tactic_line_num < self.line_num:
+            self._lines_executed = self._lines_executed[:tactic_line_num]
+            self._file_content = "\n".join(self._lines_executed)
+            state_num = self.run_state.line_tactic_map[tactic_line_num]
+            self.run_state.tatics_ran = self.run_state.tatics_ran[:state_num]
+            self.proof_context = self.run_state.line_proof_context_map[tactic_line_num]
+            line_tactic_map_keys = list(self.run_state.line_tactic_map.keys())
+            for line_num in line_tactic_map_keys:
+                if line_num >= tactic_line_num:
+                    del self.run_state.line_tactic_map[line_num]
+            line_proof_context_map_keys = list(self.run_state.line_proof_context_map.keys())
+            for line_num in line_proof_context_map_keys:
+                if line_num >= tactic_line_num:
+                    del self.run_state.line_proof_context_map[line_num]
+            self.line_num = tactic_line_num
             cancelled_some_tactics = True
-        # if cancelled_some_tactics and self.logger is not None:
-        #     self.logger.info(f"Cancelled till line {tactic_line_num}")
-        # elif self.logger is not None:
-        #     self.logger.info(f"No tactics cancelled")
         return cancelled_some_tactics
