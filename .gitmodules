@@ -9,3 +9,6 @@
 [submodule "src/qisabelle"]
 	path = src/qisabelle
 	url = git@github.com:marcinwrochna/qisabelle.git
+[submodule "src/Portal-to-ISAbelle"]
+	path = src/Portal-to-ISAbelle
+	url = https://github.com/albertqjiang/Portal-to-ISAbelle.git

@@ -81,15 +81,23 @@ class IsabelleExecutor:
     # tactic separately. It relies on the fact the tactics are usually written in an
     # atomic way on separate lines. However for a simple REPL, we can just assume that 
     # the user writes tactics in an atomic way.
+
+    # Keywords list may not be complete
     keywords = {
         "section", "theory", "imports", "begin", "end", "text", "lemma", "theorem", "assumes", "shows", "proof", "have",
         "assume", "fix", "show", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction", "datatype",
         "fun", "where", "subsection", "term", "value", "declare", "primrec", "if", "and", "using", "case", "inductive"
     }
+
+    # Matches theorem declarations
     theorem_regex = r"((((theorem |lemma )([\w+|\d+'_]*)))(:)([\S|\s]*?))(proof|by|sorry|oops)"
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
+
+    # Matches proof context returned by Isabelle engine
     proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*):\s*([\s|\S]*)"
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
+
+    # Matches theory initialization
     begin_theory_regex = r"theory([\s\S]*)imports([\s\S]*)begin"
     begin_theory_match = re.compile(begin_theory_regex, re.MULTILINE)
 
@@ -142,6 +150,8 @@ class IsabelleExecutor:
         except:
             pass
 
+    # Following token separators may not be completely correct
+        
     @property
     def token_separator_set(self):
         return set(" ()[]{}.,;:+-*/=<>!~?@#$%^&|`\"\\")
@@ -372,6 +382,10 @@ class IsabelleExecutor:
     def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
         begin_clause = []
         last_thm_details = []
+
+        # Deal with multi-line statements: 
+        #   1. theory initialization (theory... imports... begin)
+        #   2. lemma declarations over multiple lines
         if self._top_level:
             self.buffer += stmt + '\n' # Add current line to buffer
             begin_clause = IsabelleExecutor.begin_theory_match.findall(self.buffer)
@@ -384,10 +398,12 @@ class IsabelleExecutor:
             self.buffer = ""
             self._top_level = False
 
+            # Extract theory name and imports
             th_name, th_imports = begin_clause[0]
             self.theory_name = th_name.strip()
             self.imports = th_imports.strip().split()
 
+            # Initialize Isabelle session
             self.isabelle_session.new_theory(
                 theory_name=self.theory_name,
                 new_state_name="state"+str(self.current_state),
@@ -397,24 +413,25 @@ class IsabelleExecutor:
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
-            stmt = self.buffer # Store buffer in stmt
+            # Extract lemma name and declaration
+            stmt = self.buffer
             full_thm_stmt, _, _, _, thm_name, _, thm_value, _ = last_thm_details[-1]
             full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
 
             self.local_theorem_lemma_description[thm_name] = full_thm_stmt
-            self._proof_running = True
             self.curr_lemma_name, self.curr_lemma = thm_name, thm_value
+            self._proof_running = True # Set proof mode
 
         # In proof mode. Execute tactics
         if self._proof_running:
-            # If in proof mode, run statement
             stmt = stmt.strip()
 
+            # Run statement
             is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1), timeout=self.timeout_in_sec)
             self.current_state += 1
-            description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
 
             # Parse proof context
+            description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
             self.proof_context = self._parse_proof_context(description)
 
             # Proof finished
@@ -428,6 +445,7 @@ class IsabelleExecutor:
         if proof_context_str is None or len(proof_context_str) == 0:
             return None
         
+        # Parse proof context and find 1. last proved statement (this) and 2. goals
         all_matches = self.proof_context_match.findall(proof_context_str)
         if len(all_matches) == 0:
             return None
