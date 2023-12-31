@@ -464,7 +464,7 @@ class IsabelleExecutor:
         
         goals = []
         for i, goal_str in enumerate(goals_list):
-            goal_str = re.sub("\d+.", "", goal_str, 1).strip()
+            goal_str = re.sub("\d+.", "", goal_str, 1).strip() # Remove numbering
             if i == 0:
                 goal = Obligation(this_hyps, goal_str)
             else:
