@@ -496,7 +496,6 @@ class ProofEnv(Env):
             self._dynamic_proof_executor.skip_to_theorem(self.lemma_name)
             lemma_found = True
         elif isinstance(self._dynamic_proof_executor, DynamicIsabelleProofExecutor):
-            # TODO : jimmy - currently uses Coq backend
             while not self._dynamic_proof_executor.execution_complete and not lemma_found:
                 assert not self._dynamic_proof_executor.is_in_proof_mode(), "executor must not be in proof mode"
                 _ = list(self._dynamic_proof_executor.run_till_next_lemma_return_exec_stmt())
