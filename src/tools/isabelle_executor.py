@@ -126,6 +126,7 @@ class IsabelleExecutor:
         self.buffer = ""
         self.suppress_error_log = suppress_error_log
         self.pisa_env : PisaEnv = None
+        self._lines_executed = []
         self.proof_context : ProofContext = None
         self.curr_lemma_name : typing.Optional[str] = None
         self.curr_lemma : typing.Optional[str] = ""
@@ -203,6 +204,7 @@ class IsabelleExecutor:
                 logger.error(f"Got an exception while running '{stmt}' on isabelle. File name: {self.main_file}")
                 logger.exception(f"Exception Log")
             raise
+        self._lines_executed.append(stmt)
         return True
     
     def get_tokens_in_given_stmt(self, stmt: str, ignore_first_token: bool = False) -> typing.Generator[str, None, None]:
@@ -248,6 +250,7 @@ class IsabelleExecutor:
                 return
             self.current_stmt = stmt
             self.line_num += 1
+            self._lines_executed.append(stmt)
 
     def run_lemma_without_executing(self):
         while True:

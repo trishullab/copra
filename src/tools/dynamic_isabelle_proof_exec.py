@@ -183,7 +183,6 @@ class DynamicProofExecutor(IsabelleExecutor):
                     break
         return start_line_num, not cmd_failed
 
-    # TODO: make sure this error handling is correct for isabelle
     def run_tactics(self, tactics: typing.List[str]) -> typing.Tuple[int, bool]:
         tactic_failed = False
         start_line_num = self.line_num
@@ -213,7 +212,6 @@ class DynamicProofExecutor(IsabelleExecutor):
         cancelled_some_tactics = False
         if tactic_line_num < self.line_num:
             self._lines_executed = self._lines_executed[:tactic_line_num]
-            self._file_content = "\n".join(self._lines_executed)
             state_num = self.run_state.line_tactic_map[tactic_line_num]
             self.run_state.tatics_ran = self.run_state.tatics_ran[:state_num]
             self.proof_context = self.run_state.line_proof_context_map[tactic_line_num]
