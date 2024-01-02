@@ -10,7 +10,6 @@ import logging
 import typing
 import functools
 from func_timeout import func_timeout, FunctionTimedOut
-import random
 import re
 from collections import OrderedDict
 from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env
@@ -108,8 +107,8 @@ class IsabelleExecutor:
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
             "Either main_file or proof_step_iter must be provided"
-        assert main_file is None or proof_step_iter is None, \
-            "Only one of main_file or proof_step_iter must be provided"
+        assert (main_file is None and project_root is None) or (main_file is not None and project_root is not None), \
+            "Both main file and project root must be provided for Isabelle"
         assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".thy")), \
             "main_file must be a valid path to a '.thy' file"
         assert project_root is None or (os.path.exists(project_root) and os.path.isdir(project_root)), \
@@ -141,7 +140,13 @@ class IsabelleExecutor:
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
 
-        self.pisa_env = initialise_env()
+        # PISA clients must provide a file and working directory. If these are not provided, 
+        # use the default header, which may or may not be sufficient.
+        if self.main_file is None:
+            logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
+            self.pisa_env = initialise_env(isa_path="/Applications/Isabelle2022.app")
+        else:
+            self.pisa_env = initialise_env(isa_path="/Applications/Isabelle2022.app", theory_file_path=self.main_file, working_directory=self.project_root)
         self.pisa_env.initialise()
         
         return self
@@ -398,7 +403,6 @@ class IsabelleExecutor:
             last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
         # Complete initialization transitions found! Exit top-level mode
-        # TODO: imports don't work. Need to fix
         if begin_clause:
             # Perform initialization
             stmt = self.buffer
@@ -511,10 +515,11 @@ class IsabelleStdInOutExecutor:
             pass
 
 class IsabelleCustomFileExec:
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, project_root: str):
         self.isabelle_exec : IsabelleExecutor = IsabelleExecutor(
             use_human_readable_proof_context=True, 
-            main_file=file_path)
+            main_file=file_path,
+            project_root=project_root)
             
     def __enter__(self):
         self.isabelle_exec.__enter__()
@@ -564,8 +569,8 @@ class IsabelleCustomFileExec:
 if __name__ == "__main__":
     logging.basicConfig(filename='isabelle_executor.log', filemode='w', level=logging.INFO)
     # with IsabelleStdInOutExecutor() as isabelle_exec:
-    #     isabelle_exec.run_in_loop()
+        # isabelle_exec.run_in_loop()
 
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy") as isabelle_exec:
+    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
         isabelle_exec.run_in_loop()

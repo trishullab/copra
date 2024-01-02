@@ -100,7 +100,7 @@ class DynamicProofExecutor(IsabelleExecutor):
         self.run_state = DynamicProofExecutor.RunState()
         self.logger = None
         self.isabelle_context_helper = isabelle_context_helper
-        super().__init__(project_root=project_folder, proof_step_iter=self.tactic_switch_iterator, use_hammer=use_hammer, timeout_in_sec=timeout_in_seconds, use_human_readable_proof_context=use_human_readable_proof_context, suppress_error_log=suppress_error_log)
+        super().__init__(project_root=project_folder, main_file=proof_file, proof_step_iter=self.tactic_switch_iterator, use_hammer=use_hammer, timeout_in_sec=timeout_in_seconds, use_human_readable_proof_context=use_human_readable_proof_context, suppress_error_log=suppress_error_log)
 
     def __enter__(self):
         self.isabelle_context_helper.__enter__()
