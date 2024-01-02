@@ -107,8 +107,8 @@ class IsabelleExecutor:
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
             "Either main_file or proof_step_iter must be provided"
-        assert (main_file is None and project_root is None) or (main_file is not None and project_root is not None), \
-            "Both main file and project root must be provided for Isabelle"
+        assert (main_file is None) or (project_root is not None), \
+            "Project root must be provided for Isabelle, if main file is provided"
         assert main_file is None or (os.path.exists(main_file) and main_file.endswith(".thy")), \
             "main_file must be a valid path to a '.thy' file"
         assert project_root is None or (os.path.exists(project_root) and os.path.isdir(project_root)), \
@@ -142,6 +142,7 @@ class IsabelleExecutor:
 
         # PISA clients must provide a file and working directory. If these are not provided, 
         # use the default header, which may or may not be sufficient.
+        # TODO: provide reasonable default isabelle path. Also handle main_file and project_root separately and more intuitively
         if self.main_file is None:
             logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
             self.pisa_env = initialise_env(isa_path="/Applications/Isabelle2022.app")
