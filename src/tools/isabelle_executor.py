@@ -12,8 +12,7 @@ import functools
 import random
 import re
 from collections import OrderedDict
-from src.qisabelle.client.model import DummyHammerModel, Model
-from src.qisabelle.client.session import QIsabelleSession, get_exception_kind
+from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
 logger = logging.getLogger()
 
@@ -94,7 +93,7 @@ class IsabelleExecutor:
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
 
     # Matches proof context returned by Isabelle engine
-    proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*):\s*([\s|\S]*)"
+    proof_context_regex = r"\s*proof \((state|prove|chain)\)\s*((using )?this:([\s|\S]*?))?goal([\s|\S]*?):\s*([\s|\S]*)"
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
 
     # Matches theory initialization
@@ -125,7 +124,7 @@ class IsabelleExecutor:
         self.main_file_iter = proof_step_iter
         self.buffer = ""
         self.suppress_error_log = suppress_error_log
-        self.isabelle_session : QIsabelleSession = None
+        self.pisa_env : PisaEnv = None
         self.proof_context : ProofContext = None
         self.curr_lemma_name : typing.Optional[str] = None
         self.curr_lemma : typing.Optional[str] = ""
@@ -140,7 +139,8 @@ class IsabelleExecutor:
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
 
-        self.isabelle_session = QIsabelleSession(session_name="HOL", session_roots=[])
+        self.pisa_env = initialise_env()
+        self.pisa_env.initialise()
         
         return self
 
@@ -150,7 +150,7 @@ class IsabelleExecutor:
         except:
             pass
 
-    # Following token separators may not be completely correct
+    # The following token separators may not be completely correct
         
     @property
     def token_separator_set(self):
@@ -395,21 +395,16 @@ class IsabelleExecutor:
 
         # Complete initialization transitions found! Exit top-level mode
         if begin_clause:
+            # Perform initialization
+            stmt = self.buffer
             self.buffer = ""
             self._top_level = False
 
-            # Extract theory name and imports
-            th_name, th_imports = begin_clause[0]
-            self.theory_name = th_name.strip()
-            self.imports = th_imports.strip().split()
-
-            # Initialize Isabelle session
-            self.isabelle_session.new_theory(
-                theory_name=self.theory_name,
-                new_state_name="state"+str(self.current_state),
-                imports=self.imports,
-                only_import_from_session_heap=False,
-            )
+            start_state = 'default'
+            end_state = 'state1'
+        else:
+            start_state = 'state' + str(self.current_state)
+            end_state = 'state' + str(self.current_state + 1)
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
@@ -423,18 +418,22 @@ class IsabelleExecutor:
             self._proof_running = True # Set proof mode
 
         # In proof mode. Execute tactics
-        if self._proof_running:
+        if self._proof_running or begin_clause:
             stmt = stmt.strip()
 
-            # Run statement
-            is_proof_done, proof_goals = self.isabelle_session.execute("state" + str(self.current_state), stmt, "state" + str(self.current_state + 1), timeout=self.timeout_in_sec)
+            # Run statement. 
+            # TODO: add timeout
+            description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
+            if description.startswith('Step error:'):
+                raise Exception(description)
             self.current_state += 1
+            # print(repr(stmt) + "\n -> \n" + repr(description))
 
             # Parse proof context
-            description = self.isabelle_session.get_proof_state_description("state" + str(self.current_state))
             self.proof_context = self._parse_proof_context(description)
 
             # Proof finished
+            is_proof_done = self.pisa_env.is_finished(end_state)
             if is_proof_done:
                 self.buffer = ""
                 self._proof_running = False
@@ -498,7 +497,8 @@ class IsabelleStdInOutExecutor:
                 print(f"Isabelle> {self.isabelle_exec.current_stmt}")
                 print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
-            except:
+            except Exception as e:
+                print(e)
                 pass
             pass
 
@@ -548,7 +548,8 @@ class IsabelleCustomFileExec:
                 print(f"Isabelle> {self.isabelle_exec.current_stmt}")
                 print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
-            except:
+            except Exception as e:
+                print(e)
                 pass
             pass    
 
