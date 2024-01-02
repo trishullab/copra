@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# TODO : jimmy
 
 import sys
 root_dir = f"{__file__.split('src')[0]}"
@@ -431,9 +430,9 @@ class IsabelleExecutor:
         if self._proof_running or begin_clause:
             stmt = stmt.strip()
 
-            # Run statement. 
+            # Run statement, with timeout. 
             try:
-                description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
+                description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
             except FunctionTimedOut:
                 raise Exception("Error: the tactic timed out.")
             if description.startswith('Step error:'):

@@ -542,9 +542,8 @@ if __name__ == "__main__":
             inp_action_type = ProofAction.ActionType.RUN_TACTIC.name
         action_type = ProofAction.ActionType[inp_action_type]
         if action_type == ProofAction.ActionType.RUN_TACTIC:
-            separator = ';' if language == ProofAction.Language.COQ else '\n'
-            inp = input("Enter tactic(s) ('" + repr(separator) + "' separated): ")
-            inp = inp.split(separator)
+            inp = input("Enter tactic(s) (';' separated): ")
+            inp = inp.split(';')
             return ProofAction(action_type, language, tactics=inp)
         elif action_type == ProofAction.ActionType.GET_DFNS_THMS or action_type == ProofAction.ActionType.BACKTRACK or action_type == ProofAction.ActionType.EXIT:
             return ProofAction(action_type, language)

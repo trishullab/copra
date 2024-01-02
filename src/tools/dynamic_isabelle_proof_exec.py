@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# TODO : jimmy
-
-# NOT YET IMPLEMENTED
 
 import sys
 
