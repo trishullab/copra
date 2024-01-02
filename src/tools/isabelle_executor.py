@@ -9,6 +9,7 @@ import os
 import logging
 import typing
 import functools
+from func_timeout import func_timeout, FunctionTimedOut
 import random
 import re
 from collections import OrderedDict
@@ -394,6 +395,7 @@ class IsabelleExecutor:
             last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
         # Complete initialization transitions found! Exit top-level mode
+        # TODO: imports don't work. Need to fix
         if begin_clause:
             # Perform initialization
             stmt = self.buffer
@@ -422,10 +424,13 @@ class IsabelleExecutor:
             stmt = stmt.strip()
 
             # Run statement. 
-            # TODO: add timeout
-            description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
+            try:
+                description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
+            except FunctionTimedOut:
+                raise Exception("Error: the tactic timed out.")
             if description.startswith('Step error:'):
                 raise Exception(description)
+            
             self.current_state += 1
             # print(repr(stmt) + "\n -> \n" + repr(description))
 
