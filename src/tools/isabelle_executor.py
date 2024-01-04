@@ -88,7 +88,7 @@ class IsabelleExecutor:
     }
 
     # Matches theorem declarations
-    theorem_regex = r"((((theorem |lemma )([\w+|\d+'_]*)))(:)([\S|\s]*?))(proof|by|sorry|oops)"
+    theorem_regex = r"((((theorem |lemma )([\w+|\d+'_]*)))(:)([\S|\s]*))"
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
 
     # Matches proof context returned by Isabelle engine
@@ -120,6 +120,7 @@ class IsabelleExecutor:
         self.current_stmt = None
         self.line_num = 0
         self.current_state = 0
+        self.line_num_to_state = {}
         self.main_file_iter = proof_step_iter
         self.buffer = ""
         self.suppress_error_log = suppress_error_log
@@ -210,6 +211,7 @@ class IsabelleExecutor:
                 logger.exception(f"Exception Log")
             raise
         self._lines_executed.append(stmt)
+        self.line_num_to_state[self.line_num] = self.current_state
         return True
     
     def get_tokens_in_given_stmt(self, stmt: str, ignore_first_token: bool = False) -> typing.Generator[str, None, None]:
@@ -232,7 +234,7 @@ class IsabelleExecutor:
     # TODO : implement Isabelle search tool
                 
     # Make this chacheable
-    @functools.lru_cache(maxsize=10000)
+    # @functools.lru_cache(maxsize=10000)
     def search_type_matching_defns(self, name: str) -> typing.List[str]:
         if name in IsabelleExecutor.keywords:
             return []
@@ -391,6 +393,8 @@ class IsabelleExecutor:
     def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
         begin_clause = []
         last_thm_details = []
+        start_state = 'state' + str(self.current_state)
+        end_state = 'state' + str(self.current_state + 1)
 
         # Deal with multi-line statements: 
         #   1. theory initialization (theory... imports... begin)
@@ -400,7 +404,13 @@ class IsabelleExecutor:
             begin_clause = IsabelleExecutor.begin_theory_match.findall(self.buffer)
         elif not self._proof_running:
             self.buffer += stmt + '\n' # Add current line to buffer
-            last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
+            try:
+                # If the action succeeds, we have a new lemma
+                description = self.pisa_env.step(start_state, self.buffer, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
+                if not description.startswith('Step error:'):
+                    last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
+            except FunctionTimedOut:
+                raise Exception("Error: the action timed out.")
 
         # Complete initialization transitions found! Exit top-level mode
         if begin_clause:
@@ -411,15 +421,12 @@ class IsabelleExecutor:
 
             start_state = 'default'
             end_state = 'state1'
-        else:
-            start_state = 'state' + str(self.current_state)
-            end_state = 'state' + str(self.current_state + 1)
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
             # Extract lemma name and declaration
             stmt = self.buffer
-            full_thm_stmt, _, _, _, thm_name, _, thm_value, _ = last_thm_details[-1]
+            full_thm_stmt, _, _, _, thm_name, _, thm_value = last_thm_details[-1]
             full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
 
             self.local_theorem_lemma_description[thm_name] = full_thm_stmt

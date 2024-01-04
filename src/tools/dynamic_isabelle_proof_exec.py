@@ -221,5 +221,6 @@ class DynamicProofExecutor(IsabelleExecutor):
                 if line_num >= tactic_line_num:
                     del self.run_state.line_proof_context_map[line_num]
             self.line_num = tactic_line_num
+            self.current_state = self.line_num_to_state[self.line_num]
             cancelled_some_tactics = True
         return cancelled_some_tactics
