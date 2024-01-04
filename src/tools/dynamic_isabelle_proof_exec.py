@@ -157,7 +157,6 @@ class DynamicProofExecutor(IsabelleExecutor):
         self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
         return training_data_format
     
-    # TODO: add option to distinguish between local and global defns
     def get_all_relevant_defns_and_thms(self, only_local: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
         # self.isabelle_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)

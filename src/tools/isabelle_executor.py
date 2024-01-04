@@ -195,6 +195,11 @@ class IsabelleExecutor:
     def needs_cut_close(self):
         return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and len(self.proof_context.all_goals) > 0
 
+    def get_state_str(self, state_num):
+        if state_num == 0:
+            return 'default'
+        return 'state' + str(state_num)
+
     def run_next(self) -> bool:
         try:
             stmt = next(self.main_file_iter)
@@ -238,7 +243,16 @@ class IsabelleExecutor:
     def search_type_matching_defns(self, name: str) -> typing.List[str]:
         if name in IsabelleExecutor.keywords:
             return []
-        raise NotImplementedError("Isabelle search tool is not implemented")
+        # temporary: check with Amitayush for intended behavior
+        if not self.global_lemmas:
+            self.global_lemmas = self.pisa_env.get_global_lemmas(self.get_state_str(0))
+        all_lemmas = self.global_lemmas + self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
+        
+        ans = []
+        for lemma in all_lemmas:
+            if name in lemma:
+                ans.append(lemma)
+        return ans
     
     def get_all_type_matching_defns(self, name: str) -> typing.Generator[str, None, None]:
         return self.search_type_matching_defns(name)
@@ -393,8 +407,8 @@ class IsabelleExecutor:
     def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
         begin_clause = []
         last_thm_details = []
-        start_state = 'state' + str(self.current_state)
-        end_state = 'state' + str(self.current_state + 1)
+        start_state = self.get_state_str(self.current_state)
+        end_state = self.get_state_str(self.current_state + 1)
 
         # Deal with multi-line statements: 
         #   1. theory initialization (theory... imports... begin)
@@ -419,8 +433,8 @@ class IsabelleExecutor:
             self.buffer = ""
             self._top_level = False
 
-            start_state = 'default'
-            end_state = 'state1'
+            start_state = self.get_state_str(0)
+            end_state = self.get_state_str(1)
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
