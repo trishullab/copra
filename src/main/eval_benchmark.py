@@ -32,6 +32,7 @@ from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
 from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
 from src.tools.informal_proof_repo import InformalProofRepo
@@ -67,6 +68,9 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
                     logger.info(f"Discovered lemma: {lemma_name}")
                     lemmas_to_prove.append(lemma_name)
                     main_executor.run_to_finish_lemma()
+        elif isinstance(main_executor, DynamicIsabelleProofExecutor):
+            # TODO
+            pass
     logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
     return lemmas_to_prove
 

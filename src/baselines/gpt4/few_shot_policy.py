@@ -85,6 +85,9 @@ class FewShotGptPolicy(Policy):
             elif self.language == ProofAction.Language.LEAN:
                 self._asked_for_dfns_and_lms = True
                 # Move on because we don't support retrieving definitions and theorems for Lean as of now
+            elif self.language == ProofAction.Language.ISABELLE:
+                # TODO
+                pass
         if not self._asked_for_proof:
             success = False
             tries = 10
@@ -108,6 +111,9 @@ class FewShotGptPolicy(Policy):
                     informal_thm, informal_proof = self.informal_proof_repo.get_informal_thm_proof(self.lemma_name)
                     gpt_response.informal_theorem = informal_thm
                     gpt_response.informal_proof = informal_proof
+            elif self.language == ProofAction.Language.ISABELLE:
+                # TODO
+                pass
             else:
                 raise Exception(f"Unsupported language {self.language}")
             while not success and tries > 0:

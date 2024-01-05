@@ -33,6 +33,17 @@ class FewShotGptLeanKeywords(object):
     INFORMAL_THEOREM = "[INFORMAL-THEOREM]"
     INFORMAL_PROOF = "[INFORMAL-PROOF]"
 
+# TODO: check over this
+class FewShotGptIsabelleKeywords(object):
+    PROOF = "proof"
+    QED = "qed"
+    THEOREM = "[THEOREM]"
+    DEFINITION = "[DEFINITION]"
+    DEFINITIONS = "[DEFINITIONS]"
+    LEMMAS = "[LEMMAS]"
+    LEMMA = "[LEMMA]"
+    END = "[END]"
+
 @dataclass_json
 @dataclass
 class FewShotGptRequest(object):
@@ -86,6 +97,8 @@ LmResponse:
             self.keywords = [FewShotGptCoqKeywords.THEOREM, FewShotGptCoqKeywords.DEFINITION, FewShotGptCoqKeywords.DEFINITIONS, FewShotGptCoqKeywords.LEMMA, FewShotGptCoqKeywords.LEMMAS, FewShotGptCoqKeywords.END]
         elif language == ProofAction.Language.LEAN:
             self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END, FewShotGptLeanKeywords.INFORMAL_THEOREM, FewShotGptLeanKeywords.INFORMAL_PROOF]
+        elif language == ProofAction.Language.ISABELLE:
+            self.keywords = [FewShotGptIsabelleKeywords.THEOREM, FewShotGptIsabelleKeywords.DEFINITION, FewShotGptIsabelleKeywords.DEFINITIONS, FewShotGptIsabelleKeywords.LEMMA, FewShotGptIsabelleKeywords.LEMMAS, FewShotGptIsabelleKeywords.END]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -115,6 +128,17 @@ InfThm: "{FewShotGptLeanKeywords.INFORMAL_THEOREM}"
 InfPrf: "{FewShotGptLeanKeywords.INFORMAL_PROOF}";
 String:;
 """
+        elif language == ProofAction.Language.ISABELLE:
+            terminals = f"""
+terminals
+End: "{FewShotGptIsabelleKeywords.END}";
+Thm: "{FewShotGptIsabelleKeywords.THEOREM}";
+Dfn: "{FewShotGptIsabelleKeywords.DEFINITION}";
+Dfns: "{FewShotGptIsabelleKeywords.DEFINITIONS}";
+Lm: "{FewShotGptIsabelleKeywords.LEMMA}";
+Lms: "{FewShotGptIsabelleKeywords.LEMMAS}";
+String:;
+"""
         else:
             raise NotImplementedError(f"language {language} not supported")
         if language == ProofAction.Language.COQ:
@@ -133,11 +157,19 @@ String:;
             self.LEMMAS = FewShotGptLeanKeywords.LEMMAS
             self.INFORMAL_THEOREM = FewShotGptLeanKeywords.INFORMAL_THEOREM
             self.INFORMAL_PROOF = FewShotGptLeanKeywords.INFORMAL_PROOF
+        elif language == ProofAction.Language.ISABELLE:
+            self.END = FewShotGptIsabelleKeywords.END
+            self.THEOREM = FewShotGptIsabelleKeywords.THEOREM
+            self.DEFINITION = FewShotGptIsabelleKeywords.DEFINITION
+            self.DEFINITIONS = FewShotGptIsabelleKeywords.DEFINITIONS
+            self.LEMMA = FewShotGptIsabelleKeywords.LEMMA
+            self.LEMMAS = FewShotGptIsabelleKeywords.LEMMAS
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptResponseGrammar.grammar + terminals
         super(FewShotGptResponseGrammar, self).__init__(grammar, self.keywords, recognizers=recognizers)
     
+    # TODO: incorporate Isabelle
     def format_as_per_grammar(self, coq_gpt_response: FewShotGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: int = 4) -> str:
         assert coq_gpt_response.theorem is not None
         char_cnt = max_token_cnt * characters_per_token if max_token_cnt is not None else None # 4 is the average length of a token as per OpenAI
@@ -245,6 +277,8 @@ Prog:
             self.keywords = [FewShotGptCoqKeywords.PROOF, FewShotGptCoqKeywords.QED]
         elif language == ProofAction.Language.LEAN:
             self.keywords = [FewShotGptLeanKeywords.PROOF, FewShotGptLeanKeywords.QED]
+        elif language == ProofAction.Language.ISABELLE:
+            self.keywords = [FewShotGptIsabelleKeywords.PROOF, FewShotGptIsabelleKeywords.QED]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -264,6 +298,13 @@ Proof: "{FewShotGptLeanKeywords.PROOF}";
 Qed: "{FewShotGptLeanKeywords.QED}";
 String:;
 """
+        elif self.language == ProofAction.Language.ISABELLE:
+            terminals = f"""
+terminals
+Proof: "{FewShotGptIsabelleKeywords.PROOF}";
+Qed: "{FewShotGptIsabelleKeywords.QED}";
+String:;
+"""
         else:
             raise NotImplementedError(f"language {language} not supported")
         if language == ProofAction.Language.COQ:
@@ -272,6 +313,9 @@ String:;
         elif language == ProofAction.Language.LEAN:
             self.PROOF = FewShotGptLeanKeywords.PROOF
             self.QED = FewShotGptLeanKeywords.QED
+        elif language == ProofAction.Language.ISABELLE:
+            self.PROOF = FewShotGptIsabelleKeywords.PROOF
+            self.QED = FewShotGptIsabelleKeywords.QED
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptRequestGrammar.grammar + terminals
@@ -289,6 +333,9 @@ String:;
                     actions = actions[len("begin"):]
                 if not actions.endswith("end"):
                     actions += "end"
+            elif self.language == ProofAction.Language.ISABELLE:
+                # TODO
+                pass
             else:
                 raise NotImplementedError(f"language {self.language} not supported")
             proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=[actions])
@@ -441,3 +488,5 @@ We know that 1 + 0 = 1. Therefore, (a + 1) + a = a + 1, as required.
     print('-' * 80)
     print(response_text)
     print('-' * 80)
+
+    # TODO: run some Isabelle tests

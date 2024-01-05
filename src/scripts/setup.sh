@@ -99,3 +99,5 @@ echo "Building Lean's Simple Benchmark done!"
 echo "Building Lean's projects done!"
 echo "Lean's Setup complete!"
 echo "Copra Setup complete!"
+
+# TODO: Isabelle setup
