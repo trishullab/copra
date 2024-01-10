@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# TODO : jimmy
-
-# NOT YET IMPLEMENTED
 
 import sys
 
@@ -66,7 +63,7 @@ if __name__ == "__main__":
     os.chdir(root_dir)
     with IsabelleExecutor(use_human_readable_proof_context=True, main_file="data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", project_root="data/benchmarks/miniF2F") as isabelle_exec:
         isabelle_exec.run_to_finish()
-        all_lemmas = isabelle_exec.search_type_matching_defns("") # Get all lemmas
+        all_lemmas = [str(lemma) for lemma in isabelle_exec.search_type_matching_defns("")] # Get all lemmas
     
     isabelle_bm25_reranker = IsabelleBm25ReRanker()
     isabelle_bm25_reranker.reindex(all_lemmas)

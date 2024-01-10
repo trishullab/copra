@@ -11,7 +11,7 @@ import functools
 from func_timeout import func_timeout, FunctionTimedOut
 import re
 from collections import OrderedDict
-from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env
+from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env, IsabelleLemma
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
 logger = logging.getLogger()
 
@@ -236,7 +236,7 @@ class IsabelleExecutor:
                 
     # Make this chacheable
     # @functools.lru_cache(maxsize=10000)
-    def search_type_matching_defns(self, name: str) -> typing.List[str]:
+    def search_type_matching_defns(self, name: str) -> typing.List[IsabelleLemma]:
         if name in IsabelleExecutor.keywords:
             return []
         if not self.global_lemmas:
@@ -245,13 +245,13 @@ class IsabelleExecutor:
         all_lemmas = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state)) + self.global_lemmas
         return all_lemmas
     
-    def get_all_type_matching_defns(self, name: str) -> typing.Generator[str, None, None]:
+    def get_all_type_matching_defns(self, name: str) -> typing.Generator[IsabelleLemma, None, None]:
         return self.search_type_matching_defns(name)
 
-    def search_exact(self, name: str) -> typing.List[str]:
+    def search_exact(self, name: str) -> typing.List[IsabelleLemma]:
         return self.search_type_matching_defns(name)
 
-    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None) -> typing.List[typing.Tuple[str, str, bool]]:
+    def search_defn(self, name: str, match_until: typing.Tuple[str], max_search_res: typing.Optional[int] = None) -> typing.List[IsabelleLemma]:
         return self.search_type_matching_defns(name)
     
     def run_without_executing(self, stmt: str):
