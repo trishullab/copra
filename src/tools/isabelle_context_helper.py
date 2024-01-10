@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO (Isabelle & Lean3 search tool)
-
 import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
@@ -48,16 +46,15 @@ class IsabelleContextHelper(object):
     def set_all_type_matched_query_result(self, training_data_point: TrainingDataFormat, isabelle_executor: IsabelleExecutor, logger: logging.Logger = None, depth: int = None):
         unique_thms = {defn.lemma_name: idx for idx, defn in enumerate(training_data_point.all_useful_defns_theorems)}
         # query = training_data_point.get_human_readable_serialized_goal(idx, skip_special_tokens=True)
-        relevant_thms = self.search_executor.search_type_matching_defns("") # Here the search simply returns everything
+        relevant_thms = isabelle_executor.search_type_matching_defns("") # Here the search simply returns everything
         # Add all lemma references to unique_defns
         for thm in relevant_thms:
-            thm_name = f"{thm.namespace}.{thm.name}"
             if thm.name not in unique_thms:
                 _idx = len(training_data_point.all_useful_defns_theorems)
-                unique_thms[thm_name] = _idx
-                training_data_point.all_useful_defns_theorems.append(LemmaReferences(_idx, thm_name, thm.dfn))
+                unique_thms[thm.name] = _idx
+                training_data_point.all_useful_defns_theorems.append(LemmaReferences(_idx, thm.name, thm.dfn))
         for _, goal in enumerate(training_data_point.start_goals):
-            goal.possible_useful_theorems_external = [LemmaRefWithScore(unique_thms[f"{thm.namespace}.{thm.name}"], 1.0) for thm in relevant_thms]
+            goal.possible_useful_theorems_external = [LemmaRefWithScore(unique_thms[thm.name], 1.0) for thm in relevant_thms]
             goal.possible_useful_theorems_local = []
 
     def set_useful_defns_theorems_for_training_data_generation(self, current_stmt: str, training_data_point: TrainingDataFormat, isabelle_executor: IsabelleExecutor, logger: logging.Logger = None, depth: int = None, max_search_res: typing.Optional[int] = None):
