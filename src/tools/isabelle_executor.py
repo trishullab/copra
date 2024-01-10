@@ -132,6 +132,7 @@ class IsabelleExecutor:
         self._top_level = True
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
+        self.global_lemmas = []
     
     def __enter__(self):
         self._all_dep_handles = []
@@ -232,24 +233,17 @@ class IsabelleExecutor:
             tok1 = tok.strip()
             if len(tok1) > 0:
                 yield tok1
-
-    # TODO : implement Isabelle search tool
                 
     # Make this chacheable
     # @functools.lru_cache(maxsize=10000)
     def search_type_matching_defns(self, name: str) -> typing.List[str]:
         if name in IsabelleExecutor.keywords:
             return []
-        # temporary: check with Amitayush for intended behavior
         if not self.global_lemmas:
-            self.global_lemmas = self.pisa_env.get_global_lemmas(self.get_state_str(0))
-        all_lemmas = self.global_lemmas + self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
-        
-        ans = []
-        for lemma in all_lemmas:
-            if name in lemma:
-                ans.append(lemma)
-        return ans
+            assert not self.current_state == 0, 'Search tool cannot be used in top level state (before imports)'
+            self.global_lemmas = self.pisa_env.get_global_lemmas(self.get_state_str(self.current_state))
+        all_lemmas = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state)) + self.global_lemmas
+        return all_lemmas
     
     def get_all_type_matching_defns(self, name: str) -> typing.Generator[str, None, None]:
         return self.search_type_matching_defns(name)

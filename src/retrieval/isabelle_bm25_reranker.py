@@ -61,96 +61,27 @@ class IsabelleBm25ReRanker(ReRanker):
         tokenized_index_data = [list(IsabelleExecutor.tokenize(response)) for response in responses]
         self.bm25 = BM25Okapi(tokenized_index_data, k1=self.k1, b=self.b)
 
-class IsabelleBM25TrainingDataRetriever(object):
-    def __init__(self, 
-        data_folder: str, 
-        metadata_filename: str, 
-        k1: float = 1.0, 
-        b: float = 0.75, 
-        epsilon: float = 0.25,
-        logger: logging.Logger = None) -> None:
-        assert data_folder is not None
-        assert metadata_filename is not None
-        assert os.path.exists(data_folder)
-        assert os.path.exists(os.path.join(data_folder, metadata_filename))
-        self.k1 = k1
-        self.b = b
-        self.epsilon = epsilon
-        self.data_folder = data_folder
-        self.metadata_filename = metadata_filename
-        self._loaded = False
-        self.logger = logger if logger is not None else logging.getLogger(__name__)
-        self.training_data = TrainingData(self.data_folder, self.metadata_filename, logger=self.logger, max_parallelism=20)
-    
-    @property
-    def is_loaded(self) -> bool:
-        return self._loaded
-    
-    def load(self) -> None:
-        self.training_data.load()
-        # Go over all training data goals and tokenize them
-        # If there are more than one goals then just pick the first one
-        self.logger.info(f"Enumerating all training data...")
-        self.all_training_data = [data for data in self.training_data if len(data.start_goals) > 0]
-        self.logger.info(f"Found {len(self.all_training_data)} training data.")
-        self.logger.info(f"Extracting all goals...")
-        self.all_goals = [data.start_goals[0].goal for data in self.all_training_data]
-        self.logger.info(f"Found {len(self.all_goals)} goals.")
-        # Unload the training data
-        self.logger.info(f"Unloading training data...")
-        self.training_data.unload()
-        self.logger.info(f"Training data unloaded.")
-        # Tokenize all goals
-        self.logger.info(f"Tokenizing {len(self.all_goals)} goals...")
-        self._tokenized_goals = [list(IsabelleExecutor.tokenize(goal)) for goal in self.all_goals]
-        self.logger.info(f"Tokenization complete.")
-        self.logger.info(f"Initializing BM25 with k1={self.k1}, b={self.b}, epsilon={self.epsilon}")
-        self.bm25 = BM25Okapi(self._tokenized_goals, k1=self.k1, b=self.b, epsilon=self.epsilon)
-        self.logger.info(f"BM25 initialized.")
-        self._loaded = True
-    
-    def find_relevant_training_data(self, query: str, num_results: int = 1) -> typing.List[typing.Tuple[float, TrainingDataFormat]]:
-        assert self.is_loaded
-        query_tokens = list(IsabelleExecutor.tokenize(query))
-        scores = self.bm25.get_scores(query_tokens)
-        # Sort the scores and return the top num_results
-        sorted_scores = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
-        top_results = sorted_scores[:num_results]
-        # Normalize the scores
-        score_sum = sum([score for _, score in top_results]) + 1e-6 # Add a small epsilon to avoid division by zero
-        top_results = [(index, score/score_sum) for index, score in top_results]
-        return [(score, self.all_training_data[index]) for index, score in top_results]
-
 if __name__ == "__main__":
-    import time
-    import argparse
+    logging.basicConfig(filename='isabelle_executor.log', filemode='w', level=logging.INFO)
     os.chdir(root_dir)
-    current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-    logging_dir = f".log/retriever/bm25/{current_time}"
-    os.makedirs(logging_dir, exist_ok=True)
-    log_file = f"{os.path.join(logging_dir, f'isabelle_raw_proofs.log')}"
-    logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger("Bm25Retriever")
-    logger.info(f"Process ID: {os.getpid()}")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_folder", type=str, default=".log/tools/isabelle_raw_proofs/data/test/isabelle/custom_group_theory/2023-09-06-03-32-37/theories/train", help="The directory where the raw proofs will be dumped")
-    parser.add_argument("--metadata_filename", type=str, default="single.meta.json", help="The metadata filename")
-    args = parser.parse_args()
-    retriever = IsabelleBM25TrainingDataRetriever(args.data_folder, args.metadata_filename, logger=logger)
-    retriever.load()
-    while True:
-        try:
-            query = input("Query: ")
-            if query == "exit":
-                break
-            results = retriever.find_relevant_training_data(query, num_results=5)
-            print(f"Found top {len(results)} results:")
-            for idx, (score, tdf) in enumerate(results):
-                print(f"Result {idx+1}:")
-                print("-"*50)
-                print(f"Score: {score}")
-                print(f"Goals: {tdf.start_goals[0].goal}")
-                print(f"Proofs: {tdf.proof_steps[0][:100]}")
-                print("-"*50)
-        except KeyboardInterrupt:
-            break
+    with IsabelleExecutor(use_human_readable_proof_context=True, main_file="data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", project_root="data/benchmarks/miniF2F") as isabelle_exec:
+        isabelle_exec.run_to_finish()
+        all_lemmas = isabelle_exec.search_type_matching_defns("") # Get all lemmas
+    
+    isabelle_bm25_reranker = IsabelleBm25ReRanker()
+    isabelle_bm25_reranker.reindex(all_lemmas)
+    inp = ""
+    print("Tokenized lemmas:")
+    print('-' * 80)
+    for lemma in all_lemmas[:20]:
+        print(f"{lemma}: \n{list(IsabelleExecutor.tokenize(str(lemma)))}")
+    print('-' * 80)
+    while inp != "exit":
+        print('=' * 80)
+        inp = input("Query: ")
+        scores = [idx for idx in enumerate(isabelle_bm25_reranker.get_scores(inp))]
+        # Sort by score
+        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        # Print the top 10
+        for idx, score in scores[:10]:
+            print(f"[{score}]: {isabelle_bm25_reranker.responses[idx]}")

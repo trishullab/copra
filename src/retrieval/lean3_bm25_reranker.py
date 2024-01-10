@@ -73,7 +73,7 @@ if __name__ == "__main__":
     inp = ""
     print("Tokenized lemmas:")
     print('-' * 80)
-    for lemma in lean3_search_tool.lemmas:
+    for lemma in lean3_search_tool.lemmas[:20]:
         print(f"{lemma}: \n{list(Lean3Executor.tokenize(str(lemma)))}")
     print('-' * 80)
     while inp != "exit":
