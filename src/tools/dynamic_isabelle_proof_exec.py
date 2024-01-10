@@ -207,7 +207,6 @@ class DynamicProofExecutor(IsabelleExecutor):
         assert tactic_line_num >= 0, "tactic_line_num must be >= 0"
         cancelled_some_tactics = False
         if tactic_line_num < self.line_num:
-            self._lines_executed = self._lines_executed[:tactic_line_num]
             state_num = self.run_state.line_tactic_map[tactic_line_num]
             self.run_state.tatics_ran = self.run_state.tatics_ran[:state_num]
             self.proof_context = self.run_state.line_proof_context_map[tactic_line_num]
