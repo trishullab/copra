@@ -69,8 +69,20 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
                     lemmas_to_prove.append(lemma_name)
                     main_executor.run_to_finish_lemma()
         elif isinstance(main_executor, DynamicIsabelleProofExecutor):
-            # TODO
-            pass
+            while not main_executor.execution_complete:
+                assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
+                _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
+                if main_executor.execution_complete:
+                    break
+                lemma_name = main_executor.get_lemma_name_if_running()
+                if lemma_name is None:
+                    _ = list(main_executor.run_to_finish_lemma_return_exec())
+                    if main_executor.execution_complete:
+                        break
+                else:
+                    logger.info(f"Discovered lemma: {lemma_name}")
+                    lemmas_to_prove.append(lemma_name)
+                    main_executor.run_to_finish_lemma()
     logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
     return lemmas_to_prove
 
