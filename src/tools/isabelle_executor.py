@@ -479,11 +479,17 @@ class IsabelleExecutor:
             return ProofContext.empty()
         
         # TODO: add any additional latent hypotheses and goals (Isar proof contexts are a bit strange)
-        goals_list = goals_str.split("\n")
-        this_hyps = this_hyps_str.split("\n")
+        goals_list = list(filter(None, goals_str.split("\n")))
+        this_hyps = list(filter(None, this_hyps_str.split("\n")))
 
         for h in range(len(this_hyps)):
             this_hyps[h] = this_hyps[h].strip()
+
+        # Add previously proved statements as new hypotheses
+        if self.proof_context:
+            for hyp in self.proof_context.focused_hyps:
+                if hyp not in this_hyps:
+                    this_hyps.append(hyp)
         
         goals = []
         for i, goal_str in enumerate(goals_list):
