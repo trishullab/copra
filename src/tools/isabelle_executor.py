@@ -82,9 +82,9 @@ class IsabelleExecutor:
 
     # Keywords list may not be complete
     keywords = {
-        "section", "theory", "imports", "begin", "end", "text", "lemma", "theorem", "assumes", "shows", "proof", "have",
-        "assume", "fix", "show", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction", "datatype",
-        "fun", "where", "subsection", "term", "value", "declare", "primrec", "if", "and", "using", "case", "inductive"
+        "section", "theory", "imports", "begin", "end", "text", "lemma", "theorem", "assume", "assumes", "proof", "have",
+        "fix", "show", "shows", "then", "with", "qed", "next", "obtain", "by", "for", "?thesis", "contradiction",
+        "datatype", "fun", "where", "subsection", "term", "value", "declare", "using", "case"
     }
 
     # Matches theorem declarations
@@ -144,9 +144,9 @@ class IsabelleExecutor:
         # use the default header, which may or may not be sufficient.
         if self.main_file is None:
             logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
-            self.pisa_env = initialise_env(isa_path="/Applications/Isabelle2022.app")
+            self.pisa_env = initialise_env()
         else:
-            self.pisa_env = initialise_env(isa_path="/Applications/Isabelle2022.app", theory_file_path=self.main_file, working_directory=self.project_root)
+            self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
         self.pisa_env.initialise()
         
         return self
