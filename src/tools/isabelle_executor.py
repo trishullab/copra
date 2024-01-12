@@ -242,8 +242,7 @@ class IsabelleExecutor:
         if not self.global_lemmas:
             assert not self.current_state == 0, 'Search tool cannot be used in top level state (before imports)'
             self.global_lemmas = self.pisa_env.get_global_lemmas(self.get_state_str(self.current_state))
-        all_lemmas = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state)) + self.global_lemmas
-        return all_lemmas
+        return self.global_lemmas
     
     def get_all_type_matching_defns(self, name: str) -> typing.Generator[IsabelleLemma, None, None]:
         return self.search_type_matching_defns(name)
@@ -453,8 +452,12 @@ class IsabelleExecutor:
             self.line_num_to_state[self.line_num] = self.current_state
             # print(repr(stmt) + "\n -> \n" + repr(description))
 
+            if begin_clause:
+                return
+            
             # Parse proof context
-            self.proof_context = self._parse_proof_context(description)
+            local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
+            self.proof_context = self._parse_proof_context(description, local_hypotheses)
 
             # Proof finished
             is_proof_done = self.pisa_env.is_finished(end_state)
@@ -464,7 +467,7 @@ class IsabelleExecutor:
                 self.curr_lemma_name, self.curr_lemma = None, ""
                 self.proof_context = None
 
-    def _parse_proof_context(self, proof_context_str: str) -> ProofContext:
+    def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma]) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
             return None
         
@@ -478,24 +481,14 @@ class IsabelleExecutor:
         if(goals_str == "No subgoals!"):
             return ProofContext.empty()
         
-        # TODO: add any additional latent hypotheses and goals (Isar proof contexts are a bit strange)
         goals_list = list(filter(None, goals_str.split("\n")))
-        this_hyps = list(filter(None, this_hyps_str.split("\n")))
+        hypotheses = [hyp.dfn for hyp in local_hypotheses]
 
-        for h in range(len(this_hyps)):
-            this_hyps[h] = this_hyps[h].strip()
-
-        # Add previously proved statements as new hypotheses
-        if self.proof_context:
-            for hyp in self.proof_context.focused_hyps:
-                if hyp not in this_hyps:
-                    this_hyps.append(hyp)
-        
         goals = []
         for i, goal_str in enumerate(goals_list):
             goal_str = re.sub("\d+.", "", goal_str, 1).strip() # Remove numbering
             if i == 0:
-                goal = Obligation(this_hyps, goal_str)
+                goal = Obligation(hypotheses, goal_str)
             else:
                 goal = Obligation([], goal_str)
             goals.append(goal)
