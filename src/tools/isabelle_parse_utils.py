@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# TODO: this parser doesn't work well because it relies on newlines as delimiters, 
+# which is often not the case in Isar proofs. However, Isar doesn't have a good delimiter regardless.
+
 import os
 import sys
 root_dir = f"{__file__.split('src')[0]}"
