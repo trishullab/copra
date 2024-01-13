@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO (though I think only Lean uses this)
-
 import sys
 
 root_dir = f"{__file__.split('src')[0]}"

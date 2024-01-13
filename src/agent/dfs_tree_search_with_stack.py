@@ -92,8 +92,10 @@ class DFSTreeSearch(TreeSearchAlgorithm):
             self.failed_proof_state = FailedCoqProofState
         elif language == ProofAction.Language.LEAN:
             self.failed_proof_state = FailedLeanProofState
-        else:
+        elif language == ProofAction.Language.ISABELLE:
             self.failed_proof_state = FailedIsabelleProofState
+        else:
+            raise NotImplementedError(f"language {self.language} not supported")
         self.has_qed = False
         pass
 

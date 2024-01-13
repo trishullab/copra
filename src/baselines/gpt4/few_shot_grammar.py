@@ -35,8 +35,8 @@ class FewShotGptLeanKeywords(object):
 
 # TODO: check over this
 class FewShotGptIsabelleKeywords(object):
-    PROOF = "proof"
-    QED = "qed"
+    PROOF = "[PROOF]"
+    QED = "[END]"
     THEOREM = "[THEOREM]"
     DEFINITION = "[DEFINITION]"
     DEFINITIONS = "[DEFINITIONS]"
@@ -169,7 +169,6 @@ String:;
         grammar = FewShotGptResponseGrammar.grammar + terminals
         super(FewShotGptResponseGrammar, self).__init__(grammar, self.keywords, recognizers=recognizers)
     
-    # TODO: incorporate Isabelle
     def format_as_per_grammar(self, coq_gpt_response: FewShotGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: int = 4) -> str:
         assert coq_gpt_response.theorem is not None
         char_cnt = max_token_cnt * characters_per_token if max_token_cnt is not None else None # 4 is the average length of a token as per OpenAI

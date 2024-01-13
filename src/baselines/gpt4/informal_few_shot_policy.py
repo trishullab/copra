@@ -21,7 +21,6 @@ from src.rl.proof_state import ProofState
 from src.rl.simple_proof_env import ProofEnvInfo
 from src.tools.informal_proof_repo import InformalProofRepo
 
-# TODO (though I think only Lean uses this)
 
 class InformalFewShotGptPolicy(Policy):
     def __init__(self,

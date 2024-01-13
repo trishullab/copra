@@ -116,7 +116,6 @@ class IsabelleExecutor:
         self.project_root = project_root if project_root is not None else "."
         self.main_file = main_file
         self.use_hammer = use_hammer
-        self.timeout_in_sec = min(timeout_in_sec, 120) # Maximum 120s timeout
         self.current_stmt = None
         self.line_num = 0
         self.current_state = 0
@@ -428,6 +427,7 @@ class IsabelleExecutor:
         if last_thm_details:
             # Extract lemma name and declaration
             stmt = self.buffer
+            self.buffer = ""
             full_thm_stmt, _, _, _, thm_name, _, thm_value = last_thm_details[-1]
             full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
 
