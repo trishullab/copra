@@ -406,7 +406,7 @@ class IsabelleExecutor:
         elif not self._proof_running:
             self.buffer += stmt + '\n' # Add current line to buffer
             # If the action succeeds, we have a new lemma
-            description = self.pisa_env.step(start_state, self.buffer, end_state, delete_old_state=False)
+            description = self.pisa_env.step(start_state, self.buffer, end_state)
             if not description.startswith('Step error:'):
                 last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
@@ -437,7 +437,7 @@ class IsabelleExecutor:
             stmt = stmt.strip()
 
             # Run statement, with timeout. 
-            description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
+            description = self._handle_sledgehammer(start_state, stmt, end_state)
             if description.startswith('Step error:'):
                 raise Exception(description)
             
@@ -460,6 +460,33 @@ class IsabelleExecutor:
                 self._proof_running = False
                 self.curr_lemma_name, self.curr_lemma = None, ""
                 self.proof_context = None
+
+    # PISA only supports sledgehammer as an atomic operation. So we must split any tactic which uses it
+    def _handle_sledgehammer(self, start_state: str, step: str, end_state: str) -> str:
+        if step is None or len(step) == 0:
+            return None
+
+        tactics = re.split(r'(sledgehammer)', step)
+        tactics = list(filter(None, [t.strip() for t in tactics]))
+        
+        description = None
+        for idx, tactic in enumerate(tactics):
+            temp_start = end_state
+            temp_end = end_state
+            if idx == 0:
+                temp_start = start_state
+            
+            if tactic == 'sledgehammer':
+                # Attempt to solve proof with sledgehammer
+                description = self.pisa_env.apply_hammer(temp_start, temp_end)
+            else:
+                # Run tactic normally
+                description = self.pisa_env.step(temp_start, tactic, temp_end)
+
+            if description.startswith('Step error:'):
+                raise Exception(description)
+
+        return description
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma]) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
