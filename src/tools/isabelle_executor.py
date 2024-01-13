@@ -8,7 +8,6 @@ import os
 import logging
 import typing
 import functools
-from func_timeout import func_timeout, FunctionTimedOut
 import re
 from collections import OrderedDict
 from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env, IsabelleLemma
@@ -116,6 +115,7 @@ class IsabelleExecutor:
         self.project_root = project_root if project_root is not None else "."
         self.main_file = main_file
         self.use_hammer = use_hammer
+        self.timeout_in_sec = timeout_in_sec
         self.current_stmt = None
         self.line_num = 0
         self.current_state = 0
@@ -405,13 +405,10 @@ class IsabelleExecutor:
             begin_clause = IsabelleExecutor.begin_theory_match.findall(self.buffer)
         elif not self._proof_running:
             self.buffer += stmt + '\n' # Add current line to buffer
-            try:
-                # If the action succeeds, we have a new lemma
-                description = self.pisa_env.step(start_state, self.buffer, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
-                if not description.startswith('Step error:'):
-                    last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
-            except FunctionTimedOut:
-                raise Exception("Error: the action timed out.")
+            # If the action succeeds, we have a new lemma
+            description = self.pisa_env.step(start_state, self.buffer, end_state, delete_old_state=False)
+            if not description.startswith('Step error:'):
+                last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
         # Complete initialization transitions found! Exit top-level mode
         if begin_clause:
@@ -440,10 +437,7 @@ class IsabelleExecutor:
             stmt = stmt.strip()
 
             # Run statement, with timeout. 
-            try:
-                description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
-            except FunctionTimedOut:
-                raise Exception("Error: the tactic timed out.")
+            description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False)
             if description.startswith('Step error:'):
                 raise Exception(description)
             
@@ -456,7 +450,8 @@ class IsabelleExecutor:
             
             # Parse proof context
             local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
-            self.proof_context = self._parse_proof_context(description, local_hypotheses)
+            proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state))
+            self.proof_context = self._parse_proof_context(proof_state, local_hypotheses)
 
             # Proof finished
             is_proof_done = self.pisa_env.is_finished(end_state)
