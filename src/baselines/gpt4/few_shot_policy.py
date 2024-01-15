@@ -86,8 +86,9 @@ class FewShotGptPolicy(Policy):
                 self._asked_for_dfns_and_lms = True
                 # Move on because we don't support retrieving definitions and theorems for Lean as of now
             elif self.language == ProofAction.Language.ISABELLE:
-                # TODO
-                pass
+                if len(state.training_data_format.all_useful_defns_theorems) == 0:
+                    self._asked_for_dfns_and_lms = True
+                    return ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
         if not self._asked_for_proof:
             success = False
             tries = 10
@@ -112,8 +113,12 @@ class FewShotGptPolicy(Policy):
                     gpt_response.informal_theorem = informal_thm
                     gpt_response.informal_proof = informal_proof
             elif self.language == ProofAction.Language.ISABELLE:
-                # TODO
-                pass
+                # TODO: How come Lean uses the (anonymized) name, but Coq just uses the goal?
+                gpt_response = FewShotGptResponse(
+                    theorem=state.training_data_format.start_goals[0].goal,
+                    defintions=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].relevant_defns],
+                    lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
+                )
             else:
                 raise Exception(f"Unsupported language {self.language}")
             while not success and tries > 0:

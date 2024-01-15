@@ -33,7 +33,6 @@ class FewShotGptLeanKeywords(object):
     INFORMAL_THEOREM = "[INFORMAL-THEOREM]"
     INFORMAL_PROOF = "[INFORMAL-PROOF]"
 
-# TODO: check over this
 class FewShotGptIsabelleKeywords(object):
     PROOF = "[PROOF]"
     QED = "[END]"
@@ -333,8 +332,7 @@ String:;
                 if not actions.endswith("end"):
                     actions += "end"
             elif self.language == ProofAction.Language.ISABELLE:
-                # TODO
-                pass
+                actions = str(nodes[1]).strip()
             else:
                 raise NotImplementedError(f"language {self.language} not supported")
             proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=[actions])
@@ -438,6 +436,37 @@ end
     run_result = grammar.run(code, None)
     print(run_result)
 
+    code = """
+[PROOF]
+proof -
+  have "f = 11 - 3*z" using h0 by (simp add:algebra_simps)
+  then have "3*((11 - 3*z) - 1) - 5*z = -68"
+    using h1 by simp
+  then have "z=7" by (simp add:algebra_simps)
+  moreover then have "f=-10" using h0
+    apply (simp add:field_simps )
+    by (metis add_diff_cancel diff_0)
+  ultimately show ?thesis by simp
+qed
+[END]
+"""
+    grammar = FewShotGptRequestGrammar(language=ProofAction.Language.ISABELLE)
+    result = grammar.compile(code)
+    print(result)
+    run_result = grammar.run(code, None)
+    print(run_result)
+
+    code = """
+[PROOF]
+using assms by auto
+[END]
+"""
+    grammar = FewShotGptRequestGrammar(language=ProofAction.Language.ISABELLE)
+    result = grammar.compile(code)
+    print(result)
+    run_result = grammar.run(code, None)
+    print(run_result)
+
     response_grammar = FewShotGptResponseGrammar()
     response = FewShotGptResponse(theorem="algb_nat_zero : forall a, 0 + a = a.", 
         defintions=["nat : Set", "0 : nat", "S : nat -> nat", "plus : nat -> nat -> nat"], 
@@ -488,4 +517,20 @@ We know that 1 + 0 = 1. Therefore, (a + 1) + a = a + 1, as required.
     print(response_text)
     print('-' * 80)
 
-    # TODO: run some Isabelle tests
+    response_grammar = FewShotGptResponseGrammar(language=ProofAction.Language.ISABELLE)
+    response = FewShotGptResponse(theorem="""
+theorem aime_1983_p1:
+  fixes x y z w :: nat
+  assumes ht : "1 < x \<and> 1 < y \<and> 1 < z"
+    and hw : "0 \<le> w"
+    and h0 : "ln w / ln x = 24"
+    and h1 : "ln w / ln y = 40"
+    and h2 : "ln w / ln (x * y * z) = 12"
+  shows "ln w / ln z = 60"
+""", 
+        defintions=[], 
+        lemmas=[])
+    response_text = response_grammar.format_as_per_grammar(response, k=3)
+    print('-' * 80)
+    print(response_text)
+    print('-' * 80)
