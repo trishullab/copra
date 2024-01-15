@@ -139,14 +139,22 @@ class IsabelleExecutor:
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
 
-        # PISA clients must provide a file and working directory. If these are not provided, 
-        # use the default header, which may or may not be sufficient.
+        # PISA clients must provide a file and working directory. If these are not provided,
+        # or if the file path is not supported by PISA, use the default header, which may or may not be sufficient.
         if self.main_file is None:
             logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
             self.pisa_env = initialise_env()
+            self.pisa_env.initialise()
         else:
-            self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
-        self.pisa_env.initialise()
+            try:
+                self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
+                self.pisa_env.initialise()
+            except:
+                logger.warning("Theory initialization failed. Most likely this file path is not supported by PISA.")
+                logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main).")
+                self.pisa_env = initialise_env()
+                self.pisa_env.initialise()
+        
         
         return self
 
@@ -609,6 +617,10 @@ if __name__ == "__main__":
     # with IsabelleStdInOutExecutor() as isabelle_exec:
         # isabelle_exec.run_in_loop()
 
+    # os.chdir(root_dir)
+    # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
+    #     isabelle_exec.run_in_loop()
+
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
+    with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
         isabelle_exec.run_in_loop()
