@@ -113,9 +113,12 @@ class FewShotGptPolicy(Policy):
                     gpt_response.informal_theorem = informal_thm
                     gpt_response.informal_proof = informal_proof
             elif self.language == ProofAction.Language.ISABELLE:
-                # TODO: How come Lean uses the (anonymized) name, but Coq just uses the goal?
+                # TODO: how come Lean uses the full theorem statement, while Coq just uses the goal?
+                theorem_statement_with_name = state.theorem_statement_with_name
+                # Replace the theorem name with the some anonymous name
+                theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
                 gpt_response = FewShotGptResponse(
-                    theorem=state.training_data_format.start_goals[0].goal,
+                    theorem=theorem_statement_with_name,
                     defintions=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].relevant_defns],
                     lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
                 )
