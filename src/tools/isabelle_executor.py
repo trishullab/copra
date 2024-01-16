@@ -300,6 +300,7 @@ class IsabelleExecutor:
         if not ran_last_cmd:
             return False, None
         assigned = False
+        in_proof_mode = self.is_in_proof_mode()
         while ran_last_cmd and not in_proof_mode:
             if not assigned:
                 prev_stmt = next_stmt
@@ -326,6 +327,7 @@ class IsabelleExecutor:
                 yield from []
             else:
                 yield next_stmt
+            in_proof_mode = self.is_in_proof_mode()
             while ran_last_cmd and not in_proof_mode:
                 ran_last_cmd = self.run_next(buffered=True)
                 next_stmt = self.current_stmt
@@ -347,6 +349,7 @@ class IsabelleExecutor:
                 yield from []
             else:
                 yield next_stmt
+            in_proof_mode = self.is_in_proof_mode()
             while ran_last_cmd and in_proof_mode:
                 ran_last_cmd = self.run_next(buffered=True)
                 next_stmt = self.current_stmt
@@ -363,6 +366,7 @@ class IsabelleExecutor:
         ran_last_cmd = self.run_next(buffered=True)
         if not ran_last_cmd:
             return False
+        in_proof_mode = self.is_in_proof_mode()
         while ran_last_cmd and in_proof_mode:
             ran_last_cmd = self.run_next(buffered=True)
             in_proof_mode = self.is_in_proof_mode()
