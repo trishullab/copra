@@ -118,8 +118,8 @@ class FewShotGptPolicy(Policy):
                 theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
                 gpt_response = FewShotGptResponse(
                     theorem=theorem_statement_with_name,
-                    defintions=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].relevant_defns],
-                    lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
+                    defintions=[],
+                    lemmas=[],
                 )
             else:
                 raise Exception(f"Unsupported language {self.language}")
