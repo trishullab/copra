@@ -427,7 +427,8 @@ class ProofEnv(Env):
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
         lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
-        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt)
+        lemma_name = self._dynamic_proof_executor.get_current_lemma_name()
+        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt, theorem_name=lemma_name)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE

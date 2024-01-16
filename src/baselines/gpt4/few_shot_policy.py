@@ -113,7 +113,6 @@ class FewShotGptPolicy(Policy):
                     gpt_response.informal_theorem = informal_thm
                     gpt_response.informal_proof = informal_proof
             elif self.language == ProofAction.Language.ISABELLE:
-                # TODO: how come Lean uses the full theorem statement, while Coq just uses the goal?
                 theorem_statement_with_name = state.theorem_statement_with_name
                 # Replace the theorem name with the some anonymous name
                 theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
