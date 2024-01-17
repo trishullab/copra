@@ -573,11 +573,11 @@ if __name__ == "__main__":
         always_retrieve_thms = True
     elif inp == 'isabelle':
         proof_exec_callback = ProofExecutorCallback(
-            project_folder="data/benchmarks/miniF2F",
-            file_path="data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy",
+            project_folder="data/test",
+            file_path="data/test/SimpleAlgebra.thy",
             language=ProofAction.Language.ISABELLE
         )
-        theorem_name = "aime_1983_p1"
+        theorem_name = "sqrt_comp"
         language = ProofAction.Language.ISABELLE
         always_retrieve_thms = False
     else:

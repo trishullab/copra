@@ -413,6 +413,7 @@ class IsabelleExecutor:
         last_thm_details = []
         start_state = self.get_state_str(self.current_state)
         end_state = self.get_state_str(self.current_state + 1)
+        found_lemma = False
 
         # Deal with multi-line statements: 
         #   1. theory initialization (theory... imports... begin)
@@ -439,6 +440,7 @@ class IsabelleExecutor:
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
+            found_lemma = True
             # Extract lemma name and declaration
             stmt = self.buffer
             self.buffer = ""
@@ -458,6 +460,11 @@ class IsabelleExecutor:
             if description.startswith('Step error:'):
                 raise Exception(description)
             
+            # Parse proof context
+            local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state + 1))
+            proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state + 1))
+            self.proof_context = self._parse_proof_context(proof_state, local_hypotheses, found_lemma)
+
             self.current_state += 1
             self.line_num_to_state[self.line_num] = self.current_state
             self.buffer = ""
@@ -465,11 +472,6 @@ class IsabelleExecutor:
 
             if begin_clause:
                 return
-            
-            # Parse proof context
-            local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
-            proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state))
-            self.proof_context = self._parse_proof_context(proof_state, local_hypotheses)
 
             # Proof finished
             is_proof_done = self.pisa_env.is_finished(end_state)
@@ -506,7 +508,7 @@ class IsabelleExecutor:
 
         return description
 
-    def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma]) -> ProofContext:
+    def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
             return None
         
@@ -515,10 +517,13 @@ class IsabelleExecutor:
         if len(all_matches) == 0:
             return None
         
-        _, _, _, this_hyps_str, _, goals_str = all_matches[0]
+        context_type, _, _, this_hyps_str, _, goals_str = all_matches[0]
         this_hyps_str, goals_str = this_hyps_str.strip(), goals_str.strip()
         if(goals_str == "No subgoals!"):
             return ProofContext.empty()
+
+        if not found_lemma and not context_type == 'state':
+            raise Exception(f'Error: please provide a full tactic. This step ends in "{context_type}" mode but it should end in "state" mode')
         
         goals_list = list(filter(None, goals_str.split("\n")))
         hypotheses = [hyp.dfn for hyp in local_hypotheses]
