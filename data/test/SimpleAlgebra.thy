@@ -13,7 +13,8 @@ lemma basic_arithmetic:
 
 lemma sqrt_comp: "sqrt 2 + sqrt 3 < sqrt 10"
 proof -
-  have "(sqrt 2 + sqrt 3)^2 < (sqrt 10)^2"
+  have "(sqrt 2 + sqrt 3)^2 
+    < (sqrt 10)^2"
   proof (simp add: algebra_simps eval_nat_numeral)
     have "(2 * (sqrt 2 * sqrt 3))^2 < 5 ^ 2"
       by (simp add: algebra_simps eval_nat_numeral)
