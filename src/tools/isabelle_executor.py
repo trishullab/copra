@@ -454,6 +454,11 @@ class IsabelleExecutor:
         if self._proof_running or begin_clause:
             stmt = f"{self.buffer}{stmt.strip()}"
 
+            # Throw an error if "sorry" is used, which is not allowed
+            # Note that this is a fairly simple/optimistic way of handling it
+            if proof_search_mode and "sorry" in stmt:
+                raise Exception('Error: expected tactic, got "sorry". Do not use "sorry" in your proof.')
+ 
             try:
                 # Run statement. TODO: pass in timeout
                 description = self._handle_sledgehammer(start_state, stmt, end_state)
