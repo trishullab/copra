@@ -9,22 +9,6 @@ sqrt 2 + sqrt 3 < sqrt 10
 
 [END]
 
-
-`example_assistant`
-[RUN TACTIC]
-proof -
-[END]
-
-`example_user`
-Goals to prove:
-[GOALS]
-[GOAL] 1
-sqrt 2 + sqrt 3 < sqrt 10
-[HYPOTHESES] 1
-
-[END]
-
-
 `example_assistant`
 [RUN TACTIC]
 have "2 < 3" by simp 

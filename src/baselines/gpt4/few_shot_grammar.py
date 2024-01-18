@@ -332,7 +332,9 @@ String:;
                 if not actions.endswith("end"):
                     actions += "end"
             elif self.language == ProofAction.Language.ISABELLE:
-                actions = str(nodes[1]).strip()
+                actions = str(nodes[1]).strip().strip("proof -").strip()
+                if not actions.endswith("qed"):
+                    actions += "qed"
             else:
                 raise NotImplementedError(f"language {self.language} not supported")
             proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=[actions])
@@ -448,17 +450,6 @@ proof -
     by (metis add_diff_cancel diff_0)
   ultimately show ?thesis by simp
 qed
-[END]
-"""
-    grammar = FewShotGptRequestGrammar(language=ProofAction.Language.ISABELLE)
-    result = grammar.compile(code)
-    print(result)
-    run_result = grammar.run(code, None)
-    print(run_result)
-
-    code = """
-[PROOF]
-using assms by auto
 [END]
 """
     grammar = FewShotGptRequestGrammar(language=ProofAction.Language.ISABELLE)

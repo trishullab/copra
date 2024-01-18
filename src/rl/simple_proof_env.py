@@ -192,7 +192,11 @@ class ProofEnv(Env):
         self._foward_to_lemma_proof()
         self.goal_start_time = time.time()
         self.inferences_used = 0
-        pass
+        
+        # If in Isabelle, automatically enter proof
+        if self.language == ProofAction.Language.ISABELLE:
+            enter = ProofAction(ProofAction.ActionType.RUN_TACTIC, ProofAction.Language.ISABELLE, tactics=["proof -"])
+            self.step(enter)
 
     def step(self, action: Action) -> typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]:
         assert self._loaded, "Env not loaded, call reset() first"

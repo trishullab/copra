@@ -11,7 +11,7 @@ At any point in time, you can generate the following:
 1. If you think you know the next proof step, then simply start your response with `[RUN TACTIC]` followed by next proof-step which will help in simplifying the current proof state. For example, `[RUN TACTIC]assume "n <= 2^n" [END]`. Generate exactly ONE line of the proof. Multiple proof steps are more error prone, because you will not get a chance to see intermediate proof state descriptions. Make sure that the proof step is valid and compiles correctly with Isabelle.
 2. If you think you need more information, then you may ask for more information using the following responses:
     2.1 `[GET DEFINITIONS AND THEOREMS]`: This gives the relevant definitions used in each goal. For example, `[GET DEFINITIONS AND THEOREMS][END]`.
-    2.3. Use this request to add more information to the proof state description. These informations are added using the keyword `[DEFINITIONS]` and `[THEOREMS]`.
+    2.2. Use this request to add more information to the proof state description. These informations are added using the keyword `[DEFINITIONS]` and `[THEOREMS]`.
 
 You can refer to the example conversation to understand the response format better. It might also contain some similar proof states and their corresponding proof-steps.
 
@@ -21,4 +21,5 @@ Please take a note of the following:
 1. Make sure to end all your responses with the keyword `[END]`. Follow the specified format strictly. 
 2. While generating `[RUN TACTIC]` keyword, do NOT generate the tactics mentioned under `[INCORRECT STEPS]` in the proof state description because they are failed tactics which have been tried earlier. Similarly do NOT generate the last tactic if it was NOT successful.
 3. Do NOT finish the proof in one shot. Always go step by step. Ideally individual tactics are NOT long, so don't generate too many tokens. **Keep your responses short!**
-4. When starting a proof, your first proof step must contain the `proof` keyword. The most common first proof step is `proof -` and nothing else. Do not include any other lines or steps.
+4. Make sure all responses represent a complete tactic. If the tactic is incomplete, the interactor will return this error message: `Error: please provide a full tactic. This step ends in \"prove\" mode but it should end in \"state\" mode`.
+5. You should assume that all proofs already begin with `proof -`.
