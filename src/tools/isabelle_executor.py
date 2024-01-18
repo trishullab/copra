@@ -115,7 +115,7 @@ class IsabelleExecutor:
         self.project_root = project_root if project_root is not None else "."
         self.main_file = main_file
         self.use_hammer = use_hammer
-        self.timeout_in_sec = timeout_in_sec
+        self.timeout_in_sec = min(timeout_in_sec, 120) # Maximum 120s timeout
         self.current_stmt = None
         self.line_num = 0
         self.current_state = 0
@@ -199,7 +199,8 @@ class IsabelleExecutor:
         return self.proof_context is not None and len(self.proof_context.all_goals) == 0
     
     def needs_cut_close(self):
-        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and len(self.proof_context.all_goals) > 0
+        is_proof_finished = self.pisa_env.is_finished(self.get_state_str(self.current_state))
+        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and not is_proof_finished
 
     def get_state_str(self, state_num):
         if state_num == 0:
