@@ -199,8 +199,8 @@ class IsabelleExecutor:
         return self.proof_context is not None and len(self.proof_context.all_goals) == 0
     
     def needs_cut_close(self):
-        is_proof_finished = self.pisa_env.is_finished(self.get_state_str(self.current_state))
-        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and not is_proof_finished
+        # Not supported. Even if there is a nested proof, we still can use `qed` to close the proof
+        return False
 
     def get_state_str(self, state_num):
         if state_num == 0:
