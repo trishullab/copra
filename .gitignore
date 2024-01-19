@@ -187,3 +187,6 @@ api_log.json
 
 # Misc. (MacOS)
 *.DS_Store
+
+# Ignore any downloaded files
+*.tar.gz
