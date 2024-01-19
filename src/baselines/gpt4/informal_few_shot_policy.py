@@ -37,7 +37,8 @@ class InformalFewShotGptPolicy(Policy):
         assert checkpoint_filename is not None, "Checkpoint filename cannot be None"
         assert policy_prompter is not None, "Policy prompter cannot be None"
         assert informal_proof_repo is not None, "Informal proof repo cannot be None"
-        assert language == ProofAction.Language.LEAN, "Only Lean is supported for informal proofs"
+        assert language == ProofAction.Language.LEAN or language == ProofAction.Language.ISABELLE,
+            "Only Lean or Isabelle is supported for informal proofs"
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_filename = checkpoint_filename
         self._policy_prompter = policy_prompter
@@ -90,11 +91,15 @@ class InformalFewShotGptPolicy(Policy):
             elif self.language == ProofAction.Language.LEAN:
                 self._asked_for_dfns_and_lms = True
                 # Move on because we don't support retrieving definitions and theorems for Lean as of now
+            elif self.language == ProofAction.Language.ISABELLE:
+                if len(state.training_data_format.all_useful_defns_theorems) == 0:
+                    self._asked_for_dfns_and_lms = True
+                    return ProofAction(ProofAction.ActionType.GET_DFNS_THMS, self.language)
         if not self._asked_for_proof:
             success = False
             tries = 10
             exceptions = []
-            if self.language == ProofAction.Language.LEAN:
+            if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
                 theorem_stmt, _ = self.informal_proof_repo.get_informal_thm_proof(self.lemma_name)
                 gpt_response = InformalFewShotGptResponse(theorem=theorem_stmt)
             else:
