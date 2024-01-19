@@ -4,7 +4,9 @@ begin
 
 theorem n_less_2_pow_n: 
     shows "n <= 2^n"
-    sorry
+proof -
+  show ?thesis sledgehammer
+qed
 
 lemma basic_arithmetic:
   fixes x::real
@@ -18,8 +20,8 @@ proof -
   proof (simp add: algebra_simps eval_nat_numeral)
     have "(2 * (sqrt 2 * sqrt 3))^2 < 5 ^ 2"
       by (simp add: algebra_simps eval_nat_numeral)
-    then show "2 * (sqrt 2 * sqrt 3) < 5"
-      by (smt (verit, best) power_mono)
+    then show "2 * (sqrt 2 * sqrt 3) < 5" sledgehammer
+      (* by (smt (verit, best) power_mono) *)
   qed
   then show ?thesis
     by (simp add: real_less_rsqrt)
