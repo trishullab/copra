@@ -1,0 +1,4 @@
+name: isabelle_dfs
+main_prompt: data/prompts/system/isabelle-proof-agent-with-dfs.md
+conv_prompt: data/prompts/conversation/isabelle-proof-agent-example-long-conv-dfs.md
+informal_proof_repo:

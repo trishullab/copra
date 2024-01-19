@@ -32,6 +32,7 @@ from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
 from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
 from src.tools.informal_proof_repo import InformalProofRepo
@@ -53,6 +54,21 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
             main_executor.run_all_without_exec()
             lemmas_to_prove = main_executor.find_all_theorems_names()
         elif isinstance(main_executor, DynamicCoqProofExecutor):
+            while not main_executor.execution_complete:
+                assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
+                _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
+                if main_executor.execution_complete:
+                    break
+                lemma_name = main_executor.get_lemma_name_if_running()
+                if lemma_name is None:
+                    _ = list(main_executor.run_to_finish_lemma_return_exec())
+                    if main_executor.execution_complete:
+                        break
+                else:
+                    logger.info(f"Discovered lemma: {lemma_name}")
+                    lemmas_to_prove.append(lemma_name)
+                    main_executor.run_to_finish_lemma()
+        elif isinstance(main_executor, DynamicIsabelleProofExecutor):
             while not main_executor.execution_complete:
                 assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
                 _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
