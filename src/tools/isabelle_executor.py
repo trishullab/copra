@@ -8,7 +8,6 @@ import os
 import logging
 import typing
 import functools
-from func_timeout import func_timeout, FunctionTimedOut
 import re
 from collections import OrderedDict
 from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env, IsabelleLemma
@@ -140,14 +139,22 @@ class IsabelleExecutor:
         if self.main_file_iter is None:
             self.main_file_iter = IsabelleLineByLineReader(self.main_file).instruction_step_generator()
 
-        # PISA clients must provide a file and working directory. If these are not provided, 
-        # use the default header, which may or may not be sufficient.
+        # PISA clients must provide a file and working directory. If these are not provided,
+        # or if the file path is not supported by PISA, use the default header, which may or may not be sufficient.
         if self.main_file is None:
             logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
             self.pisa_env = initialise_env()
+            self.pisa_env.initialise()
         else:
-            self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
-        self.pisa_env.initialise()
+            try:
+                self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
+                self.pisa_env.initialise()
+            except:
+                logger.warning("Theory initialization failed. Most likely this file path is not supported by PISA.")
+                logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main).")
+                self.pisa_env = initialise_env()
+                self.pisa_env.initialise()
+        
         
         return self
 
@@ -192,14 +199,15 @@ class IsabelleExecutor:
         return self.proof_context is not None and len(self.proof_context.all_goals) == 0
     
     def needs_cut_close(self):
-        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and len(self.proof_context.all_goals) > 0
+        is_proof_finished = self.pisa_env.is_finished(self.get_state_str(self.current_state))
+        return self.proof_context is not None and len(self.proof_context.fg_goals) == 0 and not is_proof_finished
 
     def get_state_str(self, state_num):
         if state_num == 0:
             return 'default'
         return 'state' + str(state_num)
 
-    def run_next(self) -> bool:
+    def run_next(self, proof_search_mode=True) -> bool:
         try:
             stmt = next(self.main_file_iter)
         except StopIteration:
@@ -208,12 +216,16 @@ class IsabelleExecutor:
         self.current_stmt = stmt
         self.line_num += 1
         try:
-            self._run_stmt_on_isabelle_server(stmt)
+            self._run_stmt_on_isabelle_server(stmt, proof_search_mode)
         except:
-            if not self.suppress_error_log:
-                logger.error(f"Got an exception while running '{stmt}' on isabelle. File name: {self.main_file}")
-                logger.exception(f"Exception Log")
-            raise
+            if proof_search_mode:
+                if not self.suppress_error_log:
+                    logger.error(f"Got an exception while running '{stmt}' on isabelle. File name: {self.main_file}")
+                    logger.exception(f"Exception Log")
+                raise
+            else:
+                # If we're not in proof search mode, we can assume any errors are expected
+                pass
         return True
     
     def get_tokens_in_given_stmt(self, stmt: str, ignore_first_token: bool = False) -> typing.Generator[str, None, None]:
@@ -283,15 +295,16 @@ class IsabelleExecutor:
             # If we are already in proof mode, then we have already found a lemma
             return False, next_stmt
         prev_stmt = self.current_stmt
-        ran_last_cmd = self.run_next()
+        ran_last_cmd = self.run_next(proof_search_mode=False)
         next_stmt = self.current_stmt
         if not ran_last_cmd:
             return False, None
         assigned = False
+        in_proof_mode = self.is_in_proof_mode()
         while ran_last_cmd and not in_proof_mode:
             if not assigned:
                 prev_stmt = next_stmt
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
             in_proof_mode = self.is_in_proof_mode()
             if not assigned:
                 next_stmt = self.current_stmt
@@ -308,14 +321,15 @@ class IsabelleExecutor:
             # If we are already in proof mode, then we have already found a lemma
             yield from []
         else:
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
             next_stmt = self.current_stmt
             if not ran_last_cmd:
                 yield from []
             else:
                 yield next_stmt
+            in_proof_mode = self.is_in_proof_mode()
             while ran_last_cmd and not in_proof_mode:
-                ran_last_cmd = self.run_next()
+                ran_last_cmd = self.run_next(proof_search_mode=False)
                 next_stmt = self.current_stmt
                 if ran_last_cmd:
                     yield next_stmt
@@ -329,14 +343,15 @@ class IsabelleExecutor:
             # If we are already in proof mode, then we have already found a lemma
             yield from []
         else:
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
             next_stmt = self.current_stmt
             if not ran_last_cmd:
                 yield from []
             else:
                 yield next_stmt
+            in_proof_mode = self.is_in_proof_mode()
             while ran_last_cmd and in_proof_mode:
-                ran_last_cmd = self.run_next()
+                ran_last_cmd = self.run_next(proof_search_mode=False)
                 next_stmt = self.current_stmt
                 if ran_last_cmd:
                     yield next_stmt
@@ -348,11 +363,12 @@ class IsabelleExecutor:
         if not in_proof_mode or self.execution_complete:
             # If we are not in proof mode, then we are not finishing a lemma
             return False
-        ran_last_cmd = self.run_next()
+        ran_last_cmd = self.run_next(proof_search_mode=False)
         if not ran_last_cmd:
             return False
+        in_proof_mode = self.is_in_proof_mode()
         while ran_last_cmd and in_proof_mode:
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
             in_proof_mode = self.is_in_proof_mode()
         return not in_proof_mode
 
@@ -360,13 +376,13 @@ class IsabelleExecutor:
         assert line_num >= self.line_num
         ran_last_cmd = True
         while ran_last_cmd and self.line_num < line_num:
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
         return self.line_num
     
     def run_to_finish(self):
         ran_last_cmd = True
         while ran_last_cmd:
-            ran_last_cmd = self.run_next()
+            ran_last_cmd = self.run_next(proof_search_mode=False)
         
     def get_lemma_name_if_running(self) -> typing.Optional[str]:
         if not self.is_in_proof_mode():
@@ -392,11 +408,12 @@ class IsabelleExecutor:
         else:
             return self.curr_lemma_name
         
-    def _run_stmt_on_isabelle_server(self, stmt: str) -> None:
+    def _run_stmt_on_isabelle_server(self, stmt: str, proof_search_mode=True) -> None:
         begin_clause = []
         last_thm_details = []
         start_state = self.get_state_str(self.current_state)
         end_state = self.get_state_str(self.current_state + 1)
+        found_lemma = False
 
         # Deal with multi-line statements: 
         #   1. theory initialization (theory... imports... begin)
@@ -406,13 +423,10 @@ class IsabelleExecutor:
             begin_clause = IsabelleExecutor.begin_theory_match.findall(self.buffer)
         elif not self._proof_running:
             self.buffer += stmt + '\n' # Add current line to buffer
-            try:
-                # If the action succeeds, we have a new lemma
-                description = self.pisa_env.step(start_state, self.buffer, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
-                if not description.startswith('Step error:'):
-                    last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
-            except FunctionTimedOut:
-                raise Exception("Error: the action timed out.")
+            # If the action succeeds, we have a new lemma
+            description = self.pisa_env.step(start_state, self.buffer, end_state)
+            if not description.startswith('Step error:'):
+                last_thm_details = IsabelleExecutor.theorem_match.findall(self.buffer)
 
         # Complete initialization transitions found! Exit top-level mode
         if begin_clause:
@@ -426,8 +440,10 @@ class IsabelleExecutor:
 
         # Complete lemma found! Enter proof mode
         if last_thm_details:
+            found_lemma = True
             # Extract lemma name and declaration
             stmt = self.buffer
+            self.buffer = ""
             full_thm_stmt, _, _, _, thm_name, _, thm_value = last_thm_details[-1]
             full_thm_stmt, thm_name, thm_value = full_thm_stmt.strip(), thm_name.strip(), thm_value.strip()
 
@@ -437,26 +453,35 @@ class IsabelleExecutor:
 
         # In proof mode. Execute tactics
         if self._proof_running or begin_clause:
-            stmt = stmt.strip()
+            stmt = f"{self.buffer}{stmt.strip()}"
 
-            # Run statement, with timeout. 
+            # Throw an error if "sorry" is used, which is not allowed
+            # Note that this is a fairly simple/optimistic way of handling it
+            if proof_search_mode and "sorry" in stmt:
+                raise Exception('Error: expected tactic, got "sorry". Do not use "sorry" in your proof.')
+ 
             try:
-                description = self.pisa_env.step(start_state, stmt, end_state, delete_old_state=False, forceTimeout=self.timeout_in_sec)
-            except FunctionTimedOut:
-                raise Exception("Error: the tactic timed out.")
-            if description.startswith('Step error:'):
-                raise Exception(description)
-            
+                # Run statement. TODO: pass in timeout
+                description = self._handle_sledgehammer(start_state, stmt, end_state)
+                # Parse proof context
+                local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state + 1))
+                proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state + 1))
+                self.proof_context = self._parse_proof_context(proof_state, local_hypotheses, found_lemma)
+            except Exception as e:
+                # If we're not in proof search mode, we assume the file compiles correctly
+                # Then this error is likely the result of a tactic split between multiple lines
+                # To fix, we'll simply fill a buffer until the tactic compiles correctly
+                if not proof_search_mode:
+                    self.buffer = stmt + '\n'
+                raise
+
             self.current_state += 1
             self.line_num_to_state[self.line_num] = self.current_state
+            self.buffer = ""
             # print(repr(stmt) + "\n -> \n" + repr(description))
 
             if begin_clause:
                 return
-            
-            # Parse proof context
-            local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state))
-            self.proof_context = self._parse_proof_context(description, local_hypotheses)
 
             # Proof finished
             is_proof_done = self.pisa_env.is_finished(end_state)
@@ -466,7 +491,34 @@ class IsabelleExecutor:
                 self.curr_lemma_name, self.curr_lemma = None, ""
                 self.proof_context = None
 
-    def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma]) -> ProofContext:
+    # PISA only supports sledgehammer as an atomic operation. So we must split any tactic which uses it
+    def _handle_sledgehammer(self, start_state: str, step: str, end_state: str) -> str:
+        if step is None or len(step) == 0:
+            return None
+
+        tactics = re.split(r'(sledgehammer)', step)
+        tactics = list(filter(None, [t.strip() for t in tactics]))
+        
+        description = None
+        for idx, tactic in enumerate(tactics):
+            temp_start = end_state
+            temp_end = end_state
+            if idx == 0:
+                temp_start = start_state
+            
+            if tactic == 'sledgehammer':
+                # Attempt to solve proof with sledgehammer
+                description = self.pisa_env.apply_hammer(temp_start, temp_end)
+            else:
+                # Run tactic normally
+                description = self.pisa_env.step(temp_start, tactic, temp_end)
+
+            if description.startswith('Step error:'):
+                raise Exception(description)
+
+        return description
+
+    def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
             return None
         
@@ -475,10 +527,13 @@ class IsabelleExecutor:
         if len(all_matches) == 0:
             return None
         
-        _, _, _, this_hyps_str, _, goals_str = all_matches[0]
+        context_type, _, _, this_hyps_str, _, goals_str = all_matches[0]
         this_hyps_str, goals_str = this_hyps_str.strip(), goals_str.strip()
         if(goals_str == "No subgoals!"):
             return ProofContext.empty()
+
+        if not found_lemma and not context_type == 'state':
+            raise Exception(f'Error: please provide a full tactic. This step ends in "{context_type}" mode but it should end in "state" mode')
         
         goals_list = list(filter(None, goals_str.split("\n")))
         hypotheses = [hyp.dfn for hyp in local_hypotheses]
@@ -561,7 +616,7 @@ class IsabelleCustomFileExec:
                     print("re-running not implemented")
                     print(f"Isabelle> Ran {last_stmt} again")
                     continue
-                cmd_ran = self.isabelle_exec.run_next()
+                cmd_ran = self.isabelle_exec.run_next(proof_search_mode=False)
                 last_stmt = self.isabelle_exec.current_stmt
                 if self.isabelle_exec.is_in_proof_mode():
                     print(f"Goals after running {last_stmt}")
@@ -581,6 +636,10 @@ if __name__ == "__main__":
     # with IsabelleStdInOutExecutor() as isabelle_exec:
         # isabelle_exec.run_in_loop()
 
+    # os.chdir(root_dir)
+    # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
+    #     isabelle_exec.run_in_loop()
+
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
+    with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
         isabelle_exec.run_in_loop()

@@ -192,7 +192,10 @@ class ProofEnv(Env):
         self._foward_to_lemma_proof()
         self.goal_start_time = time.time()
         self.inferences_used = 0
-        pass
+        
+        # If in Isabelle, automatically enter proof
+        if self.language == ProofAction.Language.ISABELLE:
+            self._dynamic_proof_executor.run_tactics(["proof -"])
 
     def step(self, action: Action) -> typing.Tuple[State, Action, State, float, bool, ProofEnvInfo]:
         assert self._loaded, "Env not loaded, call reset() first"
@@ -427,7 +430,8 @@ class ProofEnv(Env):
             goal.possible_useful_theorems_local = local_responses
             goal.possible_useful_theorems_external = global_responses
         lemma_stmt = self._dynamic_proof_executor.get_lemma_stmt_if_running()
-        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt)
+        lemma_name = self._dynamic_proof_executor.get_current_lemma_name()
+        current_proof_state = ProofState(relevant_defns_thms, language=self.language, theorem_statement_with_name=lemma_stmt, theorem_name=lemma_name)
         current_proof_state.proof_tree = copy.deepcopy(self._p_tree)
         done = self.done
         env_info.progress = ProgressState.STATE_UNCHANGED if not done else ProgressState.DONE
@@ -572,11 +576,11 @@ if __name__ == "__main__":
         always_retrieve_thms = True
     elif inp == 'isabelle':
         proof_exec_callback = ProofExecutorCallback(
-            project_folder="data/benchmarks/miniF2F",
-            file_path="data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy",
+            project_folder="data/test",
+            file_path="data/test/SimpleAlgebra.thy",
             language=ProofAction.Language.ISABELLE
         )
-        theorem_name = "aime_1983_p1"
+        theorem_name = "sqrt_comp"
         language = ProofAction.Language.ISABELLE
         always_retrieve_thms = False
     else:
