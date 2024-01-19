@@ -42,6 +42,8 @@ class FewShotGptIsabelleKeywords(object):
     LEMMAS = "[LEMMAS]"
     LEMMA = "[LEMMA]"
     END = "[END]"
+    INFORMAL_THEOREM = "[INFORMAL-THEOREM]"
+    INFORMAL_PROOF = "[INFORMAL-PROOF]"
 
 @dataclass_json
 @dataclass
@@ -97,7 +99,7 @@ LmResponse:
         elif language == ProofAction.Language.LEAN:
             self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END, FewShotGptLeanKeywords.INFORMAL_THEOREM, FewShotGptLeanKeywords.INFORMAL_PROOF]
         elif language == ProofAction.Language.ISABELLE:
-            self.keywords = [FewShotGptIsabelleKeywords.THEOREM, FewShotGptIsabelleKeywords.DEFINITION, FewShotGptIsabelleKeywords.DEFINITIONS, FewShotGptIsabelleKeywords.LEMMA, FewShotGptIsabelleKeywords.LEMMAS, FewShotGptIsabelleKeywords.END]
+            self.keywords = [FewShotGptIsabelleKeywords.THEOREM, FewShotGptIsabelleKeywords.DEFINITION, FewShotGptIsabelleKeywords.DEFINITIONS, FewShotGptIsabelleKeywords.LEMMA, FewShotGptIsabelleKeywords.LEMMAS, FewShotGptIsabelleKeywords.END, FewShotGptIsabelleKeywords.INFORMAL_THEOREM, FewShotGptIsabelleKeywords.INFORMAL_PROOF]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -136,6 +138,8 @@ Dfn: "{FewShotGptIsabelleKeywords.DEFINITION}";
 Dfns: "{FewShotGptIsabelleKeywords.DEFINITIONS}";
 Lm: "{FewShotGptIsabelleKeywords.LEMMA}";
 Lms: "{FewShotGptIsabelleKeywords.LEMMAS}";
+InfThm: "{FewShotGptIsabelleKeywords.INFORMAL_THEOREM}"
+InfPrf: "{FewShotGptIsabelleKeywords.INFORMAL_PROOF}";
 String:;
 """
         else:
@@ -163,6 +167,8 @@ String:;
             self.DEFINITIONS = FewShotGptIsabelleKeywords.DEFINITIONS
             self.LEMMA = FewShotGptIsabelleKeywords.LEMMA
             self.LEMMAS = FewShotGptIsabelleKeywords.LEMMAS
+            self.INFORMAL_THEOREM = FewShotGptIsabelleKeywords.INFORMAL_THEOREM
+            self.INFORMAL_PROOF = FewShotGptIsabelleKeywords.INFORMAL_PROOF
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptResponseGrammar.grammar + terminals
@@ -187,7 +193,7 @@ String:;
             self.DEFINITIONS,
             self.THEOREM
         ]
-        if self.language == ProofAction.Language.LEAN:
+        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
             lines_map[self.INFORMAL_THEOREM] = []
             lines_map[self.INFORMAL_PROOF] = []
             lines_order = [
@@ -221,7 +227,7 @@ String:;
                 break
             lines_map[self.LEMMAS].append(f"{self.LEMMA} {lm}")
         
-        if self.language == ProofAction.Language.LEAN:
+        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
             if coq_gpt_response.informal_theorem is not None:
                 lines_map[self.INFORMAL_THEOREM] = ["\n" + self.INFORMAL_THEOREM]
                 lines_map[self.INFORMAL_THEOREM].append(coq_gpt_response.informal_theorem)
