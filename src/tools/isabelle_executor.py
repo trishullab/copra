@@ -98,6 +98,9 @@ class IsabelleExecutor:
     begin_theory_regex = r"theory([\s\S]*)imports([\s\S]*)begin"
     begin_theory_match = re.compile(begin_theory_regex, re.MULTILINE)
 
+    # Proof automation tactics
+    auto_tactics = ["simp", "auto", "blast", "metis", "argo", "linarith", "presburger", "algebra", "fast", "fastforce", "force", "meson", "satx"]
+
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, 
                  use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
                  suppress_error_log: bool = False):
@@ -508,7 +511,7 @@ class IsabelleExecutor:
             
             if tactic == 'sledgehammer':
                 # Attempt to solve proof with sledgehammer
-                description = self.pisa_env.apply_hammer(temp_start, temp_end)
+                description = self._handle_auto_tactics(temp_start, temp_end)
             else:
                 # Run tactic normally
                 description = self.pisa_env.step(temp_start, tactic, temp_end)
@@ -517,6 +520,17 @@ class IsabelleExecutor:
                 raise Exception(description)
 
         return description
+    
+    def _handle_auto_tactics(self, start_state: str, end_state: str) -> str:
+        # First we'll try easier tactics, e.g. "simp", "auto", "blast", etc.
+        for tactic in IsabelleExecutor.auto_tactics:
+            stmt = 'by ' + tactic
+            description = self.pisa_env.step(start_state, stmt, end_state)
+            if not description.startswith('Step error:'):
+                return stmt
+        
+        # If those fail, run sledgehammer (more powerful but slower)
+        return self.pisa_env.apply_hammer(start_state, end_state)
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
