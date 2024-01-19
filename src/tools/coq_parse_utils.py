@@ -146,7 +146,13 @@ class CoqStepByStepStdInReader:
 
 if __name__ == "__main__":
     file_content = """
-{reflexivity. }
+(** **** Exercise: 1 star, standard (ev_double) *)
+Theorem ev_double : forall n,
+  ev (double n).
+Proof. intros n. induction n as [| n' IHn'].
+- simpl. apply ev_0.
+- simpl. apply ev_SS. apply IHn'.
+Qed.
 """
     coq_reader = CoqLineByLineReader(file_content=file_content)
     assert coq_reader.file_content is not None
