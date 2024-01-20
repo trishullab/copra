@@ -101,7 +101,7 @@ echo "Lean's Setup complete!"
 
 # Download Isabelle
 # First check if Isabelle is already installed
-default_isabelle_dir="$HOME/.local/bin/Isabelle2022"
+default_isabelle_dir="$HOME/Isabelle2022" # Don't change this, otherwise PISA will not work
 issabell_installed=false
 if [[ -d "$default_isabelle_dir" ]]; then
     echo "Isabelle is already installed at $default_isabelle_dir"
@@ -125,7 +125,7 @@ if [[ $issabell_installed == false ]]; then
     echo "Downloaded Isabelle successfully!"
     echo "Extracting Isabelle..."
     # Extract Isabelle in the $default_isabelle_dir
-    tar -xzf Isabelle2022_linux.tar.gz -C $HOME/.local/bin
+    tar -xzf Isabelle2022_linux.tar.gz -C $HOME
     echo "Installed Isabelle successfully!"
     echo "Cleaning up..."
     rm Isabelle2022_linux.tar.gz
