@@ -16,6 +16,11 @@ class InformalFewShotGptLeanKeywords(object):
     PROOF = "[PROOF]"
     END = "[END]"
 
+class InformalFewShotGptIsabelleKeywords(object):
+    THEOREM = "[THEOREM]"
+    PROOF = "[PROOF]"
+    END = "[END]"
+
 @dataclass_json
 @dataclass
 class InformalFewShotGptResponse(object):
@@ -39,6 +44,8 @@ Prog:
         self.language = language
         if language == ProofAction.Language.LEAN:
             self.keywords = [InformalFewShotGptLeanKeywords.THEOREM, InformalFewShotGptLeanKeywords.END]
+        elif language == ProofAction.Language.ISABELLE:
+            self.keywords = [InformalFewShotGptIsabelleKeywords.THEOREM, InformalFewShotGptIsabelleKeywords.END]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -51,11 +58,21 @@ End: "{InformalFewShotGptLeanKeywords.END}";
 Theorem: "{InformalFewShotGptLeanKeywords.THEOREM}";
 String:;
 """
+        elif language == ProofAction.Language.ISABELLE:
+            terminals = f"""
+terminals
+End: "{InformalFewShotGptIsabelleKeywords.END}";
+Theorem: "{InformalFewShotGptIsabelleKeywords.THEOREM}";
+String:;
+"""
         else:
             raise NotImplementedError(f"language {language} not supported")
         if language == ProofAction.Language.LEAN:
             self.END = InformalFewShotGptLeanKeywords.END
             self.THEOREM = InformalFewShotGptLeanKeywords.THEOREM
+        elif language == ProofAction.Language.ISABELLE:
+            self.END = InformalFewShotGptIsabelleKeywords.END
+            self.THEOREM = InformalFewShotGptIsabelleKeywords.THEOREM
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = InformalFewShotGptResponseGrammar.grammar + terminals
@@ -125,6 +142,8 @@ Prog:
         self.language = language
         if language == ProofAction.Language.LEAN:
             self.keywords = [InformalFewShotGptLeanKeywords.PROOF, InformalFewShotGptLeanKeywords.END]
+        elif language == ProofAction.Language.ISABELLE:
+            self.keywords = [InformalFewShotGptIsabelleKeywords.PROOF, InformalFewShotGptIsabelleKeywords.END]
         else:
             raise NotImplementedError(f"language {language} not supported")
         recognizers = {
@@ -137,11 +156,21 @@ Proof: "{InformalFewShotGptLeanKeywords.PROOF}";
 End: "{InformalFewShotGptLeanKeywords.END}";
 String:;
 """
+        elif self.language == ProofAction.Language.ISABELLE:
+            terminals = f"""
+terminals
+Proof: "{InformalFewShotGptIsabelleKeywords.PROOF}";
+End: "{InformalFewShotGptIsabelleKeywords.END}";
+String:;
+"""
         else:
             raise NotImplementedError(f"language {language} not supported")
         if language == ProofAction.Language.LEAN:
             self.PROOF = InformalFewShotGptLeanKeywords.PROOF
             self.END = InformalFewShotGptLeanKeywords.END
+        elif language == ProofAction.Language.ISABELLE:
+            self.PROOF = InformalFewShotGptIsabelleKeywords.PROOF
+            self.END = InformalFewShotGptIsabelleKeywords.END
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = InformalFewShotGptRequestGrammar.grammar + terminals

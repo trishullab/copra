@@ -78,7 +78,7 @@ class InformalFewShotGptPolicyPrompter(PolicyPrompter):
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
         self.last_message_has_error = False
-        if self.language == ProofAction.Language.LEAN:
+        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
             self._retrieve_prompt_examples = False
         if self._retrieve_prompt_examples:
             assert self._metadata_filename is not None, "Metadata filename must be provided if retrieve_prompt_examples is True"
