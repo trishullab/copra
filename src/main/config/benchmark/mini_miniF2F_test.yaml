@@ -1,0 +1,49 @@
+name: mini_miniF2F_test
+num_files: 1
+language: LEAN
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+datasets:
+  - project: data/benchmarks/miniF2F
+    files:
+      - path: lean/src/test.lean
+        theorems:
+        - aime_1983_p2
+        - aime_1989_p8
+        - aime_1983_p1
+        - algebra_sqineq_at2_malt1
+        - amc12a_2002_p6
+        - amc12a_2013_p4
+        - amc12a_2021_p9
+        - amc12a_2002_p19
+        - amc12b_2020_p6
+        - amc12a_2009_p6
+        - amc12b_2021_p4
+        - imo_1959_p1
+        - induction_pprime_pdvdapowpma
+        - mathd_algebra_139
+        - mathd_algebra_158
+        - mathd_algebra_270
+        - mathd_algebra_296
+        - mathd_algebra_33
+        - mathd_algebra_80
+        - mathd_algebra_141
+        - mathd_algebra_263
+        - mathd_algebra_137
+        - mathd_algebra_342
+        - mathd_numbertheory_12
+        - mathd_numbertheory_127
+        - mathd_numbertheory_247
+        - mathd_numbertheory_234
+        - mathd_numbertheory_341
+        - mathd_numbertheory_135
+        - mathd_numbertheory_227
+        - mathd_numbertheory_314
+        - mathd_numbertheory_582
+        - numbertheory_2pownm1prime_nprime
+        - numbertheory_4x3m7y3neq2003
+
+# Note: Chosen to be a representative sample of theorems from miniF2F (about 13% in size)
+# To test new prompts. Split according to problems solved by COPRA
