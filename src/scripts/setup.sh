@@ -98,6 +98,46 @@ popd
 echo "Building Lean's Simple Benchmark done!"
 echo "Building Lean's projects done!"
 echo "Lean's Setup complete!"
-echo "Copra Setup complete!"
 
-# TODO: Isabelle setup
+# Download Isabelle
+# First check if Isabelle is already installed
+default_isabelle_dir="$HOME/Isabelle2022" # Don't change this, otherwise PISA will not work
+issabell_installed=false
+if [[ -d "$default_isabelle_dir" ]]; then
+    echo "Isabelle is already installed at $default_isabelle_dir"
+    echo "If you want to reinstall Isabelle, please delete the directory $default_isabelle_dir and run this script again"
+    issabell_installed=true
+fi
+# Else download Isabelle
+if [[ $issabell_installed == false ]]; then
+    echo "Installing SDKMAN..."
+    curl -s "https://get.sdkman.io" | bash
+    echo "Installed SDKMAN successfully!"
+    echo "Installing Java 11 and SBT..."
+    source $HOME/.sdkman/bin/sdkman-init.sh
+    sdk install java 11.0.11-open
+    echo "Installed Java 11 successfully!"
+    echo "Installing SBT..."
+    sdk install sbt
+    echo "Installed SBT successfully!"
+    echo "Downloading Isabelle..."
+    wget https://isabelle.in.tum.de/website-Isabelle2022/dist/Isabelle2022_linux.tar.gz
+    echo "Downloaded Isabelle successfully!"
+    echo "Extracting Isabelle..."
+    # Extract Isabelle in the $default_isabelle_dir
+    tar -xzf Isabelle2022_linux.tar.gz -C $HOME
+    echo "Installed Isabelle successfully!"
+    echo "Cleaning up..."
+    rm Isabelle2022_linux.tar.gz
+    echo "Cleaned up!"
+    echo "Adding Isabelle to PATH..."
+    export PATH=$PATH:$default_isabelle_dir/bin
+    echo "export PATH=$PATH:$default_isabelle_dir/bin" >> ~/.bashrc
+    isabelle build -b -D $default_isabelle_dir/src/HOL/ -j 20
+fi
+pushd src/pisa
+sbt compile
+sbt assembly
+popd
+echo "Isabelle Setup complete!"
+echo "Copra Setup complete!"

@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
+import signal
 import sys
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
+import subprocess
 import logging
 import typing
 import functools
 import re
+import time
+import threading
 from collections import OrderedDict
+from pathlib import Path
 from src.pisa.src.main.python.pisa_client import PisaEnv, initialise_env, IsabelleLemma
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
 logger = logging.getLogger()
@@ -103,7 +108,7 @@ class IsabelleExecutor:
 
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, 
                  use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
-                 suppress_error_log: bool = False):
+                 suppress_error_log: bool = False, port: int = 8000):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -135,6 +140,14 @@ class IsabelleExecutor:
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
         self.global_lemmas = []
+        self.port = IsabelleExecutor._port if hasattr(IsabelleExecutor, "_port") else port
+        home_dir = str(Path.home())
+        if os.path.exists(os.path.join(home_dir, "Isabelle2022")):
+            self.isa_install_dir = os.path.join(home_dir, "Isabelle2022")
+        elif os.path.exists(os.path.join(home_dir, ".local", "bin","Isabelle2022")):
+            self.isa_install_dir = os.path.join(home_dir, ".local", "bin","Isabelle2022")
+        else:
+            raise Exception("Isabelle2022 installation not found. Please install Isabelle2022 and set the path to the installation directory in the environment variable 'ISABELLE_HOME'")
     
     def __enter__(self):
         self._all_dep_handles = []
@@ -146,16 +159,18 @@ class IsabelleExecutor:
         # or if the file path is not supported by PISA, use the default header, which may or may not be sufficient.
         if self.main_file is None:
             logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main). Pass in a file and project root to import additional theories")
-            self.pisa_env = initialise_env()
+            default_theory_file_path = os.path.join(self.isa_install_dir, "src/HOL/Library/Discrete.thy")
+            default_working_directory = os.path.join(self.isa_install_dir, "src/HOL/Library")
+            self.pisa_env = initialise_env(port=self.port, isa_path=self.isa_install_dir, theory_file_path=default_theory_file_path, working_directory=default_working_directory)
             self.pisa_env.initialise()
         else:
             try:
-                self.pisa_env = initialise_env(theory_file_path=self.main_file, working_directory=self.project_root)
+                self.pisa_env = initialise_env(port=self.port, theory_file_path=self.main_file, working_directory=self.project_root)
                 self.pisa_env.initialise()
             except:
                 logger.warning("Theory initialization failed. Most likely this file path is not supported by PISA.")
                 logger.warning("Initialising Isabelle environment with default theory header and imports (Complex_Main).")
-                self.pisa_env = initialise_env()
+                self.pisa_env = initialise_env(port=self.port)
                 self.pisa_env.initialise()
         
         
@@ -166,6 +181,57 @@ class IsabelleExecutor:
             self.main_file_iter.close() # Close the file handle
         except:
             pass
+
+    def start_server(logger : logging.Logger = None, port: int = 8000):
+        assert port > 0, "Port number must be greater than 0"
+        assert port < 65536, "Port number must be less than 65536"
+        jar_path = "src/pisa/target/scala-2.13/PISA-assembly-0.1.jar"
+        assert os.path.exists(jar_path), "PISA jar file not found. Please build the project using 'sbt assembly' commnad"
+        logger = logger if logger is not None else logging.getLogger('isabelle_pisa_executor')
+        cmd = f"java -cp {jar_path} pisa.server.PisaOneStageServer{port}"
+        IsabelleExecutor._port = port
+        # Start the server in a separate process
+        cwd = os.getcwd()
+        IsabelleExecutor._server_process = subprocess.Popen(
+            cmd, 
+            cwd=cwd,
+            shell=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            preexec_fn=os.setsid) # Create a new process group so that we can kill the process and all its children
+        time.sleep(1)
+        # Scan the first line
+        # Wait for the server to start
+        line = IsabelleExecutor._server_process.stdout.readline()
+        logger.info(line)
+        IsabelleExecutor._process_killed = False
+        thread = threading.Thread(target=IsabelleExecutor._server_loggening_thread, args=(logger,))
+        thread.start()
+        IsabelleExecutor._server_read_thread = thread
+        pass
+
+    def _server_loggening_thread(logger : logging.Logger):
+        # Keep checking the server is running
+        while not IsabelleExecutor._process_killed:
+            try:
+                line = IsabelleExecutor._server_process.stdout.readline()
+                if not line:
+                    break
+                logger.info(line)
+            except:
+                logger.info("Stdout is closed")
+                time.sleep(1)
+        logger.info("Server is shut down")
+        time.sleep(1)
+        pass
+
+    def stop_server():
+        IsabelleExecutor._process_killed = True
+        # Kill the server process
+        os.killpg(IsabelleExecutor._server_process.pid, signal.SIGTERM)
+        # IsabelleExecutor._server_process.kill()
+        IsabelleExecutor._server_read_thread.join(5)
+        pass
 
     # The following token separators may not be completely correct
         
@@ -655,5 +721,9 @@ if __name__ == "__main__":
     #     isabelle_exec.run_in_loop()
 
     os.chdir(root_dir)
-    with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
-        isabelle_exec.run_in_loop()
+    IsabelleExecutor.start_server(port=17000)
+    try:
+        with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
+            isabelle_exec.run_in_loop()
+    finally:
+        IsabelleExecutor.stop_server()

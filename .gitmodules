@@ -9,3 +9,4 @@
 [submodule "src/Portal-to-ISAbelle"]
 	path = src/pisa
 	url = https://github.com/albertqjiang/Portal-to-ISAbelle.git
+	ignore = dirty

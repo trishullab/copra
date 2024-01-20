@@ -123,6 +123,7 @@ class EvalBenchmark(object):
     few_shot_metadata_filename_for_retrieval: str = None
     dfs_data_path_for_retrieval: str = None
     dfs_metadata_filename_for_retrieval: str = None
+    timeout_per_theorem_in_secs: int = 720
 
 @dataclass_json
 @dataclass
@@ -231,5 +232,6 @@ def parse_config(cfg):
         few_shot_data_path_for_retrieval=benchmark_cfg["few_shot_data_path_for_retrieval"],
         few_shot_metadata_filename_for_retrieval=benchmark_cfg["few_shot_metadata_filename_for_retrieval"],
         dfs_data_path_for_retrieval=benchmark_cfg["dfs_data_path_for_retrieval"],
-        dfs_metadata_filename_for_retrieval=benchmark_cfg["dfs_metadata_filename_for_retrieval"])
+        dfs_metadata_filename_for_retrieval=benchmark_cfg["dfs_metadata_filename_for_retrieval"],
+        timeout_per_theorem_in_secs=benchmark_cfg["timeout_per_theorem_in_secs"] if "timeout_per_theorem_in_secs" in benchmark_cfg else 720)
     return Experiments(env_settings=env_settings, eval_settings=eval_settings, benchmark=benchmark, prompt_settings=prompt_settings)
