@@ -103,6 +103,10 @@ class IsabelleExecutor:
     begin_theory_regex = r"theory([\s\S]*)imports([\s\S]*)begin"
     begin_theory_match = re.compile(begin_theory_regex, re.MULTILINE)
 
+    # Matches 'assms_x:' in hypotheses
+    assms_regex = r"assms_(\d+):"
+    assms_regex_match = re.compile(assms_regex)
+
     # Proof automation tactics
     auto_tactics = ["simp", "auto", "blast", "metis", "argo", "linarith", "presburger", "algebra", "fast", "fastforce", "force", "meson", "satx"]
 
@@ -614,10 +618,13 @@ class IsabelleExecutor:
 
         if not found_lemma and not context_type == 'state':
             raise Exception(f'Error: please provide a full tactic. This step ends in "{context_type}" mode but it should end in "state" mode')
-        
-        goals_list = list(filter(None, goals_str.split("\n")))
-        hypotheses = [hyp.dfn for hyp in local_hypotheses]
 
+        hypotheses = []
+        for hyp in local_hypotheses:
+            # Replace assms_x with assms(x)
+            hypotheses.append(IsabelleExecutor.assms_regex_match.sub(r'assms(\1):', hyp.dfn))
+
+        goals_list = list(filter(None, goals_str.split("\n")))
         goals = []
         for i, goal_str in enumerate(goals_list):
             goal_str = re.sub("\d+.", "", goal_str, 1).strip() # Remove numbering
