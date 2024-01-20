@@ -1,3 +1,5 @@
+`conv start`
+
 `example_user`
 Goals to prove: 
 [GOALS] 
@@ -9,7 +11,7 @@ Goals to prove:
 [SUCCESS] 
 [END]
 
-example_assistant 
+`example_assistant` 
 [RUN TACTIC]
 have "(x + y) * (x + y + y) * (x + y + 2 * y) = x ^ 3 + 6 * x<^sup>2 * y + 11 * x * y<^sup>2 + 6 * y ^ 3" by (simp add: algebra_simps)
 [END]
@@ -33,6 +35,7 @@ have ?thesis sledgehammer
 [ERROR MESSAGE]
 No proof found
 [END]
+
 `example_assistant`
 [RUN TACTIC]
 also have "... = 6" sledgehammer   
@@ -119,3 +122,5 @@ case 0
 [RUN TACTIC]
   then show ?case by auto
 [END]
+
+`conv end`

@@ -1,4 +1,6 @@
 name: isabelle_dfs_hammer
-main_prompt: data/prompts/system/isabelle-proof-agent-with-dfs-hammer.md
-conv_prompt: data/prompts/conversation/isabelle-proof-agent-example-long-conv-dfs-hammer.md
+# main_prompt: data/prompts/system/isabelle-proof-agent-with-dfs-hammer.md
+# conv_prompt: data/prompts/conversation/isabelle-proof-agent-example-long-conv-dfs-hammer.md
+main_prompt: data/prompts/system/isabelle-proof-agent-with-dfs-sledgehammer.md # data/prompts/system/isabelle-proof-agent-dfs-sledgehammer.md
+conv_prompt:  data/prompts/conversation/isabelle-proof-agent-example-dfs-sledgehammer-no-retrieve.md # data/prompts/conversation/isabelle-proof-agent-example-dfs-sledgehammer-no-retrieve.md
 informal_proof_repo:

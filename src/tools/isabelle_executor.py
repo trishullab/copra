@@ -721,7 +721,7 @@ if __name__ == "__main__":
     #     isabelle_exec.run_in_loop()
 
     os.chdir(root_dir)
-    IsabelleExecutor.start_server(port=8000)
+    IsabelleExecutor.start_server(port=17000)
     try:
         with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
             isabelle_exec.run_in_loop()
