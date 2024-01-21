@@ -8,6 +8,7 @@ Goals to prove:
 [HYPOTHESIS] shows "(x + y) * (x + 2 * y) * (x + 3 * y) = (x + y) * (x + y + y) * (x + y + 2 * y)" 
 
 [LAST STEP] have "(x + y) * (x + 2 * y) * (x + 3 * y) = (x + y) * (x + y + y) * (x + y + 2 * y)" by (simp add: algebra_simps)
+
 [SUCCESS] 
 [END]
 
@@ -32,6 +33,7 @@ Goals to prove:
 
 [LAST STEP]
 have ?thesis sledgehammer
+
 [ERROR MESSAGE]
 No proof found
 [END]
@@ -53,8 +55,10 @@ Goals to prove:
 
 [STEPS]
 [STEP] have "(x+1) mod 19 = 5" using h0 sledgehammer
+
 [LAST STEP]
 then have "(x+1)^2 mod 19 = 5^2 mod 19" by simp
+
 [ERROR MESSAGE]
 Failed to finish proof⌂:
 goal (1 subgoal):

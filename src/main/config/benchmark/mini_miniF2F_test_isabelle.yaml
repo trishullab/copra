@@ -15,7 +15,7 @@ datasets:
         theorems: "*"
       - path: aime_1983_p1.thy
         theorems: "*"
-      - path: algebra_sqineq_at2_malt1.thy
+      - path: algebra_sqineq_at2malt1.thy
         theorems: "*"
       - path: amc12a_2002_p6.thy
         theorems: "*"
@@ -23,7 +23,7 @@ datasets:
         theorems: "*"
       - path: amc12a_2021_p9.thy
         theorems: "*"
-      - path: amc12a_2002_p19.thy
+      - path: amc12a_2021_p19.thy
         theorems: "*"
       - path: amc12b_2020_p6.thy
         theorems: "*"
@@ -75,7 +75,7 @@ datasets:
         theorems: "*"
       - path: numbertheory_2pownm1prime_nprime.thy
         theorems: "*"
-      - path: numbertheory_4x3m7y3neq2003
+      - path: numbertheory_4x3m7y3neq2003.thy
         theorems: "*"
 
 # Note: Chosen to be a representative sample of theorems from miniF2F (about 13% in size)
