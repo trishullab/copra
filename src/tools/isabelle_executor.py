@@ -92,7 +92,7 @@ class IsabelleExecutor:
     }
 
     # Matches theorem declarations
-    theorem_regex = r"((((theorem |lemma )([\w+|\d+'_]*)))(:)([\S|\s]*))"
+    theorem_regex = r"((((theorem\s+|lemma\s+)([\w+|\d+'_]*)))(\s*:\s*)([\S|\s]*))"
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
 
     # Matches proof context returned by Isabelle engine
