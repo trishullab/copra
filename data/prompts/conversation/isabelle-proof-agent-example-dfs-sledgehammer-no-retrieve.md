@@ -35,7 +35,7 @@ Goals to prove:
 have ?thesis sledgehammer
 
 [ERROR MESSAGE]
-No proof found
+Step error: sledgehammer failed to find a proof before timing out.
 [END]
 
 `example_assistant`
@@ -99,7 +99,7 @@ goal (1 subgoal):
 
 `example_assistant`
 [RUN TACTIC]
-thus "s 5 = 16" using h2 h0[of 5] by simp
+show ?thesis sledgehammer
 [END]
 
 `example_user`
