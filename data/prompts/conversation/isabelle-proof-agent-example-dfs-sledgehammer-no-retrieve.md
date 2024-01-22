@@ -1,3 +1,5 @@
+`conv start`
+
 `example_user`
 Goals to prove: 
 [GOALS] 
@@ -6,10 +8,11 @@ Goals to prove:
 [HYPOTHESIS] shows "(x + y) * (x + 2 * y) * (x + 3 * y) = (x + y) * (x + y + y) * (x + y + 2 * y)" 
 
 [LAST STEP] have "(x + y) * (x + 2 * y) * (x + 3 * y) = (x + y) * (x + y + y) * (x + y + 2 * y)" by (simp add: algebra_simps)
+
 [SUCCESS] 
 [END]
 
-example_assistant 
+`example_assistant` 
 [RUN TACTIC]
 have "(x + y) * (x + y + y) * (x + y + 2 * y) = x ^ 3 + 6 * x<^sup>2 * y + 11 * x * y<^sup>2 + 6 * y ^ 3" by (simp add: algebra_simps)
 [END]
@@ -30,9 +33,11 @@ Goals to prove:
 
 [LAST STEP]
 have ?thesis sledgehammer
+
 [ERROR MESSAGE]
-No proof found
+Step error: sledgehammer failed to find a proof before timing out.
 [END]
+
 `example_assistant`
 [RUN TACTIC]
 also have "... = 6" sledgehammer   
@@ -50,8 +55,10 @@ Goals to prove:
 
 [STEPS]
 [STEP] have "(x+1) mod 19 = 5" using h0 sledgehammer
+
 [LAST STEP]
 then have "(x+1)^2 mod 19 = 5^2 mod 19" by simp
+
 [ERROR MESSAGE]
 Failed to finish proof⌂:
 goal (1 subgoal):
@@ -92,7 +99,7 @@ goal (1 subgoal):
 
 `example_assistant`
 [RUN TACTIC]
-thus "s 5 = 16" using h2 h0[of 5] by simp
+show ?thesis sledgehammer
 [END]
 
 `example_user`
@@ -119,3 +126,5 @@ case 0
 [RUN TACTIC]
   then show ?case by auto
 [END]
+
+`conv end`

@@ -1,0 +1,13 @@
+name: simple_benchmark_isabelle
+num_files: 1
+language: ISABELLE
+few_shot_data_path_for_retrieval: 
+few_shot_metadata_filename_for_retrieval: 
+dfs_data_path_for_retrieval: 
+dfs_metadata_filename_for_retrieval: 
+timeout_per_theorem_in_secs: 1200
+datasets:
+  - project: data/test
+    files:
+      - path: SimpleAlgebra.thy
+        theorems: "*"

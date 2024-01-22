@@ -12,11 +12,12 @@ from dataclasses_json import dataclass_json
 from src.rl.q_tree import QTreeStateInfo
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
 from src.rl.simple_proof_env import ProofEnvInfo, ProgressState
 from src.rl.proof_action import ProofAction
-from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState
+from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState, FailedIsabelleProofState
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
 
 @dataclass_json
@@ -87,7 +88,14 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._num_nodes_visited = 0
         self._bad_state_action_map : typing.Dict[ProofState, typing.Set[ProofAction]] = {}
         self.language = language
-        self.failed_proof_state = FailedCoqProofState if language == ProofAction.Language.COQ else FailedLeanProofState
+        if language == ProofAction.Language.COQ:
+            self.failed_proof_state = FailedCoqProofState
+        elif language == ProofAction.Language.LEAN:
+            self.failed_proof_state = FailedLeanProofState
+        elif language == ProofAction.Language.ISABELLE:
+            self.failed_proof_state = FailedIsabelleProofState
+        else:
+            raise NotImplementedError(f"language {self.language} not supported")
         self.has_qed = False
         pass
 
@@ -110,6 +118,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         elif self.language == ProofAction.Language.LEAN:
             description_match = DynamicLeanProofExecutor.ProofFinishedDescription
             qed_tac = ["end"]
+        elif self.language == ProofAction.Language.ISABELLE:
+            description_match = DynamicIsabelleProofExecutor.ProofFinishedDescription
+            qed_tac = ["qed"]
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         if next_state.training_data_format is not None and next_state.training_data_format.goal_description == description_match:

@@ -2,7 +2,6 @@
 
 import sys
 
-
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -28,12 +27,14 @@ from src.rl.abstraction import Policy
 from src.rl.proof_tree import ProofSearchResult
 from src.rl.simple_proof_env import ProofEnv
 from src.rl.proof_action import ProofAction
+from src.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
+from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
+from src.tools.isabelle_executor import IsabelleExecutor
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from src.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
-from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
+from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.tools.informal_proof_repo import InformalProofRepo
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
@@ -67,6 +68,21 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
                     logger.info(f"Discovered lemma: {lemma_name}")
                     lemmas_to_prove.append(lemma_name)
                     main_executor.run_to_finish_lemma()
+        elif isinstance(main_executor, DynamicIsabelleProofExecutor):
+            while not main_executor.execution_complete:
+                assert not main_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
+                _ = list(main_executor.run_till_next_lemma_return_exec_stmt())
+                if main_executor.execution_complete:
+                    break
+                lemma_name = main_executor.get_lemma_name_if_running()
+                if lemma_name is None:
+                    _ = list(main_executor.run_to_finish_lemma_return_exec())
+                    if main_executor.execution_complete:
+                        break
+                else:
+                    logger.info(f"Discovered lemma: {lemma_name}")
+                    lemmas_to_prove.append(lemma_name)
+                    main_executor.run_to_finish_lemma()
     logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
     return lemmas_to_prove
 
@@ -76,6 +92,9 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
         llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         # This is a llama model
         LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
+    if eval_benchmark.language == ProofAction.Language.ISABELLE:
+        isabelle_logger = setup_logger(__name__ + "_isabelle", os.path.join(eval_checkpoint_info.logging_dirs[-1], "isabelle.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        IsabelleExecutor.start_server(isabelle_logger, 17000)
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
@@ -266,7 +285,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
                 while should_retry and max_retry > 0:
                     # Run the prover with a timeout
-                    timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, 60 * 12) # max 12 minutes
+                    timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
                     logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
                     p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
                     p.start()
@@ -307,6 +326,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
     if not eval_settings.gpt_model_name.startswith("gpt"):
         # This is a llama model
         LlamaAccess.class_kill()
+    if eval_benchmark.language == ProofAction.Language.ISABELLE:
+        IsabelleExecutor.stop_server()
     pass
 
 def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eval_proof_results: EvalProofResults, logger: logging.Logger = None):

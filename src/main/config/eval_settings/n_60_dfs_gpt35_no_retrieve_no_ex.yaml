@@ -1,4 +1,4 @@
-name: n_60_dfs_gpt35_always_retrieve_no_ex
+name: n_60_dfs_gpt35_no_retrieve_no_ex
 setting_type: Agent
 use_hammer: False
 max_proof_depth: 100

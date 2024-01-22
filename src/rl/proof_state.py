@@ -8,6 +8,7 @@ if root_dir not in sys.path:
 import typing
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.rl.abstraction import State
 from src.rl.proof_action import ProofAction
 from src.tools.training_data_format import TrainingDataFormat
@@ -40,6 +41,8 @@ class ProofState(State):
             desc_cmp = DynamicCoqProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)
         elif self.language == ProofAction.Language.LEAN:
             desc_cmp = DynamicLeanProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)
+        elif self.language == ProofAction.Language.ISABELLE:
+            desc_cmp = DynamicIsabelleProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         if desc_cmp == 0:
@@ -57,7 +60,12 @@ class ProofState(State):
     def __ge__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
         assert self.language == __o.language, f"self.language: {self.language}, __o.language: {__o.language}"
-        FailedProofState = FailedCoqProofState if self.language == ProofAction.Language.COQ else FailedLeanProofState
+        if self.language == ProofAction.Language.COQ:
+            FailedProofState = FailedCoqProofState
+        elif self.language == ProofAction.Language.LEAN:
+            FailedProofState = FailedLeanProofState
+        elif self.language == ProofAction.Language.ISABELLE:
+            FailedProofState = FailedIsabelleProofState
         if __o == FailedProofState: # FailedProofState is the hardest state to reach
             return self.training_data_format == __o.training_data_format
         if self == FailedProofState:
@@ -67,6 +75,8 @@ class ProofState(State):
             desc_cmp = DynamicCoqProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
         elif self.language == ProofAction.Language.LEAN:
             desc_cmp = DynamicLeanProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
+        elif self.language == ProofAction.Language.ISABELLE:
+            desc_cmp = DynamicIsabelleProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         if desc_cmp == 0:
@@ -77,7 +87,13 @@ class ProofState(State):
     def __le__(self, __o: object) -> bool:
         assert isinstance(__o, ProofState)
         assert self.language == __o.language, f"self.language: {self.language}, __o.language: {__o.language}"
-        FailedProofState = FailedCoqProofState if self.language == ProofAction.Language.COQ else FailedLeanProofState
+
+        if self.language == ProofAction.Language.COQ:
+            FailedProofState = FailedCoqProofState
+        elif self.language == ProofAction.Language.LEAN:
+            FailedProofState = FailedLeanProofState
+        elif self.language == ProofAction.Language.ISABELLE:
+            FailedProofState = FailedIsabelleProofState
         if self == FailedProofState: # FailedProofState is the hardest state to reach
             return self.training_data_format == __o.training_data_format
         if __o == FailedProofState:
@@ -87,6 +103,8 @@ class ProofState(State):
             desc_cmp = DynamicCoqProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
         elif self.language == ProofAction.Language.LEAN:
             desc_cmp = DynamicLeanProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
+        elif self.language == ProofAction.Language.ISABELLE:
+            desc_cmp = DynamicIsabelleProofExecutor.goal_description_compare(self.training_data_format.goal_description, __o.training_data_format.goal_description)
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         if desc_cmp == 0:
@@ -109,6 +127,7 @@ class ProofState(State):
 
 FailedCoqProofState = ProofState(training_data_format=None, language=ProofAction.Language.COQ)
 FailedLeanProofState = ProofState(training_data_format=None, language=ProofAction.Language.LEAN)
+FailedIsabelleProofState = ProofState(training_data_format=None, language=ProofAction.Language.ISABELLE)
 
 if __name__ == "__main__":
     proof_state = ProofState(training_data_format=None)

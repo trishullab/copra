@@ -81,9 +81,20 @@ SearchTimeInSecs: {self.proof_time_in_secs}
 NumberOfBacktracks: {self.num_of_backtracks}
 PossibleFailedPaths: {self.possible_failed_paths}
 AdditionalInfo: {self.additional_info}
+"""         
+
+            if self.language == ProofAction.Language.ISABELLE:
+                all_proof_steps = "\n".join(lines) if len(lines) > 0 else ""
+                return f"""{self.lemma_name}
+{all_proof_steps}
+{proof_metadata}
 """
-            proof_start = "Proof." if self.language == ProofAction.Language.COQ else "begin"
-            proof_end = "Qed." if self.language == ProofAction.Language.COQ else "end"
+            if self.language == ProofAction.Language.COQ:
+                proof_start = "Proof."
+                proof_end = "Qed."
+            elif self.language == ProofAction.Language.LEAN:
+                proof_start = "begin"
+                proof_end = "end"
             all_proof_steps = "\n    ".join(lines[:-1]) if len(lines) > 1 else ""
             last_line = (lines[-1] if lines[-1] == proof_end else f"    {lines[-1]}\n") if len(lines) > 0 else ""
             return f"""{self.lemma_name}

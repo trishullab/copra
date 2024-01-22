@@ -1,0 +1,4 @@
+name: isabelle_few_shot_hammer
+main_prompt: data/prompts/baseline/simple-prompt-isabelle-hammer.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-isabelle-hammer.md
+informal_proof_repo:

@@ -6,3 +6,7 @@
 	path = data/benchmarks/miniF2F
 	url = https://github.com/facebookresearch/miniF2F.git
 	ignore = dirty
+[submodule "src/Portal-to-ISAbelle"]
+	path = src/pisa
+	url = https://github.com/albertqjiang/Portal-to-ISAbelle.git
+	ignore = dirty

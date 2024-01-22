@@ -4,11 +4,13 @@ defaults:
   # - env_settings: bm25_retrieval_only_local_no_dfns
   # - prompt_settings: coq_dfs_always_retrieve_stack_machine
   # - override hydra/job_logging: 'disabled'
-  - benchmark: miniF2F_test
-  - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex
+  # - benchmark: miniF2F_test
+  # - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex
+  # - prompt_settings: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
   - env_settings: bm25_retrieval
-  # - prompt_settings: lean_few_shot_informal_to_formal_gpt4_turbo
-  - prompt_settings: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
+  - benchmark: mini_miniF2F_test_isabelle
+  - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
+  - prompt_settings: isabelle_dfs_hammer
   - override hydra/job_logging: 'disabled'
 
 # prompt_settings:
@@ -23,10 +25,16 @@ defaults:
 # nohup python src/main/eval_benchmark.py prompt_settings=lean_few_shot env_settings=bm25_retrieval eval_settings=n_4_few_gpt35 benchmark=simple_benchmark_lean  &
 
 # Dfs Agent Lean
-# nohup python src/main/eval_benchmark.py prompt_settings=lean_dfs env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt4_always_retrieve_no_ex benchmark=simple_benchmark_lean  &
+# nohup python src/main/eval_benchmark.py prompt_settings=lean_dfs env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex benchmark=simple_benchmark_lean  &
 
 # Few shot Coq
 # nohup python src/main/eval_benchmark.py prompt_settings=coq_few_shot env_settings=bm25_retrieval eval_settings=n_4_few_gpt35 benchmark=simple_benchmark_1  &
 
 # Dfs Agent Coq
-# nohup python src/main/eval_benchmark.py prompt_settings=coq_dfs_always_retrieve env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt4_always_retrieve_no_ex benchmark=simple_benchmark_1  &
+# nohup python src/main/eval_benchmark.py prompt_settings=coq_dfs_always_retrieve env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex benchmark=simple_benchmark_1  &
+
+# Few shot Isabelle
+# nohup python src/main/eval_benchmark.py prompt_settings=isabelle_few_shot_hammer env_settings=bm25_retrieval eval_settings=n_4_few_gpt35 benchmark=simple_benchmark_isabelle  &
+
+# Dfs Agent Isabelle
+# nohup python src/main/eval_benchmark.py prompt_settings=isabelle_dfs_hammer env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex benchmark=simple_benchmark_isabelle  &

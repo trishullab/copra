@@ -5,7 +5,7 @@ pexpect==4.8.0
 sentence-transformers==2.2.2
 #torch==1.12.1
 #transformers==4.21.2
-sexpdata
+sexpdata==1.0.0
 pampy==0.3.0
 ray==2.4.0
 pydantic==1.10.12 # pydantic > 2 is not compatible with ray
@@ -33,3 +33,4 @@ urllib3>=2.0.7
 mathlibtools==1.3.2
 litellm==0.8.6
 huggingface-hub==0.17.3
+protobuf==3.20.1 # Needed for PISA Isabelle
