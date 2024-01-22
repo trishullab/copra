@@ -9,8 +9,13 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
+import re
 
 class IsabelleLineByLineReader:
+
+    theorem_regex = r"((((theorem\s+|lemma\s+)([\w+|\d+'_]*)))(\s*:\s*)([\S|\s]*?))(\ssorry|\susing\s|\sby\s|\sproof)"
+    theorem_match = re.compile(theorem_regex, re.MULTILINE)
+
     def __init__(self, file_name: str = None, file_content: str = None):
         assert file_name is not None or file_content is not None, "Either file_name or file_content must be provided"
         assert file_name is None or file_content is None, "Only one of file_name or file_content must be provided"
@@ -20,6 +25,7 @@ class IsabelleLineByLineReader:
             with open(file_name, 'r') as fd:
                 self.file_content : str = fd.read()
         self.remove_comments()
+        self.handle_theorems()
     
     def remove_comments(self):
         CODE_MODE = 0
@@ -55,6 +61,10 @@ class IsabelleLineByLineReader:
             else:
                 raise Exception("Unknown mode")
         self.file_content = "".join(code_without_comments)
+
+    # Make sure that when a theorem is parsed, there aren't any tactics on the same line
+    def handle_theorems(self):
+        self.file_content = IsabelleLineByLineReader.theorem_match.sub(r'\1\n\8', self.file_content)
 
     def instruction_step_generator(self) -> typing.Iterator[str]:
         lines = self.file_content.split('\n')
