@@ -108,9 +108,9 @@ class IsabelleExecutor:
     assms_regex_match = re.compile(assms_regex)
 
     # Proof automation tactics
-    auto_tactics = ["simp", "auto", "blast", "metis", "argo", "linarith", "presburger", "algebra", "fast", "fastforce", "force", "meson", "satx"]
+    auto_tactics = ["auto", "simp", "blast", "fastforce", "force", "eval", "presburger", "sos", "arith", "linarith", "(auto simp: field_simps)"]
 
-    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, 
+    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = True, timeout_in_sec: int = 60, 
                  use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
                  suppress_error_log: bool = False, port: int = 8000):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
@@ -535,7 +535,7 @@ class IsabelleExecutor:
  
             try:
                 # Run statement. TODO: pass in timeout
-                description = self._handle_sledgehammer(start_state, stmt, end_state)
+                description = self._handle_sledgehammer(start_state, stmt, end_state, proof_search_mode)
                 # Parse proof context
                 local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state + 1))
                 proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state + 1))
@@ -565,7 +565,7 @@ class IsabelleExecutor:
                 self.proof_context = None
 
     # PISA only supports sledgehammer as an atomic operation. So we must split any tactic which uses it
-    def _handle_sledgehammer(self, start_state: str, step: str, end_state: str) -> str:
+    def _handle_sledgehammer(self, start_state: str, step: str, end_state: str, proof_search_mode=True) -> str:
         if step is None or len(step) == 0:
             return None
 
@@ -580,6 +580,9 @@ class IsabelleExecutor:
                 temp_start = start_state
             
             if tactic == 'sledgehammer':
+                if proof_search_mode and not self.use_hammer:
+                    raise Exception('Error: got "sledgehammer" query with hammer turned off. To use hammer, toggle "use_hammer"')
+ 
                 # Attempt to solve proof with sledgehammer
                 description = self._handle_auto_tactics(temp_start, temp_end)
             else:
