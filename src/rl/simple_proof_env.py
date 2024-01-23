@@ -14,6 +14,7 @@ from src.rl.proof_tree import ProofSearchResult, ProofTree
 from src.rl.proof_state import ProofState
 from src.rl.proof_action import ProofAction
 from src.rl.abstraction import State, Action, Env
+from src.tools.isabelle_executor import IsabelleExecutor
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.training_data_format import TrainingDataFormat
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
@@ -578,7 +579,8 @@ if __name__ == "__main__":
         proof_exec_callback = ProofExecutorCallback(
             project_folder="data/test",
             file_path="data/test/SimpleAlgebra.thy",
-            language=ProofAction.Language.ISABELLE
+            language=ProofAction.Language.ISABELLE,
+            use_hammer=True
         )
         theorem_name = "sqrt_comp"
         language = ProofAction.Language.ISABELLE
@@ -586,12 +588,19 @@ if __name__ == "__main__":
     else:
         raise Exception(f"Invalid input {inp} for choosing coq/lean/isabelle")
     logger = logging.getLogger(__name__)
-    with ProofEnv("test", proof_exec_callback, theorem_name, max_proof_depth=10, always_retrieve_thms=always_retrieve_thms, logger=logger) as env:
-        done = env.done
-        action = scan_action(language)
-        while action.action_type != ProofAction.ActionType.EXIT and not done:
-            state, _, _, reward, done, info = env.step(action)
-            env.render()
-            if not done:
-                action = scan_action(language)
-        pass
+
+    if language == ProofAction.Language.ISABELLE:
+        IsabelleExecutor.start_server(port=17000)
+    try:
+        with ProofEnv("test", proof_exec_callback, theorem_name, max_proof_depth=10, always_retrieve_thms=always_retrieve_thms, logger=logger) as env:
+            done = env.done
+            action = scan_action(language)
+            while action.action_type != ProofAction.ActionType.EXIT and not done:
+                state, _, _, reward, done, info = env.step(action)
+                env.render()
+                if not done:
+                    action = scan_action(language)
+            pass
+    finally:
+        if language == ProofAction.Language.ISABELLE:
+            IsabelleExecutor.stop_server()
