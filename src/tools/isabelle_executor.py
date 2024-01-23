@@ -571,7 +571,7 @@ class IsabelleExecutor:
             return None
 
         tactics = re.split(r'(sledgehammer)', step)
-        tactics = list(filter(None, [t.strip() for t in tactics]))
+        tactics = list(filter(None, tactics))
         
         description = None
         stmt = ""
@@ -587,13 +587,13 @@ class IsabelleExecutor:
  
                 # Attempt to solve proof with sledgehammer
                 description = self._handle_auto_tactics(temp_start, temp_end)
-                stmt += description + ' ' # Replace with hammer-provided tactic, not 'sledgehammer' literally
+                stmt += description # Replace with hammer-provided tactic, not 'sledgehammer' literally
             else:
                 # Run tactic normally
                 description = self.pisa_env.step(temp_start, tactic, temp_end)
                 if description.startswith('Step error:'):
                     raise Exception(description)
-                stmt += tactic + ' '
+                stmt += tactic
 
         return stmt
     
@@ -609,7 +609,7 @@ class IsabelleExecutor:
         description = self.pisa_env.apply_hammer(start_state, end_state)
         if description.startswith('Step error:'):
             raise Exception(description)
-        return description.split("<hammer>")[0] + "<hammer>"
+        return description.split('<hammer>')[0] + '<hammer>'
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:

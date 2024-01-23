@@ -185,11 +185,12 @@ class DynamicProofExecutor(IsabelleExecutor):
         start_line_num = self.line_num
         self.run_state.line_tactic_map[self.line_num] = len(self.run_state.tatics_ran)
         self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
-        for tactic in tactics:
+        for idx, tactic in enumerate(tactics):
             self.tactic_switch_iterator.set_next_instruction(tactic)
             try:
-                self.run_next()
-                self.run_state.tatics_ran.append(tactic)
+                actual_tactic = self.run_next()
+                tactics[idx] = actual_tactic
+                self.run_state.tatics_ran.append(actual_tactic)
                 self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
             except Exception as e:
                 self.line_num -= 1
