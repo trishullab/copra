@@ -37,8 +37,7 @@ class InformalFewShotGptPolicy(Policy):
         assert checkpoint_filename is not None, "Checkpoint filename cannot be None"
         assert policy_prompter is not None, "Policy prompter cannot be None"
         assert informal_proof_repo is not None, "Informal proof repo cannot be None"
-        assert language == ProofAction.Language.LEAN or language == ProofAction.Language.ISABELLE,
-            "Only Lean or Isabelle is supported for informal proofs"
+        assert language == ProofAction.Language.LEAN or language == ProofAction.Language.ISABELLE, "Only Lean or Isabelle is supported for informal proofs"
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_filename = checkpoint_filename
         self._policy_prompter = policy_prompter
