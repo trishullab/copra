@@ -68,10 +68,10 @@ class ProofAction(Action):
             return ProofAction.ActionType.get_order(self) >= ProofAction.ActionType.get_order(other)
 
     class HammerMode(Enum):
-        NONE = 'NONE'
-        ALLOW = 'ALLOW'
-        AUTO = 'AUTO'
-        ONESHOT = 'ONESHOT'
+        NONE = 'NONE' # Prohibit hammer
+        ALLOW = 'ALLOW' # Allow agent to query hammer
+        AUTO = 'AUTO' # Automatically apply hammer (heuristically)
+        ONESHOT = 'ONESHOT' # Proof attempt in one shot using hammer
 
         def __str__(self):
             return self.name
