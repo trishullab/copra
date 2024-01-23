@@ -282,16 +282,16 @@ class IsabelleExecutor:
             return 'default'
         return 'state' + str(state_num)
 
-    def run_next(self, proof_search_mode=True) -> bool:
+    def run_next(self, proof_search_mode=True) -> str:
         try:
             stmt = next(self.main_file_iter)
         except StopIteration:
             self.execution_complete = True
-            return False
+            return ""
         self.current_stmt = stmt
         self.line_num += 1
         try:
-            self._run_stmt_on_isabelle_server(stmt, proof_search_mode)
+            stmt = self._run_stmt_on_isabelle_server(stmt, proof_search_mode)
         except:
             if proof_search_mode:
                 if not self.suppress_error_log:
@@ -301,7 +301,7 @@ class IsabelleExecutor:
             else:
                 # If we're not in proof search mode, we can assume any errors are expected
                 pass
-        return True
+        return stmt
     
     def get_tokens_in_given_stmt(self, stmt: str, ignore_first_token: bool = False) -> typing.Generator[str, None, None]:
         idx = -1
@@ -483,7 +483,7 @@ class IsabelleExecutor:
         else:
             return self.curr_lemma_name
         
-    def _run_stmt_on_isabelle_server(self, stmt: str, proof_search_mode=True) -> None:
+    def _run_stmt_on_isabelle_server(self, stmt: str, proof_search_mode=True) -> str:
         begin_clause = []
         last_thm_details = []
         start_state = self.get_state_str(self.current_state)
@@ -537,7 +537,7 @@ class IsabelleExecutor:
  
             try:
                 # Run statement. TODO: pass in timeout
-                description = self._handle_sledgehammer(start_state, stmt, end_state, proof_search_mode)
+                stmt = self._handle_sledgehammer(start_state, stmt, end_state, proof_search_mode)
                 # Parse proof context
                 local_hypotheses = self.pisa_env.get_local_lemmas(self.get_state_str(self.current_state + 1))
                 proof_state = self.pisa_env.get_state(self.get_state_str(self.current_state + 1))
@@ -555,16 +555,15 @@ class IsabelleExecutor:
             self.buffer = ""
             # print(repr(stmt) + "\n -> \n" + repr(description))
 
-            if begin_clause:
-                return
-
-            # Proof finished
-            is_proof_done = self.pisa_env.is_finished(end_state)
-            if is_proof_done:
-                self.buffer = ""
-                self._proof_running = False
-                self.curr_lemma_name, self.curr_lemma = None, ""
-                self.proof_context = None
+            if not begin_clause:
+                is_proof_done = self.pisa_env.is_finished(end_state)
+                if is_proof_done: # Proof finished
+                    self.buffer = ""
+                    self._proof_running = False
+                    self.curr_lemma_name, self.curr_lemma = None, ""
+                    self.proof_context = None
+            return stmt
+        return "-"
 
     # PISA only supports sledgehammer as an atomic operation. So we must split any tactic which uses it
     def _handle_sledgehammer(self, start_state: str, step: str, end_state: str, proof_search_mode=True) -> str:
@@ -575,6 +574,7 @@ class IsabelleExecutor:
         tactics = list(filter(None, [t.strip() for t in tactics]))
         
         description = None
+        stmt = ""
         for idx, tactic in enumerate(tactics):
             temp_start = end_state
             temp_end = end_state
@@ -587,14 +587,15 @@ class IsabelleExecutor:
  
                 # Attempt to solve proof with sledgehammer
                 description = self._handle_auto_tactics(temp_start, temp_end)
+                stmt += description + ' ' # Replace with hammer-provided tactic, not 'sledgehammer' literally
             else:
                 # Run tactic normally
                 description = self.pisa_env.step(temp_start, tactic, temp_end)
+                if description.startswith('Step error:'):
+                    raise Exception(description)
+                stmt += tactic + ' '
 
-            if description.startswith('Step error:'):
-                raise Exception(description)
-
-        return description
+        return stmt
     
     def _handle_auto_tactics(self, start_state: str, end_state: str) -> str:
         # First we'll try easier tactics, e.g. "simp", "auto", "blast", etc.
@@ -602,10 +603,13 @@ class IsabelleExecutor:
             stmt = 'by ' + tactic
             description = self.pisa_env.step(start_state, stmt, end_state)
             if not description.startswith('Step error:'):
-                return stmt
-        
+                return stmt + ' <auto tactic>'
+
         # If those fail, run sledgehammer (more powerful but slower)
-        return self.pisa_env.apply_hammer(start_state, end_state)
+        description = self.pisa_env.apply_hammer(start_state, end_state)
+        if description.startswith('Step error:'):
+            raise Exception(description)
+        return description.split("<hammer>")[0] + "<hammer>"
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
@@ -663,7 +667,7 @@ class IsabelleStdInOutExecutor:
                 cmd_ran = self.isabelle_exec.run_next()
                 if not cmd_ran:
                     break
-                print(f"Isabelle> {self.isabelle_exec.current_stmt}")
+                print(f"Isabelle> {cmd_ran}")
                 print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
             except Exception as e:
@@ -687,11 +691,11 @@ class IsabelleCustomFileExec:
     
     def run_in_loop(self):
         print("In> Press 'Enter' for running next line and 'c' + 'Enter' to cancel the last command and 're-run'.", end="")
-        last_stmt = None
+        cmd_ran = None
         while True:
             try:
                 opt = input()
-                if opt == "c" and last_stmt is not None:
+                if opt == "c" and cmd_ran is not None:
                     if self.isabelle_exec.is_in_proof_mode():
                         print(f"Goals before cancelling")
                         print(self.isabelle_exec.proof_context.all_goals)
@@ -703,19 +707,16 @@ class IsabelleCustomFileExec:
                         print(self.isabelle_exec.proof_context.all_goals)
                     else:
                         print("No goals after cancelling")
-                    print(f"Canceled last statement: {last_stmt}")
-                    print(f"Re-running: {last_stmt}")
+                    print(f"Canceled last statement: {cmd_ran}")
+                    print(f"Re-running: {cmd_ran}")
                     print("re-running not implemented")
-                    print(f"Isabelle> Ran {last_stmt} again")
+                    print(f"Isabelle> Ran {cmd_ran} again")
                     continue
                 cmd_ran = self.isabelle_exec.run_next(proof_search_mode=False)
-                last_stmt = self.isabelle_exec.current_stmt
-                if self.isabelle_exec.is_in_proof_mode():
-                    print(f"Goals after running {last_stmt}")
-                    print(self.isabelle_exec.proof_context.all_goals)
                 if not cmd_ran:
                     break
                 print(f"Isabelle> {self.isabelle_exec.current_stmt}")
+                print(f"Parsed Tactic> {cmd_ran}")
                 print(f"{self.isabelle_exec.proof_context}")
                 print("In> ", end="")
             except Exception as e:
