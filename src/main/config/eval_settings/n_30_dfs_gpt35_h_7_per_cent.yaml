@@ -1,6 +1,6 @@
 name: n_30_dfs_gpt35_h_7_per_cent
 setting_type: Agent
-use_hammer: True
+use_hammer: AUTO
 max_proof_depth: 30
 timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1

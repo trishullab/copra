@@ -9,6 +9,7 @@ import logging
 import os
 import typing
 import ray
+from src.rl.proof_action import ProofAction
 from src.tools.ray_utils import RayUtils
 from src.tools.coq_parse_utils import CoqLineByLineReader
 from src.tools.training_data_format import Goal, TrainingDataFormat, TrainingDataMetadataFormat
@@ -88,7 +89,6 @@ def dump_raw_proofs(repo_builder: CoqRepoBuilder, output_dir: str, logger: loggi
                     coq_proof_exec_callback = ProofExecutorCallback(
                         project_folder=project_path,
                         file_path=file_path,
-                        use_hammer=False,
                         timeout_in_secs=60,
                         use_human_readable_proof_context=True,
                         suppress_error_log=True,

@@ -67,6 +67,15 @@ class ProofAction(Action):
             assert isinstance(other, ProofAction.ActionType), f"other must be of type ProofAction.ActionType, not {type(other)}"
             return ProofAction.ActionType.get_order(self) >= ProofAction.ActionType.get_order(other)
 
+    class HammerMode(Enum):
+        NONE = 'NONE'
+        ALLOW = 'ALLOW'
+        AUTO = 'AUTO'
+        ONESHOT = 'ONESHOT'
+
+        def __str__(self):
+            return self.name
+    
     action_type: ActionType
     language: Language
     kwargs: typing.Optional[dict] = field(default_factory=dict)

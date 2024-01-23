@@ -580,7 +580,7 @@ if __name__ == "__main__":
             project_folder="data/test",
             file_path="data/test/SimpleAlgebra.thy",
             language=ProofAction.Language.ISABELLE,
-            use_hammer=True
+            use_hammer=ProofAction.HammerMode.AUTO
         )
         theorem_name = "sqrt_comp"
         language = ProofAction.Language.ISABELLE

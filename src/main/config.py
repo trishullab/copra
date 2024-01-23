@@ -76,7 +76,7 @@ class PromptSettings(object):
 @dataclass
 class EvalSettings(object):
     name: str
-    use_hammer: bool
+    use_hammer: ProofAction.HammerMode
     setting_type: SettingType = SettingType.Agent
     max_proof_depth: int = 50
     timeout_in_secs: int = 60
@@ -180,7 +180,7 @@ def parse_config(cfg):
     eval_settings_cfg = cfg["eval_settings"]
     eval_settings = EvalSettings(
         name=eval_settings_cfg["name"],
-        use_hammer=eval_settings_cfg["use_hammer"],
+        use_hammer=ProofAction.HammerMode(eval_settings_cfg["use_hammer"]),
         setting_type=SettingType(eval_settings_cfg["setting_type"]),
         max_proof_depth=eval_settings_cfg["max_proof_depth"],
         timeout_in_secs=eval_settings_cfg["timeout_in_secs"],
