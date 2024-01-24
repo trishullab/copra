@@ -9,7 +9,7 @@ defaults:
   # - prompt_settings: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
   - env_settings: bm25_retrieval
   - benchmark: mini_miniF2F_test_isabelle
-  - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
+  - eval_settings: n_60_hammer_no_retrieve_no_ex # n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
   - prompt_settings: isabelle_dfs_hammer
   - override hydra/job_logging: 'disabled'
 

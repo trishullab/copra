@@ -24,12 +24,6 @@ class HammerPolicyPrompter(PolicyPrompter):
     def __init__(self, 
             main_sys_prompt_path: str, 
             example_conv_prompt_path: str,
-            num_sequences: int = 1,
-            temperature: float = 0.25,
-            max_tokens_per_action: int = 250,
-            max_history_messages: int = 0, # This means keep no history of messages
-            gpt_model_name: str = "gpt-3.5-turbo",
-            secret_filepath: str = ".secrets/openai_key.json",
             k : typing.Optional[int] = None,
             retrieve_prompt_examples: bool = True,
             training_data_path: typing.Optional[str] = None,
@@ -41,35 +35,9 @@ class HammerPolicyPrompter(PolicyPrompter):
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.language = language
-        self.model_name = gpt_model_name
-        use_defensive_parsing = not gpt_model_name.startswith("gpt")
+        use_defensive_parsing = False
         self.gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
         self.gpt_response_grammar = CoqGPTResponseGrammar()
-        # self.gpt_request_grammar = FewShotGptRequestGrammar(language, use_defensive_parsing)
-        # self.gpt_response_grammar = FewShotGptResponseGrammar(language)
-        conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
-        main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
-        self.system_messages = [main_message] + conv_messages
-        if not gpt_model_name.startswith("gpt"):
-            self._gpt_access = LlamaAccess(gpt_model_name)
-        else:
-            self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
-        self._token_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["token_limit_per_min"]
-        self._request_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["request_limit_per_min"]
-        self._max_token_per_prompt = GptAccess.gpt_model_info[gpt_model_name]["max_token_per_prompt"]
-        self._rate_limiter = RateLimiter(self._token_limit_per_min, self._request_limit_per_min)
-        self.temperature = temperature
-        self.num_sequences = num_sequences
-        self.system_token_count = self._gpt_access.num_tokens_from_messages(self.system_messages)
-        self._max_tokens_per_action = max_tokens_per_action
-        max_token_limit = self._max_token_per_prompt - self._max_tokens_per_action
-        assert max_token_limit > 0, f"Max token per prompt {self._max_token_per_prompt} is less than max token per action {self._max_tokens_per_action}"
-        assert self.system_token_count < max_token_limit, f"System token count {self.system_token_count} is greater or equal to the max token per prompt {max_token_limit}"
-        self._history_token_count = 0
-        self._message_history = []
-        self._custom_system_messages = []
-        self._message_history_token_count = []
-        self._max_history_messages = max_history_messages
         self._k = k
         self._retrieve_prompt_examples = retrieve_prompt_examples
         self.logger = logger if logger is not None else logging.getLogger(__name__)
@@ -87,12 +55,10 @@ class HammerPolicyPrompter(PolicyPrompter):
         pass
 
     def __enter__(self):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__enter__()
-    
+        pass
+   
     def __exit__(self, exc_type, exc_value, traceback):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__exit__(exc_type, exc_value, traceback)
+        pass
 
     def _init_retriever(self):
         if HammerPolicyPrompter._cache.get(self._training_data_path, None) is not None:
@@ -122,6 +88,8 @@ class HammerPolicyPrompter(PolicyPrompter):
         self._num_api_calls += 1
         message_content = f"[RUN TACTIC]\n{HammerPolicyPrompter.sledgehammer_command}\n"
         message = self.agent_grammar.get_openai_main_message_from_string(message_content, "assistant")
+        message["finish_reason"] = "stop"
+        self.logger.info(f"Command running:\n{message_content}")
         return [message]
 
     def parse_response(self, responses: list) -> typing.List[typing.Tuple[ProofAction, float]]:
