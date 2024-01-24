@@ -1,0 +1,26 @@
+name: n_60_hammer_no_retrieve_no_ex
+setting_type: Agent
+use_hammer: ALLOW
+max_proof_depth: 100
+timeout_in_secs: 120 # coq tactic execution timeout
+proof_retries: 1
+# main_prompt: data/prompts/system/coq-proof-agent-with-dfs-always-retrieve.md
+# conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs-always-retrieve.md
+max_tokens_per_action: 100
+max_theorems_in_prompt: 7
+gpt_model_name: 
+max_number_of_episodes: 1
+max_steps_per_episode: 60
+render: False
+checkpoint_dir: .log/checkpoints
+should_checkpoint: False
+temperature: 0.0
+max_history_messages: 0
+policy_name: Hammer
+proof_dump_dir: .log/proofs/eval_driver/hammer
+use_human_readable_proof_context: True
+sample: 1.0
+sample_seed: 0xf00
+use_example_retrieval: False
+always_use_useful_theorem_retrieval: False
+num_goal_per_prompt:

@@ -28,6 +28,7 @@ class PolicyName(Enum):
     Dfs = "Dfs"
     FewShot = "FewShot"
     InformalFewShot = "InformalFewShot"
+    Hammer = "Hammer"
 
     def __str__(self):
         return self.value

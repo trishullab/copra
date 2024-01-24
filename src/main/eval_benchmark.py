@@ -2,6 +2,7 @@
 
 import sys
 
+
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -13,6 +14,7 @@ import time
 import math
 import typing
 import multiprocessing
+from src.baselines.gpt4.hammer_policy_prompter import HammerPolicyPrompter
 from src.tools.log_utils import setup_logger
 from src.gpts.llama_access import LlamaAccess, ServiceDownError
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
@@ -88,7 +90,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
 
 def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
-    if not eval_settings.gpt_model_name.startswith("gpt"):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
         llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         # This is a llama model
         LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
@@ -189,6 +191,28 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     logger=logger,
                     informal_proof_repo=informal_proof_repo,
                     lemma_name=lemma_name)
+                dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
+                search_guidance_policy = GptGuidedTreeSearchPolicy(
+                    eval_settings.checkpoint_dir, 
+                    lemma_name, 
+                    policy_prompter,
+                    dfs_tree_search,
+                    checkpoint_on_exit=eval_settings.should_checkpoint,
+                    language=eval_benchmark.language)
+            elif eval_settings.policy_name == PolicyName.Hammer:
+                if prompt_settings.informal_proof_repo is not None:
+                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                else:
+                    informal_proof_repo = None
+                policy_prompter = HammerPolicyPrompter(
+                    main_sys_prompt_path=prompt_settings.main_prompt,
+                    example_conv_prompt_path=prompt_settings.conv_prompt,
+                    k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                    retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                    training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                    metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                    language=eval_benchmark.language,
+                    logger=logger)
                 dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                 search_guidance_policy = GptGuidedTreeSearchPolicy(
                     eval_settings.checkpoint_dir, 
@@ -300,7 +324,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                         should_retry = False
                     elif not return_dict["attempted_success"]:
-                        if not return_dict["service_down"] or eval_settings.gpt_model_name.startswith("gpt") or max_retry <= 1:
+                        if not return_dict["service_down"] or \
+                            (eval_settings.gpt_model_name is not None and \
+                            len(eval_settings.gpt_model_name) == 0 and \
+                            eval_settings.gpt_model_name.startswith("gpt")) or \
+                            max_retry <= 1:
                             logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
                             eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
@@ -323,7 +351,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     max_retry -= 1
             else:
                 logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
-    if not eval_settings.gpt_model_name.startswith("gpt"):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
         # This is a llama model
         LlamaAccess.class_kill()
     if eval_benchmark.language == ProofAction.Language.ISABELLE:
