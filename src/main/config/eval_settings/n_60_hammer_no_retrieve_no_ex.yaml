@@ -1,6 +1,6 @@
 name: n_60_hammer_no_retrieve_no_ex
 setting_type: Agent
-use_hammer: True
+use_hammer: ALLOW
 max_proof_depth: 100
 timeout_in_secs: 120 # coq tactic execution timeout
 proof_retries: 1
