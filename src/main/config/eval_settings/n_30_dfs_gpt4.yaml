@@ -1,6 +1,6 @@
 name: n_30_dfs_gpt4
 setting_type: Agent
-use_hammer: False
+use_hammer: ALLOW
 max_proof_depth: 30
 timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1

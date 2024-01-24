@@ -1,6 +1,6 @@
 name: n_4_informal_gpt35
 setting_type: Agent
-use_hammer: False
+use_hammer: ALLOW
 max_proof_depth: 100
 timeout_in_secs: 60
 proof_retries: 1

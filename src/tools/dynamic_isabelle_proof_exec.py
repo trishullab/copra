@@ -10,6 +10,7 @@ import os
 import copy
 import enum
 import logging
+from src.rl.proof_action import ProofAction
 from src.tools.training_data_format import Goal, TrainingDataFormat
 from src.tools.isabelle_parse_utils import IsabelleLineByLineReader
 from src.tools.isabelle_executor import IsabelleExecutor
@@ -87,7 +88,7 @@ class DynamicProofExecutor(IsabelleExecutor):
             return -1
 
 
-    def __init__(self, isabelle_context_helper: IsabelleContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: bool = False, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
+    def __init__(self, isabelle_context_helper: IsabelleContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: ProofAction.HammerMode = ProofAction.HammerMode.ALLOW, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
         assert proof_file is None or os.path.exists(proof_file), f"Proof file {proof_file} does not exist"
         assert isabelle_context_helper is not None, "isabelle_context_helper must not be None"
         self.proof_file = proof_file
@@ -184,11 +185,12 @@ class DynamicProofExecutor(IsabelleExecutor):
         start_line_num = self.line_num
         self.run_state.line_tactic_map[self.line_num] = len(self.run_state.tatics_ran)
         self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
-        for tactic in tactics:
+        for idx, tactic in enumerate(tactics):
             self.tactic_switch_iterator.set_next_instruction(tactic)
             try:
-                self.run_next()
-                self.run_state.tatics_ran.append(tactic)
+                actual_tactic = self.run_next()
+                tactics[idx] = actual_tactic
+                self.run_state.tatics_ran.append(actual_tactic)
                 self.run_state.line_proof_context_map[self.line_num] = copy.deepcopy(self.proof_context)
             except Exception as e:
                 self.line_num -= 1
