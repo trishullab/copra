@@ -96,7 +96,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
         LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
     if eval_benchmark.language == ProofAction.Language.ISABELLE:
         isabelle_logger = setup_logger(__name__ + "_isabelle", os.path.join(eval_checkpoint_info.logging_dirs[-1], "isabelle.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        IsabelleExecutor.start_server(isabelle_logger, 17000)
+        # Check if environment variable PISA_PORT is set
+        if "PISA_PORT" not in os.environ:
+            IsabelleExecutor.start_server(isabelle_logger, 17000)
+        else:
+            IsabelleExecutor.start_server(isabelle_logger, int(os.environ["PISA_PORT"]))
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
