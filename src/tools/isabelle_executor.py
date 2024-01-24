@@ -590,10 +590,8 @@ class IsabelleExecutor:
                 stmt += description # Replace with hammer-provided tactic, not 'sledgehammer' literally
             else:
                 # Run tactic normally
-                description = self.pisa_env.step(temp_start, tactic, temp_end)
-                if description.startswith('Step error:'):
-                    raise Exception(description)
-                stmt += tactic
+                description = self._handle_reg_tactic(temp_start, tactic, temp_end, proof_search_mode)
+                stmt += description # Replace with a potentially modified tactic
 
         return stmt
     
@@ -610,6 +608,25 @@ class IsabelleExecutor:
         if description.startswith('Step error:'):
             raise Exception(description)
         return description.split('<hammer>')[0] + '<hammer>'
+
+    def _handle_reg_tactic(self, start_state: str, step: str, end_state: str, proof_search_mode=True) -> str:
+        description = self.pisa_env.step(start_state, step, end_state)
+        if not description.startswith('Step error:'):
+            return step
+        
+        tactics = re.split(r'\susing\s|\sby\s', step, maxsplit=1)
+        if len(tactics) > 1 and self.use_hammer == ProofAction.HammerMode.AUTO and proof_search_mode:
+            # Try applying sledgehammer. We do some awkward parsing to apply it to the correct portion
+            # This will not always work, but because this is a heuristic and not mission-critical, it is ok
+            new_tactic = tactics[0] + ' sledgehammer'
+            try:
+                step = self._handle_sledgehammer(start_state, new_tactic, end_state, proof_search_mode)
+                return step
+            except:
+                # Don't throw an error here -- we want to throw the original error
+                pass
+        
+        raise Exception(description)
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
