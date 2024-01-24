@@ -1,6 +1,6 @@
 name: n_60_dfs_gpt35_always_retrieve_no_ex
 setting_type: Agent
-use_hammer: ALLOW
+use_hammer: AUTO
 max_proof_depth: 100
 timeout_in_secs: 60 # coq tactic execution timeout
 proof_retries: 1
