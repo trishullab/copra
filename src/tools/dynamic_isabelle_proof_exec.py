@@ -88,7 +88,7 @@ class DynamicProofExecutor(IsabelleExecutor):
             return -1
 
 
-    def __init__(self, isabelle_context_helper: IsabelleContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: ProofAction.HammerMode = ProofAction.HammerMode.ALLOW, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
+    def __init__(self, isabelle_context_helper: IsabelleContextHelper, project_folder: str = None, proof_file: str = None, instruction_iter: typing.Optional[str] = None, use_hammer: ProofAction.HammerMode = ProofAction.HammerMode.AUTO, timeout_in_seconds: int = 60, use_human_readable_proof_context: bool = True, suppress_error_log: bool = True, context_type: ContextType = ContextType.NoContext):
         assert proof_file is None or os.path.exists(proof_file), f"Proof file {proof_file} does not exist"
         assert isabelle_context_helper is not None, "isabelle_context_helper must not be None"
         self.proof_file = proof_file
