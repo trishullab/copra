@@ -1,4 +1,0 @@
-name: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
-main_prompt: data/prompts/system/lean-proof-agent-with-dfs-and-informal.md
-conv_prompt: data/prompts/conversation/lean-proof-agent-example-long-conv-dfs-and-informal.md
-informal_proof_repo: .log/proofs/eval_driver/informal_few_shot/gpt4/miniF2F_test/20231204-234547/informal_proofs

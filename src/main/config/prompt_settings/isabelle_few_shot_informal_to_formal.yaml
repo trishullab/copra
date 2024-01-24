@@ -1,0 +1,4 @@
+name: isabelle_few_shot_informal_to_formal
+main_prompt: data/prompts/baseline/simple-prompt-isabelle-informal-to-formal.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-isabelle-informal-to-formal.md
+informal_proof_repo:
