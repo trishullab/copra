@@ -108,9 +108,8 @@ class IsabelleExecutor:
     assms_regex = r"assms_(\d+):"
     assms_regex_match = re.compile(assms_regex)
 
-    # Proof automation tactics: [tactics from LYRA] + [tactics from the *try0* keyword]
-    auto_tactics = ["auto", "simp", "blast", "fastforce", "force", "eval", "presburger", "sos", "arith", "linarith", "(auto simp: field_simps)",
-                    "metis", "argo", "algebra", "fast", "meson", "satx"]
+    # Proof automation tactics: [tactics from LYRA] + `algebra`
+    auto_tactics = ["auto", "simp", "blast", "fastforce", "force", "eval", "presburger", "sos", "arith", "linarith", "(auto simp: field_simps)", "algebra"]
 
     def __init__(self, project_root: str = None, main_file: str = None, use_hammer: ProofAction.HammerMode = ProofAction.HammerMode.AUTO, timeout_in_sec: int = 60, 
                  use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, 
