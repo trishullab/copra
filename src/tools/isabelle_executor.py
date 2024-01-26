@@ -147,6 +147,7 @@ class IsabelleExecutor:
         self.execution_complete = False
         self.global_lemmas = []
         self.port = IsabelleExecutor._port if hasattr(IsabelleExecutor, "_port") else port
+        self._seldgehammer_cache : typing.Dict[int,typing.Set[str]] = {}
         home_dir = str(Path.home())
         if os.path.exists(os.path.join(home_dir, "Isabelle2022")):
             self.isa_install_dir = os.path.join(home_dir, "Isabelle2022")
@@ -619,13 +620,19 @@ class IsabelleExecutor:
             # Try applying sledgehammer. We do some awkward parsing to apply it to the correct portion
             # This will not always work, but because this is a heuristic and not mission-critical, it is ok
             new_tactic = tactics[0] + ' sledgehammer'
+            # Check if we've already tried this tactic
+            if self.current_state in self._seldgehammer_cache and new_tactic in self._seldgehammer_cache[self.current_state]:
+                raise Exception(description)
             try:
                 step = self._handle_sledgehammer(start_state, new_tactic, end_state, proof_search_mode)
                 return step
             except:
                 # Don't throw an error here -- we want to throw the original error
                 pass
-        
+            # Add the tactic to cache
+            if self.current_state not in self._seldgehammer_cache:
+                self._seldgehammer_cache[self.current_state] = set()
+            self._seldgehammer_cache[self.current_state].add(new_tactic)
         raise Exception(description)
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
