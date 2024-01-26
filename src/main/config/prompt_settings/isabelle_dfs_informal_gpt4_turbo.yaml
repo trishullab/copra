@@ -1,4 +1,4 @@
-name: isabelle_dfs_informal_gpt4_turbo
+name: lean_dfs_informal_gpt4_turbo
 main_prompt: data/prompts/system/isabelle-proof-agent-with-dfs-informal-sledgehammer.md
-conv_prompt: data/prompts/conversation/isabelle-proof-agent-example-dfs-informal-sledgehammer.md
-informal_proof_repo: .log/proofs/eval_driver/informal_few_shot/gpt4/miniF2F_test/20231204-234547/informal_proofs
+conv_prompt: data/prompts/conversation/isabelle-proof-agent-example-dfs-informal-sledgehammer-no-retrieve.md
+informal_proof_repo: .log/proofs/eval_driver/informal_miniF2F_test_gpt4/informal_proofs

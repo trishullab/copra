@@ -1,0 +1,4 @@
+name: few_shot_informal
+main_prompt: data/prompts/baseline/simple-prompt-informal-proofs.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-informal-proofs.md
+informal_proof_repo: data/benchmarks/miniF2F/informal/test

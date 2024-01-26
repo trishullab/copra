@@ -1,6 +1,6 @@
 name: n_4_informal_gpt4_turbo
 setting_type: Agent
-use_hammer: ALLOW
+use_hammer: NONE
 max_proof_depth: 100
 timeout_in_secs: 60
 proof_retries: 1
@@ -17,7 +17,7 @@ should_checkpoint: False
 temperature: 0.0
 max_history_messages: 0
 policy_name: InformalFewShot
-proof_dump_dir: .log/proofs/eval_driver/informal_few_shot/gpt4
+proof_dump_dir: .log/proofs/eval_driver/informal_few_shot/gpt4_turbo
 use_human_readable_proof_context: True
 sample: 1.0
 sample_seed: 0xf00
