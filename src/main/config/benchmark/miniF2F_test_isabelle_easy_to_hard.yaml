@@ -1,0 +1,499 @@
+name: miniF2F_test_isabelle_easy_to_hard
+num_files: 1
+language: ISABELLE
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+timeout_per_theorem_in_secs: 1200
+datasets:
+  - project: data/benchmarks/miniF2F/isabelle/test
+    files:
+      - path: aime_1983_p2.thy
+        theorems: "*"
+      - path: aime_1989_p8.thy
+        theorems: "*"
+      - path: algebra_sqineq_at2malt1.thy
+        theorems: "*"
+      - path: amc12a_2002_p6.thy
+        theorems: "*"
+      - path: amc12a_2013_p4.thy
+        theorems: "*"
+      - path: amc12a_2021_p9.thy
+        theorems: "*"
+      - path: amc12b_2002_p19.thy
+        theorems: "*"
+      - path: amc12b_2002_p2.thy
+        theorems: "*"
+      - path: amc12b_2020_p2.thy
+        theorems: "*"
+      - path: amc12b_2020_p6.thy
+        theorems: "*"
+      - path: mathd_algebra_125.thy
+        theorems: "*"
+      - path: mathd_algebra_129.thy
+        theorems: "*"
+      - path: mathd_algebra_137.thy
+        theorems: "*"
+      - path: mathd_algebra_139.thy
+        theorems: "*"
+      - path: mathd_algebra_141.thy
+        theorems: "*"
+      - path: mathd_algebra_142.thy
+        theorems: "*"
+      - path: mathd_algebra_143.thy
+        theorems: "*"
+      - path: mathd_algebra_148.thy
+        theorems: "*"
+      - path: mathd_algebra_158.thy
+        theorems: "*"
+      - path: mathd_algebra_160.thy
+        theorems: "*"
+      - path: mathd_algebra_171.thy
+        theorems: "*"
+      - path: mathd_algebra_176.thy
+        theorems: "*"
+      - path: mathd_algebra_24.thy
+        theorems: "*"
+      - path: mathd_algebra_246.thy
+        theorems: "*"
+      - path: mathd_algebra_263.thy
+        theorems: "*"
+      - path: mathd_algebra_270.thy
+        theorems: "*"
+      - path: mathd_algebra_296.thy
+        theorems: "*"
+      - path: mathd_algebra_302.thy
+        theorems: "*"
+      - path: mathd_algebra_304.thy
+        theorems: "*"
+      - path: mathd_algebra_314.thy
+        theorems: "*"
+      - path: mathd_algebra_329.thy
+        theorems: "*"
+      - path: mathd_algebra_33.thy
+        theorems: "*"
+      - path: mathd_algebra_346.thy
+        theorems: "*"
+      - path: mathd_algebra_354.thy
+        theorems: "*"
+      - path: mathd_algebra_359.thy
+        theorems: "*"
+      - path: mathd_algebra_388.thy
+        theorems: "*"
+      - path: mathd_algebra_400.thy
+        theorems: "*"
+      - path: mathd_algebra_412.thy
+        theorems: "*"
+      - path: mathd_algebra_419.thy
+        theorems: "*"
+      - path: mathd_algebra_432.thy
+        theorems: "*"
+      - path: mathd_algebra_44.thy
+        theorems: "*"
+      - path: mathd_algebra_440.thy
+        theorems: "*"
+      - path: mathd_algebra_441.thy
+        theorems: "*"
+      - path: mathd_algebra_478.thy
+        theorems: "*"
+      - path: mathd_algebra_513.thy
+        theorems: "*"
+      - path: mathd_algebra_76.thy
+        theorems: "*"
+      - path: mathd_algebra_80.thy
+        theorems: "*"
+      - path: mathd_numbertheory_12.thy
+        theorems: "*"
+      - path: mathd_numbertheory_127.thy
+        theorems: "*"
+      - path: mathd_numbertheory_135.thy
+        theorems: "*"
+      - path: mathd_numbertheory_150.thy
+        theorems: "*"
+      - path: mathd_numbertheory_175.thy
+        theorems: "*"
+      - path: mathd_numbertheory_185.thy
+        theorems: "*"
+      - path: mathd_numbertheory_207.thy
+        theorems: "*"
+      - path: mathd_numbertheory_212.thy
+        theorems: "*"
+      - path: mathd_numbertheory_229.thy
+        theorems: "*"
+      - path: mathd_numbertheory_235.thy
+        theorems: "*"
+      - path: mathd_numbertheory_237.thy
+        theorems: "*"
+      - path: mathd_numbertheory_239.thy
+        theorems: "*"
+      - path: mathd_numbertheory_247.thy
+        theorems: "*"
+      - path: mathd_numbertheory_254.thy
+        theorems: "*"
+      - path: mathd_numbertheory_299.thy
+        theorems: "*"
+      - path: mathd_numbertheory_3.thy
+        theorems: "*"
+      - path: mathd_numbertheory_341.thy
+        theorems: "*"
+      - path: mathd_numbertheory_342.thy
+        theorems: "*"
+      - path: mathd_numbertheory_343.thy
+        theorems: "*"
+      - path: mathd_numbertheory_345.thy
+        theorems: "*"
+      - path: mathd_numbertheory_517.thy
+        theorems: "*"
+      - path: mathd_numbertheory_551.thy
+        theorems: "*"
+      - path: mathd_numbertheory_66.thy
+        theorems: "*"
+      - path: mathd_numbertheory_728.thy
+        theorems: "*"
+      - path: mathd_numbertheory_769.thy
+        theorems: "*"
+      - path: mathd_numbertheory_85.thy
+        theorems: "*"
+      - path: mathd_algebra_107.thy
+        theorems: "*"
+      - path: mathd_algebra_113.thy
+        theorems: "*"
+      - path: mathd_algebra_114.thy
+        theorems: "*"
+      - path: mathd_algebra_153.thy
+        theorems: "*"
+      - path: mathd_algebra_156.thy
+        theorems: "*"
+      - path: mathd_algebra_17.thy
+        theorems: "*"
+      - path: mathd_algebra_170.thy
+        theorems: "*"
+      - path: mathd_algebra_184.thy
+        theorems: "*"
+      - path: mathd_algebra_188.thy
+        theorems: "*"
+      - path: mathd_algebra_196.thy
+        theorems: "*"
+      - path: mathd_algebra_208.thy
+        theorems: "*"
+      - path: mathd_algebra_209.thy
+        theorems: "*"
+      - path: mathd_algebra_215.thy
+        theorems: "*"
+      - path: mathd_algebra_275.thy
+        theorems: "*"
+      - path: mathd_algebra_276.thy
+        theorems: "*"
+      - path: mathd_algebra_288.thy
+        theorems: "*"
+      - path: mathd_algebra_289.thy
+        theorems: "*"
+      - path: mathd_algebra_293.thy
+        theorems: "*"
+      - path: mathd_algebra_313.thy
+        theorems: "*"
+      - path: mathd_algebra_320.thy
+        theorems: "*"
+      - path: mathd_algebra_332.thy
+        theorems: "*"
+      - path: mathd_algebra_338.thy
+        theorems: "*"
+      - path: mathd_algebra_342.thy
+        theorems: "*"
+      - path: mathd_algebra_362.thy
+        theorems: "*"
+      - path: mathd_algebra_392.thy
+        theorems: "*"
+      - path: mathd_algebra_398.thy
+        theorems: "*"
+      - path: mathd_algebra_427.thy
+        theorems: "*"
+      - path: mathd_algebra_452.thy
+        theorems: "*"
+      - path: mathd_algebra_459.thy
+        theorems: "*"
+      - path: mathd_algebra_484.thy
+        theorems: "*"
+      - path: mathd_algebra_487.thy
+        theorems: "*"
+      - path: mathd_algebra_598.thy
+        theorems: "*"
+      - path: mathd_algebra_756.thy
+        theorems: "*"
+      - path: mathd_numbertheory_100.thy
+        theorems: "*"
+      - path: mathd_numbertheory_1124.thy
+        theorems: "*"
+      - path: mathd_numbertheory_222.thy
+        theorems: "*"
+      - path: mathd_numbertheory_227.thy
+        theorems: "*"
+      - path: mathd_numbertheory_233.thy
+        theorems: "*"
+      - path: mathd_numbertheory_234.thy
+        theorems: "*"
+      - path: mathd_numbertheory_277.thy
+        theorems: "*"
+      - path: mathd_numbertheory_293.thy
+        theorems: "*"
+      - path: mathd_numbertheory_296.thy
+        theorems: "*"
+      - path: mathd_numbertheory_314.thy
+        theorems: "*"
+      - path: mathd_numbertheory_320.thy
+        theorems: "*"
+      - path: mathd_numbertheory_321.thy
+        theorems: "*"
+      - path: mathd_numbertheory_328.thy
+        theorems: "*"
+      - path: mathd_numbertheory_34.thy
+        theorems: "*"
+      - path: mathd_numbertheory_353.thy
+        theorems: "*"
+      - path: mathd_numbertheory_427.thy
+        theorems: "*"
+      - path: mathd_numbertheory_430.thy
+        theorems: "*"
+      - path: mathd_numbertheory_435.thy
+        theorems: "*"
+      - path: mathd_numbertheory_447.thy
+        theorems: "*"
+      - path: mathd_numbertheory_451.thy
+        theorems: "*"
+      - path: mathd_numbertheory_457.thy
+        theorems: "*"
+      - path: mathd_numbertheory_483.thy
+        theorems: "*"
+      - path: mathd_numbertheory_495.thy
+        theorems: "*"
+      - path: mathd_numbertheory_5.thy
+        theorems: "*"
+      - path: mathd_numbertheory_521.thy
+        theorems: "*"
+      - path: mathd_numbertheory_541.thy
+        theorems: "*"
+      - path: mathd_numbertheory_552.thy
+        theorems: "*"
+      - path: mathd_numbertheory_559.thy
+        theorems: "*"
+      - path: mathd_numbertheory_582.thy
+        theorems: "*"
+      - path: mathd_numbertheory_618.thy
+        theorems: "*"
+      - path: mathd_numbertheory_711.thy
+        theorems: "*"
+      - path: mathd_numbertheory_764.thy
+        theorems: "*"
+      - path: mathd_numbertheory_765.thy
+        theorems: "*"
+      - path: mathd_numbertheory_99.thy
+        theorems: "*"
+      - path: numbertheory_2pownm1prime_nprime.thy
+        theorems: "*"
+      - path: numbertheory_3pow2pownm1mod2pownp3eq2pownp2.thy
+        theorems: "*"
+      - path: numbertheory_4x3m7y3neq2003.thy
+        theorems: "*"
+      - path: numbertheory_aoddbdiv4asqpbsqmod8eq1.thy
+        theorems: "*"
+      - path: numbertheory_exk2powkeqapb2mulbpa2_aeq1.thy
+        theorems: "*"
+      - path: numbertheory_fxeq4powxp6powxp9powx_f2powmdvdf2pown.thy
+        theorems: "*"
+      - path: numbertheory_notequiv2i2jasqbsqdiv8.thy
+        theorems: "*"
+      - path: numbertheory_x5neqy2p4.thy
+        theorems: "*"
+      - path: aime_1983_p1.thy
+        theorems: "*"
+      - path: aime_1983_p3.thy
+        theorems: "*"
+      - path: aime_1984_p1.thy
+        theorems: "*"
+      - path: aime_1984_p7.thy
+        theorems: "*"
+      - path: aime_1987_p5.thy
+        theorems: "*"
+      - path: aime_1988_p8.thy
+        theorems: "*"
+      - path: aime_1990_p15.thy
+        theorems: "*"
+      - path: aime_1990_p4.thy
+        theorems: "*"
+      - path: aime_1991_p9.thy
+        theorems: "*"
+      - path: aime_1994_p3.thy
+        theorems: "*"
+      - path: aime_1995_p7.thy
+        theorems: "*"
+      - path: aime_1997_p9.thy
+        theorems: "*"
+      - path: aime_1999_p11.thy
+        theorems: "*"
+      - path: algebra_2varlineareq_fp3zeq11_3tfm1m5zeqn68_feqn10_zeq7.thy
+        theorems: "*"
+      - path: algebra_9onxpypzleqsum2onxpy.thy
+        theorems: "*"
+      - path: algebra_abpbcpcageq3_sumaonsqrtapbgeq3onsqrt2.thy
+        theorems: "*"
+      - path: algebra_absapbon1pabsapbleqsumabsaon1pabsa.thy
+        theorems: "*"
+      - path: algebra_absxm1pabsxpabsxp1eqxp2_0leqxleq1.thy
+        theorems: "*"
+      - path: algebra_amgm_sum1toneqn_prod1tonleq1.thy
+        theorems: "*"
+      - path: algebra_amgm_sumasqdivbgeqsuma.thy
+        theorems: "*"
+      - path: algebra_apbmpcneq0_aeq0anbeq0anceq0.thy
+        theorems: "*"
+      - path: algebra_apbon2pownleqapownpbpowon2.thy
+        theorems: "*"
+      - path: algebra_apbpceq2_abpbcpcaeq1_aleq1on3anbleq1ancleq4on3.thy
+        theorems: "*"
+      - path: algebra_bleqa_apbon2msqrtableqambsqon8b.thy
+        theorems: "*"
+      - path: algebra_cubrtrp1oncubrtreq3_rcubp1onrcubeq5778.thy
+        theorems: "*"
+      - path: algebra_ineq_nto1onlt2m1on.thy
+        theorems: "*"
+      - path: algebra_others_exirrpowirrrat.thy
+        theorems: "*"
+      - path: algebra_sqineq_unitcircatbpabsamblt1.thy
+        theorems: "*"
+      - path: algebra_sqineq_unitcircatbpamblt1.thy
+        theorems: "*"
+      - path: algebra_sum1onsqrt2to1onsqrt10000lt198.thy
+        theorems: "*"
+      - path: amc12_2000_p1.thy
+        theorems: "*"
+      - path: amc12_2000_p12.thy
+        theorems: "*"
+      - path: amc12_2000_p20.thy
+        theorems: "*"
+      - path: amc12_2000_p6.thy
+        theorems: "*"
+      - path: amc12_2001_p21.thy
+        theorems: "*"
+      - path: amc12_2001_p5.thy
+        theorems: "*"
+      - path: amc12a_2002_p13.thy
+        theorems: "*"
+      - path: amc12a_2003_p23.thy
+        theorems: "*"
+      - path: amc12a_2003_p5.thy
+        theorems: "*"
+      - path: amc12a_2008_p25.thy
+        theorems: "*"
+      - path: amc12a_2009_p6.thy
+        theorems: "*"
+      - path: amc12a_2009_p7.thy
+        theorems: "*"
+      - path: amc12a_2019_p12.thy
+        theorems: "*"
+      - path: amc12a_2020_p10.thy
+        theorems: "*"
+      - path: amc12a_2020_p15.thy
+        theorems: "*"
+      - path: amc12a_2020_p25.thy
+        theorems: "*"
+      - path: amc12a_2020_p4.thy
+        theorems: "*"
+      - path: amc12a_2020_p7.thy
+        theorems: "*"
+      - path: amc12a_2020_p9.thy
+        theorems: "*"
+      - path: amc12a_2021_p12.thy
+        theorems: "*"
+      - path: amc12a_2021_p14.thy
+        theorems: "*"
+      - path: amc12a_2021_p18.thy
+        theorems: "*"
+      - path: amc12a_2021_p19.thy
+        theorems: "*"
+      - path: amc12a_2021_p22.thy
+        theorems: "*"
+      - path: amc12a_2021_p25.thy
+        theorems: "*"
+      - path: amc12a_2021_p3.thy
+        theorems: "*"
+      - path: amc12a_2021_p8.thy
+        theorems: "*"
+      - path: amc12b_2002_p4.thy
+        theorems: "*"
+      - path: amc12b_2002_p7.thy
+        theorems: "*"
+      - path: amc12b_2020_p13.thy
+        theorems: "*"
+      - path: amc12b_2020_p21.thy
+        theorems: "*"
+      - path: amc12b_2020_p22.thy
+        theorems: "*"
+      - path: amc12b_2021_p1.thy
+        theorems: "*"
+      - path: amc12b_2021_p13.thy
+        theorems: "*"
+      - path: amc12b_2021_p18.thy
+        theorems: "*"
+      - path: amc12b_2021_p3.thy
+        theorems: "*"
+      - path: amc12b_2021_p4.thy
+        theorems: "*"
+      - path: amc12b_2021_p9.thy
+        theorems: "*"
+      - path: imo_1959_p1.thy
+        theorems: "*"
+      - path: imo_1960_p2.thy
+        theorems: "*"
+      - path: imo_1962_p2.thy
+        theorems: "*"
+      - path: imo_1963_p5.thy
+        theorems: "*"
+      - path: imo_1964_p2.thy
+        theorems: "*"
+      - path: imo_1965_p2.thy
+        theorems: "*"
+      - path: imo_1968_p5_1.thy
+        theorems: "*"
+      - path: imo_1969_p2.thy
+        theorems: "*"
+      - path: imo_1974_p3.thy
+        theorems: "*"
+      - path: imo_1977_p6.thy
+        theorems: "*"
+      - path: imo_1981_p6.thy
+        theorems: "*"
+      - path: imo_1982_p1.thy
+        theorems: "*"
+      - path: imo_1983_p6.thy
+        theorems: "*"
+      - path: imo_1984_p6.thy
+        theorems: "*"
+      - path: imo_1985_p6.thy
+        theorems: "*"
+      - path: imo_1992_p1.thy
+        theorems: "*"
+      - path: imo_1997_p5.thy
+        theorems: "*"
+      - path: imo_2001_p6.thy
+        theorems: "*"
+      - path: imo_2019_p1.thy
+        theorems: "*"
+      - path: imosl_2007_algebra_p6.thy
+        theorems: "*"
+      - path: induction_11div10tonmn1ton.thy
+        theorems: "*"
+      - path: induction_12dvd4expnp1p20.thy
+        theorems: "*"
+      - path: induction_1pxpownlt1pnx.thy
+        theorems: "*"
+      - path: induction_nfactltnexpnm1ngt3.thy
+        theorems: "*"
+      - path: induction_pord1p1on2powklt5on2.thy
+        theorems: "*"
+      - path: induction_pprime_pdvdapowpma.thy
+        theorems: "*"
+      - path: induction_prod1p1onk3le3m1onn.thy
+        theorems: "*"
+      - path: induction_sumkexp3eqsumksq.thy
+        theorems: "*"
