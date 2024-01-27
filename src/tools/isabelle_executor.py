@@ -145,13 +145,11 @@ class IsabelleExecutor:
         self.local_theorem_lemma_description: typing.OrderedDict[str, str] = OrderedDict()
         self.execution_complete = False
         self.global_lemmas = []
-        self.port = IsabelleExecutor._port if hasattr(IsabelleExecutor, "_port") else port
+        self.port = int(os.environ.get("PISA_PORT", port))
         self._seldgehammer_cache : typing.Dict[int,typing.Set[str]] = {}
         home_dir = str(Path.home())
         if os.path.exists(os.path.join(home_dir, "Isabelle2022")):
             self.isa_install_dir = os.path.join(home_dir, "Isabelle2022")
-        elif os.path.exists(os.path.join(home_dir, ".local", "bin","Isabelle2022")):
-            self.isa_install_dir = os.path.join(home_dir, ".local", "bin","Isabelle2022")
         else:
             raise Exception("Isabelle2022 installation not found. Please install Isabelle2022 and set the path to the installation directory in the environment variable 'ISABELLE_HOME'")
     
@@ -189,54 +187,84 @@ class IsabelleExecutor:
             pass
 
     def start_server(logger : logging.Logger = None, port: int = 8000):
+        if "PISA_PORT" in os.environ:
+            port = int(os.environ["PISA_PORT"])
+        else:
+            os.environ["PISA_PORT"] = str(port)        
         assert port > 0, "Port number must be greater than 0"
         assert port < 65536, "Port number must be less than 65536"
         jar_path = "src/pisa/target/scala-2.13/PISA-assembly-0.1.jar"
         assert os.path.exists(jar_path), "PISA jar file not found. Please build the project using 'sbt assembly' commnad"
         logger = logger if logger is not None else logging.getLogger('isabelle_pisa_executor')
         cmd = f"java -cp {jar_path} pisa.server.PisaOneStageServer{port}"
-        IsabelleExecutor._port = port
         # Start the server in a separate process
         cwd = os.getcwd()
-        IsabelleExecutor._server_process = subprocess.Popen(
+        server_process = subprocess.Popen(
             cmd, 
             cwd=cwd,
             shell=True, 
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid) # Create a new process group so that we can kill the process and all its children
-        time.sleep(1)
-        # Scan the first line
-        # Wait for the server to start
-        line = IsabelleExecutor._server_process.stdout.readline()
-        logger.info(line)
-        IsabelleExecutor._process_killed = False
-        thread = threading.Thread(target=IsabelleExecutor._server_loggening_thread, args=(logger,))
-        thread.start()
-        IsabelleExecutor._server_read_thread = thread
+        pid = server_process.pid
+        os.environ["PISA_SERVER_PID"] = str(pid)
+        # Log the process id
+        logger.info(f"Server process id: {pid}")
+        # Log the port number
+        logger.info(f"Server port: {port}")
+        logger.info("Waiting for server to start")
+        time.sleep(5)
+        # log the netsat result netstat -nlp | grep :{port}
+        netstat_cmd = f"netstat -nlp | grep :{port}"
+        logger.info(f"Netstat command: {netstat_cmd}")
+        output = subprocess.run(netstat_cmd, shell=True, capture_output=True)
+        logger.info(f"Netstat output: {output}")
+        output_str = output.stdout.decode("utf-8")
+        logger.info(f"Netstat output stdout: {output_str}")
+        if "tcp" not in output_str:
+            logger.error(f"Server is not running on port {port}")
+        else:
+            thread = threading.Thread(target=IsabelleExecutor._server_loggening_thread, args=(logger, server_process))
+            thread.start()
+            thread_id = thread.ident
+            os.environ["PISA_SERVER_THREAD_ID"] = str(thread_id)
         pass
 
-    def _server_loggening_thread(logger : logging.Logger):
+    def _server_loggening_thread(logger : logging.Logger, process: subprocess.Popen):
         # Keep checking the server is running
-        while not IsabelleExecutor._process_killed:
+        process_killed = False
+        while not process_killed:
             try:
-                line = IsabelleExecutor._server_process.stdout.readline()
+                line = process.stdout.readline()
                 if not line:
                     break
                 logger.info(line)
             except:
                 logger.info("Stdout is closed")
                 time.sleep(1)
+            # Reload the environment variables
+            process_killed = os.environ.get("PISA_PROCESS_KILLED", "False") == "True"
         logger.info("Server is shut down")
         time.sleep(1)
         pass
 
     def stop_server():
-        IsabelleExecutor._process_killed = True
+        os.environ["PISA_PROCESS_KILLED"] = "True"
+        pisa_pid = int(os.environ["PISA_SERVER_PID"])
         # Kill the server process
-        os.killpg(IsabelleExecutor._server_process.pid, signal.SIGTERM)
+        os.killpg(pisa_pid, signal.SIGTERM)
         # IsabelleExecutor._server_process.kill()
-        IsabelleExecutor._server_read_thread.join(5)
+        if "PISA_SERVER_THREAD_ID" in os.environ:
+            thread_id = int(os.environ["PISA_SERVER_THREAD_ID"])
+            # Find the right thread object
+            for thread in threading.enumerate():
+                if thread.ident == thread_id:
+                    thread.join(5)
+                    break
+            os.unsetenv("PISA_SERVER_THREAD_ID")
+        # Reset the environment variables
+        os.unsetenv("PISA_PROCESS_KILLED")
+        os.unsetenv("PISA_SERVER_PID")
         pass
 
     # The following token separators may not be completely correct
@@ -757,7 +785,7 @@ if __name__ == "__main__":
     #     isabelle_exec.run_in_loop()
 
     os.chdir(root_dir)
-    IsabelleExecutor.start_server(port=17000)
+    IsabelleExecutor.start_server(port=13000)
     try:
         with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:
             isabelle_exec.run_in_loop()

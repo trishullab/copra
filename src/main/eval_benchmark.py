@@ -330,7 +330,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     elif not return_dict["attempted_success"]:
                         if not return_dict["service_down"] or \
                             (eval_settings.gpt_model_name is not None and \
-                            len(eval_settings.gpt_model_name) == 0 and \
+                            len(eval_settings.gpt_model_name) != 0 and \
                             eval_settings.gpt_model_name.startswith("gpt")) or \
                             max_retry <= 1:
                             logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
