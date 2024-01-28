@@ -214,7 +214,7 @@ class IsabelleExecutor:
         logger.info(f"Server port: {port}")
         logger.info("Waiting for server to start")
         time.sleep(5)
-        server_running = IsabelleExecutor.check_server_running(logger, port)
+        server_running = IsabelleExecutor.check_server_running(logger)
         if not server_running:
             logger.error(f"Server is not running on port {port}")
         else:
@@ -654,7 +654,7 @@ class IsabelleExecutor:
                 description = self.pisa_env.step(start_state, stmt, end_state)
                 if self.current_state not in self._seldgehammer_cache:
                     self._seldgehammer_cache[self.current_state] = {}
-                self._seldgehammer_cache[self.current_state][stmt] = description
+                self._seldgehammer_cache[self.current_state][full_stmt] = description
             auto_tactic_succeeded = not description.startswith('Step error:')
             if auto_tactic_succeeded:
                 # If the tactic succeeded, return it

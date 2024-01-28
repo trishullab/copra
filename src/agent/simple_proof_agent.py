@@ -76,7 +76,10 @@ class ProofAgent(Agent):
             assert isinstance(action, ProofAction)
             self.logger.info(f"Got Action: {action}")
             if action.action_type != ProofAction.ActionType.EXIT:
-                state, _, next_state, reward, done, info = env.step(action)
+                state, action, next_state, reward, done, info = env.step(action)
+                # **IMPORTANT NOTE**: Here we update the action because sometimes the proof env can optimize the action
+                # and return a different action which kind of aligns with the action taken by the
+                # policy but only more efficient. This is slightly different traditional RL setting
                 if render:
                     self.logger.info("**"*20)
                     env.render()
