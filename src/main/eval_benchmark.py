@@ -19,6 +19,7 @@ from src.tools.log_utils import setup_logger
 from src.gpts.llama_access import LlamaAccess, ServiceDownError
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
+from src.agent.dfs_hammer_policy_prompter import HammerDfsIsabelleGptPolicyPrompter
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
@@ -121,9 +122,19 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             suppress_error_log=True,
             always_use_retrieval=eval_settings.always_use_useful_theorem_retrieval,
             logger=logger)
+        get_all_lemmas_proof_exec_callback = ProofExecutorCallback(
+            project_folder=dataset.project,
+            file_path=path,
+            language=eval_benchmark.language,
+            use_hammer=ProofAction.HammerMode.NONE, # We don't need hammer for this
+            timeout_in_secs=eval_settings.timeout_in_secs,
+            use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
+            suppress_error_log=True,
+            always_use_retrieval=False,
+            logger=logger)
         def _get_all_lemmas(ret_dict, logger):
             try:
-                ret_dict["lemmas"] = get_all_lemmas(proof_exec_callback, logger)
+                ret_dict["lemmas"] = get_all_lemmas(get_all_lemmas_proof_exec_callback, logger)
             except:
                 logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
         manager = multiprocessing.Manager()
@@ -179,7 +190,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     informal_proof_repo = prompt_settings.get_informal_proof_repo()
                 else:
                     informal_proof_repo = None
-                policy_prompter = DfsCoqGptPolicyPrompter(
+                if eval_settings.use_hammer == ProofAction.HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
+                    policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
+                else:
+                    policy_prompter_class = DfsCoqGptPolicyPrompter
+                policy_prompter = policy_prompter_class(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
                     max_tokens_per_action=eval_settings.max_tokens_per_action,

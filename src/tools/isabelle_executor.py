@@ -146,7 +146,7 @@ class IsabelleExecutor:
         self.execution_complete = False
         self.global_lemmas = []
         self.port = int(os.environ.get("PISA_PORT", port))
-        self._seldgehammer_cache : typing.Dict[int,typing.Set[str]] = {}
+        self._seldgehammer_cache : typing.Dict[int,typing.Dict[str, str]] = {}
         home_dir = str(Path.home())
         if os.path.exists(os.path.join(home_dir, "Isabelle2022")):
             self.isa_install_dir = os.path.join(home_dir, "Isabelle2022")
@@ -245,6 +245,8 @@ class IsabelleExecutor:
             # Reload the environment variables
             process_killed = os.environ.get("PISA_PROCESS_KILLED", "False") == "True"
         logger.info("Server is shut down")
+        # Print the environment variables
+        logger.info(f"Environment variables at shutdown time: {os.environ}")
         time.sleep(1)
         pass
 
@@ -597,6 +599,14 @@ class IsabelleExecutor:
     def _handle_sledgehammer(self, start_state: str, step: str, end_state: str, proof_search_mode=True) -> str:
         if step is None or len(step) == 0:
             return None
+        
+        if self.current_state in self._seldgehammer_cache and step in self._seldgehammer_cache[self.current_state]:
+            # We've already tried this tactic, so just return the cached result
+            stmt_or_description = self._seldgehammer_cache[self.current_state][step]
+            if stmt_or_description.startswith('Step error:'):
+                raise Exception(stmt_or_description)
+            return stmt_or_description
+
 
         tactics = re.split(r'(sledgehammer)', step)
         tactics = list(filter(None, tactics))
@@ -614,7 +624,7 @@ class IsabelleExecutor:
                     raise Exception('Error: got "sledgehammer" query with hammer turned off. To use hammer, toggle "use_hammer"')
  
                 # Attempt to solve proof with sledgehammer
-                description = self._handle_auto_tactics(temp_start, temp_end)
+                description = self._handle_auto_tactics(stmt, temp_start, temp_end)
                 stmt += description # Replace with hammer-provided tactic, not 'sledgehammer' literally
             else:
                 # Run tactic normally
@@ -623,44 +633,63 @@ class IsabelleExecutor:
 
         return stmt
     
-    def _handle_auto_tactics(self, start_state: str, end_state: str) -> str:
+    def _handle_auto_tactics(self, step: str, start_state: str, end_state: str) -> str:
         # First we'll try easier tactics, e.g. "simp", "auto", "blast", etc.
         for tactic in IsabelleExecutor.auto_tactics:
             stmt = 'by ' + tactic
-            description = self.pisa_env.step(start_state, stmt, end_state)
-            if not description.startswith('Step error:'):
+            full_stmt = step + stmt
+            # Check if we've already tried this tactic
+            if self.current_state in self._seldgehammer_cache and full_stmt in self._seldgehammer_cache[self.current_state]:
+                description = self._seldgehammer_cache[self.current_state][full_stmt]
+            else:
+                description = self.pisa_env.step(start_state, stmt, end_state)
+                if self.current_state not in self._seldgehammer_cache:
+                    self._seldgehammer_cache[self.current_state] = {}
+                self._seldgehammer_cache[self.current_state][stmt] = description
+            auto_tactic_succeeded = not description.startswith('Step error:')
+            if auto_tactic_succeeded:
+                # If the tactic succeeded, return it
                 return stmt + ' <auto tactic>'
 
         # If those fail, run sledgehammer (more powerful but slower)
-        description = self.pisa_env.apply_hammer(start_state, end_state)
-        if description.startswith('Step error:'):
+        full_stmt = step + 'sledgehammer'
+        # Check if we've already tried this tactic
+        if self.current_state in self._seldgehammer_cache and full_stmt in self._seldgehammer_cache[self.current_state]:
+            description = self._seldgehammer_cache[self.current_state][full_stmt]
+        else:
+            description = self.pisa_env.apply_hammer(start_state, end_state)
+            if self.current_state not in self._seldgehammer_cache:
+                self._seldgehammer_cache[self.current_state] = {}
+            self._seldgehammer_cache[self.current_state][full_stmt] = description
+        sledgehammer_succeeded = not description.startswith('Step error:')
+        if sledgehammer_succeeded:
+            # If the tactic succeeded, return it
+            return description.split('<hammer>')[0] + '<hammer>'
+        else:
             raise Exception(description)
-        return description.split('<hammer>')[0] + '<hammer>'
 
     def _handle_reg_tactic(self, start_state: str, step: str, end_state: str, proof_search_mode=True) -> str:
         description = self.pisa_env.step(start_state, step, end_state)
-        if not description.startswith('Step error:'):
+        # Check if the tactic succeeded
+        tactic_succeeded = not description.startswith('Step error:')
+        if tactic_succeeded:
             return step
-        
-        tactics = re.split(r'\susing\s|\sby\s', step, maxsplit=1)
-        if len(tactics) > 1 and self.use_hammer == ProofAction.HammerMode.AUTO and proof_search_mode:
-            # Try applying sledgehammer. We do some awkward parsing to apply it to the correct portion
-            # This will not always work, but because this is a heuristic and not mission-critical, it is ok
-            new_tactic = tactics[0] + ' sledgehammer'
-            # Check if we've already tried this tactic
-            if self.current_state in self._seldgehammer_cache and new_tactic in self._seldgehammer_cache[self.current_state]:
-                raise Exception(description)
-            try:
-                step = self._handle_sledgehammer(start_state, new_tactic, end_state, proof_search_mode)
-                return step
-            except:
-                # Don't throw an error here -- we want to throw the original error
-                pass
-            # Add the tactic to cache
-            if self.current_state not in self._seldgehammer_cache:
-                self._seldgehammer_cache[self.current_state] = set()
-            self._seldgehammer_cache[self.current_state].add(new_tactic)
-        raise Exception(description)
+        else:
+            # Use auto tactics correction heuristics by changing it to sledehammer       
+            tactics = re.split(r'\susing\s|\sby\s', step, maxsplit=1)
+            if len(tactics) > 1 and \
+                (self.use_hammer == ProofAction.HammerMode.AUTO or self.use_hammer == ProofAction.HammerMode.ALWAYS) and \
+                proof_search_mode:
+                # Try applying sledgehammer. We do some awkward parsing to apply it to the correct portion
+                # This will not always work, but because this is a heuristic and not mission-critical, it is ok
+                new_tactic = tactics[0] + ' sledgehammer'
+                try:
+                    step = self._handle_sledgehammer(start_state, new_tactic, end_state, proof_search_mode)
+                    return step
+                except:
+                    # Don't throw an error here -- we want to throw the original error
+                    pass
+            raise Exception(description)
 
     def _parse_proof_context(self, proof_context_str: str, local_hypotheses: typing.List[IsabelleLemma], found_lemma: bool) -> ProofContext:
         if proof_context_str is None or len(proof_context_str) == 0:
