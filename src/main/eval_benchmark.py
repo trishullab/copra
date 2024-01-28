@@ -102,9 +102,20 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             IsabelleExecutor.start_server(isabelle_logger, 17000)
         else:
             IsabelleExecutor.start_server(isabelle_logger, int(os.environ["PISA_PORT"]))
+    skip_files_in_checkpoint = False if "SKIP_FILES_IN_CHECKPOINT" not in os.environ else bool(os.environ["SKIP_FILES_IN_CHECKPOINT"])
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
+        if skip_files_in_checkpoint and path in eval_checkpoint_info.theorem_maps:
+            logger.info(f"Skipping the file: {path} as it was already attempted before.")
+            # The proof result for this file is already in the checkpoint
+            if path in eval_proof_results.theorem_map:
+                # The proof result for this file is already in the proof results
+                # So we just log the proof result
+                for lemma_name, proof_res in eval_proof_results.theorem_map[path].items():
+                    logger.info(f"Dumping proof search result:\n{proof_res}")
+                    logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                continue
         if not os.path.exists(proof_dump_file_name):
             with open(proof_dump_file_name, "w") as f:
                 f.write(f"File: {path}\n")

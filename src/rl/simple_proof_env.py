@@ -280,7 +280,7 @@ class ProofEnv(Env):
             longest_success_path=-1,
             additional_info=additional_info,
             language=self.language)
-        self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
+        self.logger.info(f"Dumping proof search result:\n{self.proof_search_res}")
         if dump_file_name is not None:
             opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'
             with open(dump_file_name, opening_mode) as f:
