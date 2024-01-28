@@ -56,8 +56,7 @@ class HammerDfsIsabelleGptPolicyPrompter(DfsCoqGptPolicyPrompter):
         if (len(request.incorrect_steps) > 0 and any([step == HammerDfsIsabelleGptPolicyPrompter.sledgehammer_command for step in request.incorrect_steps])) or \
             (request.last_step == HammerDfsIsabelleGptPolicyPrompter.sledgehammer_command and request.error_message is not None):
             # If sledgehammer failed, then simply skip trying sledgehammer this time and the parent policy about the next step
-            self.call_num += 1
-            self.call_num %= 2
+            self.call_num = 1
         if self.call_num % 2 == 1:
             self.call_num += 1
             self.call_num %= 2
