@@ -139,6 +139,16 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
+        # Check if PISA service is down otherwise restart it
+        if eval_benchmark.language == ProofAction.Language.ISABELLE and not IsabelleExecutor.check_server_running(logger):
+            # Kill the logging thread
+            try:
+                IsabelleExecutor.stop_server()
+            except:
+                pass
+            logger.warning("PISA service is down. Restarting it.")
+            IsabelleExecutor.start_server(logger) # Restart the server
+            logger.warning("Restarted the PISA service.")
         file_time_out = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50
         logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
         p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
@@ -337,6 +347,15 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         p.kill()
                         p.join()
                     p.close()
+                    if eval_benchmark.language == ProofAction.Language.ISABELLE and \
+                        not IsabelleExecutor.check_server_running(logger) and \
+                        "attempted_success" in return_dict and \
+                        not return_dict["attempted_success"]:
+                        logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
+                        # if it is down then check whether the last proof was completed successfully or not
+                        # if not then remove "attempted_success" from return_dict so that we know 
+                        # that attempt was not successful
+                        return_dict.pop("attempted_success")
                     if "attempted_success" not in return_dict:
                         logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                         eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)

@@ -214,14 +214,8 @@ class IsabelleExecutor:
         logger.info(f"Server port: {port}")
         logger.info("Waiting for server to start")
         time.sleep(5)
-        # log the netsat result netstat -nlp | grep :{port}
-        netstat_cmd = f"netstat -nlp | grep :{port}"
-        logger.info(f"Netstat command: {netstat_cmd}")
-        output = subprocess.run(netstat_cmd, shell=True, capture_output=True)
-        logger.info(f"Netstat output: {output}")
-        output_str = output.stdout.decode("utf-8")
-        logger.info(f"Netstat output stdout: {output_str}")
-        if "tcp" not in output_str:
+        server_running = IsabelleExecutor.check_server_running(logger, port)
+        if not server_running:
             logger.error(f"Server is not running on port {port}")
         else:
             thread = threading.Thread(target=IsabelleExecutor._server_loggening_thread, args=(logger, server_process))
@@ -229,6 +223,19 @@ class IsabelleExecutor:
             thread_id = thread.ident
             os.environ["PISA_SERVER_THREAD_ID"] = str(thread_id)
         pass
+
+    def check_server_running(logger : logging.Logger):
+        assert "PISA_PORT" in os.environ, "PISA_PORT environment variable is not set"
+        port = int(os.environ["PISA_PORT"])
+        # log the netsat result netstat -nlp | grep :{port}
+        netstat_cmd = f"netstat -nlp | grep :{port}"
+        logger.info(f"Netstat command: {netstat_cmd}")
+        output = subprocess.run(netstat_cmd, shell=True, capture_output=True)
+        logger.info(f"Netstat output: {output}")
+        output_str = output.stdout.decode("utf-8")
+        logger.info(f"Netstat output stdout: {output_str}")        
+        server_running = "tcp" in output_str
+        return server_running
 
     def _server_loggening_thread(logger : logging.Logger, process: subprocess.Popen):
         # Keep checking the server is running
@@ -242,7 +249,7 @@ class IsabelleExecutor:
             except:
                 logger.info("Stdout is closed")
                 time.sleep(1)
-            # Reload the environment variables
+            # Reload the environment variables as they are shared across threads (not processes)
             process_killed = os.environ.get("PISA_PROCESS_KILLED", "False") == "True"
         logger.info("Server is shut down")
         # Print the environment variables
@@ -253,9 +260,11 @@ class IsabelleExecutor:
     def stop_server():
         os.environ["PISA_PROCESS_KILLED"] = "True"
         pisa_pid = int(os.environ["PISA_SERVER_PID"])
-        # Kill the server process
-        os.killpg(pisa_pid, signal.SIGTERM)
-        # IsabelleExecutor._server_process.kill()
+        try:
+            # Kill the server process
+            os.killpg(pisa_pid, signal.SIGTERM)
+        except:
+            pass
         if "PISA_SERVER_THREAD_ID" in os.environ:
             thread_id = int(os.environ["PISA_SERVER_THREAD_ID"])
             # Find the right thread object
