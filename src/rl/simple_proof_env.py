@@ -280,7 +280,7 @@ class ProofEnv(Env):
             longest_success_path=-1,
             additional_info=additional_info,
             language=self.language)
-        self.logger.info(f"Dumping proof search result:\n {self.proof_search_res}")
+        self.logger.info(f"Dumping proof search result:\n{self.proof_search_res}")
         if dump_file_name is not None:
             opening_mode = 'a' if os.path.exists(dump_file_name) else 'w'
             with open(dump_file_name, opening_mode) as f:
@@ -300,6 +300,7 @@ class ProofEnv(Env):
         assert all([isinstance(tactic, str) for tactic in tactics])
         # Remove unnecessary spaces, newlines, and tabs
         tactics = [tactic.strip() for tactic in tactics]
+        original_tactics = copy.deepcopy(tactics)
         try:
             state, next_state, reward, done, env_info = self._run_tactics(tactics, state, action, env_info)
         except Exception:
@@ -311,6 +312,12 @@ class ProofEnv(Env):
             done = False
             env_info.progress = ProgressState.FAILED
             env_info.error_message = self._dynamic_proof_executor.get_last_exception()
+        if self.language == ProofAction.Language.ISABELLE and \
+        (len(original_tactics) != len(tactics) or \
+         any([original_tactics[i] != tactics[i] for i in range(len(original_tactics))])):
+            # It is possible in case of Isabelle that tactics are modified by the proof executor when hammer is used
+            # So we need to update the tactics in the action
+            action.kwargs["tactics"] = tactics
         self._history[history_idx] = (state, action, next_state, reward, done, env_info)
 
     def _run_tactics(self, tactics: typing.List[str], state: ProofState, action: ProofAction, env_info: ProofEnvInfo):

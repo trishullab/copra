@@ -39,9 +39,11 @@ If $x \\equiv 4$ mod 19 and $y \\equiv 7$ mod 19, then $(x + 1)^2 (y + 5)^3 \\eq
 
 [LAST STEP]
 have ?thesis sledgehammer
+
 [ERROR MESSAGE]
 No proof found
 [END]
+
 `example_assistant`
 [RUN TACTIC]
 also have "... = 6" sledgehammer   
@@ -66,6 +68,7 @@ If $x \\equiv 4$ mod 19 and $y \\equiv 7$ mod 19, then $(x + 1)^2 (y + 5)^3 \\eq
 
 [LAST STEP]
 then have "(x+1)^2 mod 19 = 5^2 mod 19" by simp
+
 [ERROR MESSAGE]
 Failed to finish proof⌂:
 goal (1 subgoal):

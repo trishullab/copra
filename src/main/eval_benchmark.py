@@ -19,6 +19,7 @@ from src.tools.log_utils import setup_logger
 from src.gpts.llama_access import LlamaAccess, ServiceDownError
 from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from src.agent.dfs_tree_search_with_stack import DFSTreeSearch
+from src.agent.dfs_hammer_policy_prompter import HammerDfsIsabelleGptPolicyPrompter
 from src.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from src.agent.simple_proof_agent import ProofAgent
 from src.baselines.gpt4.few_shot_policy import FewShotGptPolicy
@@ -101,9 +102,20 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             IsabelleExecutor.start_server(isabelle_logger, 17000)
         else:
             IsabelleExecutor.start_server(isabelle_logger, int(os.environ["PISA_PORT"]))
+    skip_files_in_checkpoint = False if "SKIP_FILES_IN_CHECKPOINT" not in os.environ else bool(os.environ["SKIP_FILES_IN_CHECKPOINT"])
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
         proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
+        if skip_files_in_checkpoint and path in eval_checkpoint_info.theorem_maps:
+            logger.info(f"Skipping the file: {path} as it was already attempted before.")
+            # The proof result for this file is already in the checkpoint
+            if path in eval_proof_results.theorem_map:
+                # The proof result for this file is already in the proof results
+                # So we just log the proof result
+                for lemma_name, proof_res in eval_proof_results.theorem_map[path].items():
+                    logger.info(f"Dumping proof search result:\n{proof_res}")
+                    logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                continue
         if not os.path.exists(proof_dump_file_name):
             with open(proof_dump_file_name, "w") as f:
                 f.write(f"File: {path}\n")
@@ -121,13 +133,33 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             suppress_error_log=True,
             always_use_retrieval=eval_settings.always_use_useful_theorem_retrieval,
             logger=logger)
+        get_all_lemmas_proof_exec_callback = ProofExecutorCallback(
+            project_folder=dataset.project,
+            file_path=path,
+            language=eval_benchmark.language,
+            use_hammer=ProofAction.HammerMode.NONE, # We don't need hammer for this
+            timeout_in_secs=eval_settings.timeout_in_secs,
+            use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
+            suppress_error_log=True,
+            always_use_retrieval=False,
+            logger=logger)
         def _get_all_lemmas(ret_dict, logger):
             try:
-                ret_dict["lemmas"] = get_all_lemmas(proof_exec_callback, logger)
+                ret_dict["lemmas"] = get_all_lemmas(get_all_lemmas_proof_exec_callback, logger)
             except:
                 logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
+        # Check if PISA service is down otherwise restart it
+        if eval_benchmark.language == ProofAction.Language.ISABELLE and not IsabelleExecutor.check_server_running(logger):
+            # Kill the logging thread
+            try:
+                IsabelleExecutor.stop_server()
+            except:
+                pass
+            logger.warning("PISA service is down. Restarting it.")
+            IsabelleExecutor.start_server(logger) # Restart the server
+            logger.warning("Restarted the PISA service.")
         file_time_out = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50
         logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
         p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
@@ -179,7 +211,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     informal_proof_repo = prompt_settings.get_informal_proof_repo()
                 else:
                     informal_proof_repo = None
-                policy_prompter = DfsCoqGptPolicyPrompter(
+                if eval_settings.use_hammer == ProofAction.HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
+                    policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
+                else:
+                    policy_prompter_class = DfsCoqGptPolicyPrompter
+                policy_prompter = policy_prompter_class(
                     main_sys_prompt_path=prompt_settings.main_prompt,
                     example_conv_prompt_path=prompt_settings.conv_prompt,
                     max_tokens_per_action=eval_settings.max_tokens_per_action,
@@ -322,6 +358,15 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         p.kill()
                         p.join()
                     p.close()
+                    if eval_benchmark.language == ProofAction.Language.ISABELLE and \
+                        not IsabelleExecutor.check_server_running(logger) and \
+                        "attempted_success" in return_dict and \
+                        not return_dict["attempted_success"]:
+                        logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
+                        # if it is down then check whether the last proof was completed successfully or not
+                        # if not then remove "attempted_success" from return_dict so that we know 
+                        # that attempt was not successful
+                        return_dict.pop("attempted_success")
                     if "attempted_success" not in return_dict:
                         logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                         eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
