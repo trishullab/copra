@@ -16,4 +16,31 @@ begin
   }
 end
 
+`example_user`
+[THEOREM] mathd_algebra_159
+  (b : ℝ)
+  (f : ℝ → ℝ)
+  (h₀ : ∀ x, f x = 3 * x^4 - 7 * x^3 + 2 * x^2 - b * x + 1)
+  (h₁ : f 1 = 1) :
+  b = -2 :=
+[END]
+
+`example_assistant`
+begin
+  rw h₀ at h₁,
+  linarith,
+end
+
+`example_user`
+[THEOREM] mathd_numbertheory_84 :
+  int.floor ((9:ℝ) / 160 * 100) = 5 :=
+[END]
+
+`example_assistant`
+begin
+  rw int.floor_eq_iff,
+  split,
+  all_goals { norm_num },
+end
+
 `conv end`
