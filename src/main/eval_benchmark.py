@@ -409,7 +409,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
                             should_retry = False
-                            attempt_succeeded = True
+                            attempt_succeeded = return_dict["proof_res"].proof_found
                         return_dict.clear()
                         max_retry -= 1
             else:
