@@ -99,9 +99,12 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
         isabelle_logger = setup_logger(__name__ + "_isabelle", os.path.join(eval_checkpoint_info.logging_dirs[-1], "isabelle.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         # Check if environment variable PISA_PORT is set
         if "PISA_PORT" not in os.environ:
-            IsabelleExecutor.start_server(isabelle_logger, 17000)
-        else:
-            IsabelleExecutor.start_server(isabelle_logger, int(os.environ["PISA_PORT"]))
+            os.environ["PISA_PORT"] = "17000"
+            if IsabelleExecutor.check_server_running(isabelle_logger):
+                raise Exception(
+                "PISA_PORT environment variable is not set but the PISA service is already running on default port 17000. " + 
+                "Please set the PISA_PORT environment variable to the port on which the PISA service is running.")
+        IsabelleExecutor.start_server(isabelle_logger)
     skip_files_in_checkpoint = False if "SKIP_FILES_IN_CHECKPOINT" not in os.environ else bool(os.environ["SKIP_FILES_IN_CHECKPOINT"])
     for file in dataset.files:
         path = os.path.join(dataset.project, file.path)
@@ -345,59 +348,70 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         ret_dict["attempted_success"] = False
                         ret_dict["service_down"] = False
 
-                should_retry = True
-                max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
-                while should_retry and max_retry > 0:
-                    # Run the prover with a timeout
-                    timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
-                    logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
-                    p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
-                    p.start()
-                    p.join(timeout)
-                    if p.is_alive():
-                        p.kill()
-                        p.join()
-                    p.close()
-                    if eval_benchmark.language == ProofAction.Language.ISABELLE and \
-                        not IsabelleExecutor.check_server_running(logger) and \
-                        "attempted_success" in return_dict and \
-                        not return_dict["attempted_success"]:
-                        logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
-                        # if it is down then check whether the last proof was completed successfully or not
-                        # if not then remove "attempted_success" from return_dict so that we know 
-                        # that attempt was not successful
-                        return_dict.pop("attempted_success")
-                    if "attempted_success" not in return_dict:
-                        logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
-                        eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
-                        eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
-                        should_retry = False
-                    elif not return_dict["attempted_success"]:
-                        if not return_dict["service_down"] or \
-                            (eval_settings.gpt_model_name is not None and \
-                            len(eval_settings.gpt_model_name) != 0 and \
-                            eval_settings.gpt_model_name.startswith("gpt")) or \
-                            max_retry <= 1:
-                            logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                if eval_settings.proof_retries > 1:
+                    assert eval_settings.temperature > 0.0, "Proof retries is only supported for temperature > 0.0"
+
+                attempt_succeeded = False
+                attempt_abandoned = False
+                for attempt_idx in range(eval_settings.proof_retries):
+                    should_retry = True
+                    max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
+                    if attempt_succeeded or attempt_abandoned:
+                        break
+                    logger.info(f"Attempt {attempt_idx + 1} for proving lemma: {lemma_name} in file {path}")
+                    while should_retry and max_retry > 0:
+                        # Run the prover with a timeout
+                        timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
+                        logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
+                        p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
+                        p.start()
+                        p.join(timeout)
+                        if p.is_alive():
+                            p.kill()
+                            p.join()
+                        p.close()
+                        if eval_benchmark.language == ProofAction.Language.ISABELLE and \
+                            not IsabelleExecutor.check_server_running(logger) and \
+                            "attempted_success" in return_dict and \
+                            not return_dict["attempted_success"]:
+                            logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
+                            # if it is down then check whether the last proof was completed successfully or not
+                            # if not then remove "attempted_success" from return_dict so that we know 
+                            # that attempt was not successful
+                            return_dict.pop("attempted_success")
+                            attempt_abandoned = True
+                        if "attempted_success" not in return_dict:
+                            logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                             eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                             should_retry = False
-                        elif return_dict["service_down"]:
-                            # Kill the llama process if it is a llama model
-                            should_retry = True
-                            logger.info("Killing the llama process")
-                            LlamaAccess.class_kill()
-                            logger.info("Killed the llama process")
-                            logger.info("Restarting the llama process")
-                            LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
-                            logger.info("Restarted the llama process")                            
-                    else:
-                        logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
-                        eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
-                        eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
-                        should_retry = False
-                    return_dict.clear()
-                    max_retry -= 1
+                        elif not return_dict["attempted_success"]:
+                            if not return_dict["service_down"] or \
+                                (eval_settings.gpt_model_name is not None and \
+                                len(eval_settings.gpt_model_name) != 0 and \
+                                eval_settings.gpt_model_name.startswith("gpt")) or \
+                                max_retry <= 1:
+                                logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                                eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
+                                eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                                should_retry = False
+                            elif return_dict["service_down"]:
+                                # Kill the llama process if it is a llama model
+                                should_retry = True
+                                logger.info("Killing the llama process")
+                                LlamaAccess.class_kill()
+                                logger.info("Killed the llama process")
+                                logger.info("Restarting the llama process")
+                                LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
+                                logger.info("Restarted the llama process")                            
+                        else:
+                            logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                            eval_proof_results.add_theorem_to_maps(path, lemma_name, return_dict["proof_res"])
+                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
+                            should_retry = False
+                            attempt_succeeded = True
+                        return_dict.clear()
+                        max_retry -= 1
             else:
                 logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
     if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
