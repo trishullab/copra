@@ -34,7 +34,7 @@ end
 [END]
 
 `example_user`
-[THEOREM]
+[THEOREM] some_theorem
   (b : ℝ)
   (f : ℝ → ℝ)
   (h₀ : ∀ x, f x = 3 * x^4 - 7 * x^3 + 2 * x^2 - b * x + 1)
@@ -56,7 +56,7 @@ end
 [END]
 
 `example_user`
-[THEOREM]
+[THEOREM] some_theorem
   int.floor ((9:ℝ) / 160 * 100) = 5 :=
 
 [INFORMAL-THEOREM]
