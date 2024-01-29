@@ -1,3 +1,5 @@
+`conv start`
+
 `example_user`
 Goals to prove:
 [GOALS]
@@ -36,12 +38,6 @@ rewrite tactic failed, did not find instance of the pattern in the target expres
 rw h₁ at h₂,
 [END]
 
-theorem mathd_numbertheory_33
-  (n : ℕ)
-  (h₀ : n < 398)
-  (h₁ : (n * 7) % 398 = 1) :
-  n = 57 :=
-begin
 `example_user`
 Goals to prove:
 [GOALS]
@@ -74,16 +70,6 @@ h₁ : n * 7 % 398 = 1
 [RUN TACTIC]
 have h₂ : 1 % 398 = (57 * 7) % 398 := by norm_num
 [END]
-
-theorem amc12a_2013_p7
-  (s : ℕ → ℝ)
-  (h₀: ∀ n, s (n + 2) = s (n + 1) + s n)
-  (h₁ : s 9 = 110)
-  (h₂ : s 7 = 42) :
-  s 4 = 10 :=
-begin
-  sorry
-end
 
 `example_user`
 Goals to prove:
@@ -160,3 +146,29 @@ rw id_factored,
 [RUN TACTIC]
   apply dvd_add id,
 [END]
+
+
+`example_user`
+Goals to prove:
+[GOALS]
+[GOAL] 1
+b = -2
+[HYPOTHESES] 1
+[HYPOTHESIS] b : ℝ
+[HYPOTHESIS] f : ℝ → ℝ,
+[HYPOTHESIS] h₀ : ∀ (x : ℝ), f x = 3 * x ^ 4 - 7 * x ^ 3 + 2 * x ^ 2 - b * x + 1,
+[HYPOTHESIS] h₁ : 3 * 1 ^ 4 - 7 * 1 ^ 3 + 2 * 1 ^ 2 - b * 1 + 1 = 1
+
+[INFORMAL-THEOREM] Let $f(x)=3x^4-7x^3+2x^2-bx+1$. For what value of $b$ is $f(1)=1$? Show that it is -2.
+[INFORMAL-PROOF] Evaluating, we get $f(1) = 3-7+2-b+1 = -b-1 = 1.$ Solving for $b,$ we find that $b = -2.$
+
+[LAST STEP]
+rw h₀ at h₁,
+[SUCCESS]
+[END]
+
+`example_assistant`
+[RUN TACTIC]
+linarith,
+[END]
+`conv end`

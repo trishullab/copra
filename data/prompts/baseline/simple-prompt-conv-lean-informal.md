@@ -19,4 +19,24 @@ which can be rewritten as $n + 1 < 2^{n + 1}$.
 This completes the proof.
 [END]
 
+`example_user`
+[THEOREM]
+Let $f(x)=3x^4-7x^3+2x^2-bx+1$. For what value of $b$ is $f(1)=1$? Show that it is -2.
+[END]
+
+`example_assistant`
+[PROOF]
+Evaluating, we get $f(1) = 3-7+2-b+1 = -b-1 = 1.$ Solving for $b,$ we find that $b = -2.$
+[END]
+
+`example_user`
+[THEOREM]
+What is the digit in the hundredths place of the decimal equivalent of $\\frac{9}{160}$? Show that it is 5.
+[END]
+
+`example_assistant`
+[PROOF]
+Since the denominator of $\\dfrac{9}{160}$ is $2^5\\cdot5$, we multiply numerator and denominator by $5^4$ to obtain  \\[\n\\frac{9}{160} = \\frac{9\\cdot 5^4}{2^5\\cdot 5\\cdot 5^4} = \\frac{9\\cdot 625}{10^5} = \\frac{5625}{10^5} = 0.05625.\n\\]So, the digit in the hundredths place is $5$.
+[END]
+
 `conv end`
