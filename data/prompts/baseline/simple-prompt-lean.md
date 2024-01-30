@@ -4,4 +4,4 @@ The theorem is described in the following format:
 1. The theorem statement using the `[THEOREM]` keyword.
 3. The theorem description ends with the keyword `[END]`.
 
-Generate a Lean proof for the theorem which starts with the keyword `begin` followed by the proof of the theorem. The proof ends with the keyword `end`. Also please DO NOT write `sorry` in the proof. You can assume that the theorem is provable.
+Generate a Lean proof for the theorem which starts with the keyword `[PROOF]` followed by the proof of the theorem. The proof ends with the keyword `[END]`. Also please DO NOT write `sorry` in the proof. You can assume that the theorem is provable.
