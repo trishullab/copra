@@ -111,7 +111,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
     if eval_settings.proof_retries > 1:
         assert eval_settings.temperature > 0.0, "Proof retries is only supported for temperature > 0.0"
 
+    proof_attempts_done = False
     for attempt_idx in range(eval_settings.proof_retries):
+        if proof_attempts_done:
+            break
+        any_proof_attempted = False
         for file in dataset.files:
             path = os.path.join(dataset.project, file.path)
             proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
@@ -121,8 +125,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 if path in eval_proof_results.theorem_map:
                     # The proof result for this file is already in the proof results
                     # So we just log the proof result
-                    for lemma_name, proof_res in eval_proof_results.theorem_map[path].items():
-                        logger.info(f"Dumping proof search result:\n{proof_res}")
+                    for lemma_name, proof_res_chkpt in eval_proof_results.theorem_map[path].items():
+                        logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
                         logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
                     continue
             if not os.path.exists(proof_dump_file_name):
@@ -210,7 +214,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     is_timeout=False, 
                     is_inference_exhausted=False, 
                     longest_success_path=-1,
-                    additional_info={})
+                    additional_info={},
+                    language=eval_benchmark.language)
                 logger.info(f"Attempting to prove lemma: {lemma_name}")
                 search_guidance_policy : Policy = None
                 policy_prompter : PolicyPrompter = None
@@ -327,8 +332,9 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 else:
                     raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
 
-                proof_res = eval_proof_results.theorem_map.get(path, {}).get(lemma_name, None)
-                if proof_res is None or (not proof_res.proof_found and proof_res.additional_info["attempt_idx"] < eval_settings.proof_retries - 1):
+                proof_res_chkpt = eval_proof_results.theorem_map.get(path, {}).get(lemma_name, None)
+                if proof_res_chkpt is None or (not proof_res_chkpt.proof_found and proof_res_chkpt.additional_info["attempt_idx"] < eval_settings.proof_retries - 1):
+                    any_proof_attempted = True
                     manager = multiprocessing.Manager()
                     return_dict = manager.dict()
                     def _run_prover(ret_dict):
@@ -382,11 +388,13 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             return_dict.pop("attempted_success")
                         if "attempted_success" not in return_dict:
                             logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
-                            proof_res = copy.deepcopy(no_proof_res)
-                            proof_res.is_timeout = True
-                            proof_res.proof_time_in_secs = toc_end - tic_start
-                            proof_res.additional_info["attempt_idx"] = attempt_idx
-                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res)
+                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                            proof_res_chkpt = copy.deepcopy(no_proof_res)
+                            proof_res_chkpt.is_timeout = True
+                            proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
+                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
+                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                             should_retry = False
                         elif not return_dict["attempted_success"]:
@@ -396,10 +404,12 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 eval_settings.gpt_model_name.startswith("gpt")) or \
                                 max_retry <= 1:
                                 logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
-                                proof_res = copy.deepcopy(no_proof_res)
-                                proof_res.is_timeout = True
-                                proof_res.proof_time_in_secs = toc_end - tic_start
-                                proof_res.additional_info["attempt_idx"] = attempt_idx
+                                proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                                proof_res_chkpt = copy.deepcopy(no_proof_res)
+                                proof_res_chkpt.is_timeout = True
+                                proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
+                                proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                                proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
                                 eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
                                 eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                                 should_retry = False
@@ -414,19 +424,22 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 logger.info("Restarted the llama process")                            
                         else:
                             logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
-                            proof_res : ProofSearchResult = return_dict["proof_res"]
-                            proof_res.additional_info["attempt_idx"] = attempt_idx
-                            if not proof_res.proof_found and "queries" in proof_res.additional_info:
-                                proof_res.is_inference_exhausted = proof_res.additional_info["queries"] >= eval_settings.max_steps_per_episode
-                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res)
+                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                            proof_res_chkpt : ProofSearchResult = return_dict["proof_res"]
+                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            proof_res_chkpt.additional_info["total_queries"] = proof_res_queries + proof_res_chkpt.additional_info["queries"]
+                            if not proof_res_chkpt.proof_found and "queries" in proof_res_chkpt.additional_info:
+                                proof_res_chkpt.is_inference_exhausted = proof_res_chkpt.additional_info["queries"] >= eval_settings.max_steps_per_episode
+                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
                             should_retry = False
                         return_dict.clear()
                         max_retry -= 1
                 else:
                     logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
-                    logger.info(f"Dumping proof search result:\n{proof_res}")
+                    logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
                     logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+        proof_attempts_done = not any_proof_attempted
 
     if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
         # This is a llama model

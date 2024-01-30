@@ -46,12 +46,12 @@ class ProofExecutorCallback(object):
 
     def get_proof_executor(self) -> typing.Union[DynamicCoqProofExecutor, DynamicLeanProofExecutor, DynamicIsabelleProofExecutor]:
         if self.language == ProofAction.Language.COQ:
-            use_hammer = self.use_hammer == ProofAction.HammerMode.AUTO or self.use_hammer == ProofAction.HammerMode.ONESHOT
+            use_hammer = False
             search_exec = CoqExecutor(self.project_folder, self.file_path, use_hammer=use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log, use_human_readable_proof_context=self.use_human_readable_proof_context)
             coq_context_helper = CoqContextHelper(search_exec, self.search_depth, logger=self.logger)
             return DynamicCoqProofExecutor(coq_context_helper, self.project_folder, self.file_path, context_type=DynamicCoqProofExecutor.ContextType.BestContext, use_hammer=use_hammer, timeout_in_seconds=self.timeout_in_secs, suppress_error_log=self.suppress_error_log, use_human_readable_proof_context=self.use_human_readable_proof_context)
         elif self.language == ProofAction.Language.LEAN:
-            use_hammer = self.use_hammer == ProofAction.HammerMode.AUTO or self.use_hammer == ProofAction.HammerMode.ONESHOT
+            use_hammer = False
             search_exec = Lean3Executor(self.project_folder, self.prefix, self.file_path, use_hammer=use_hammer, timeout_in_sec=self.timeout_in_secs, suppress_error_log=self.suppress_error_log, use_human_readable_proof_context=self.use_human_readable_proof_context, enable_search=self.always_use_retrieval)
             lean_context_helper = Lean3ContextHelper(search_exec, self.search_depth, logger=self.logger)
             return DynamicLeanProofExecutor(lean_context_helper, self.project_folder, self.file_path, context_type=DynamicLeanProofExecutor.ContextType.NoContext, use_hammer=use_hammer, timeout_in_seconds=self.timeout_in_secs, suppress_error_log=self.suppress_error_log, use_human_readable_proof_context=self.use_human_readable_proof_context)
