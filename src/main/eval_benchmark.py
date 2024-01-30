@@ -188,8 +188,12 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
             lemmas_to_prove = return_dict["lemmas"]
             if isinstance(file.theorems, str) and file.theorems == "*":
                 file.theorems = list(lemmas_to_prove)
+                file.theorems.sort() # sort to ensure one order when no theorems are specified
             elif isinstance(file.theorems, list):
-                file.theorems = list(set(file.theorems).intersection(lemmas_to_prove))
+                # Check all theorems which can be proved
+                intersection = set(file.theorems).intersection(lemmas_to_prove)
+                # Arrange them in the order of the file.theorems
+                file.theorems = [x for x in file.theorems if x in intersection]
             else:
                 raise ValueError(f"Invalid theorems: {file.theorems}")
             logger.info(f"Discovered {len(file.theorems)} lemmas to prove in {path}")
@@ -200,7 +204,6 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 random.seed(eval_settings.sample_seed)
                 file.theorems = list(random.sample(file.theorems, sample_size))
                 logger.info(f"Sampled lemmas to prove in file {path}: \n{file.theorems}")
-            file.theorems.sort() # sort to ensure reproducibility
             for lemma_name in file.theorems:
                 no_proof_res = ProofSearchResult(
                     None, 
