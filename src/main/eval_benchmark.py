@@ -336,7 +336,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
 
                 proof_res_chkpt = eval_proof_results.theorem_map.get(path, {}).get(lemma_name, None)
-                if proof_res_chkpt is None or (not proof_res_chkpt.proof_found and proof_res_chkpt.additional_info["attempt_idx"] < eval_settings.proof_retries - 1):
+                max_retry_attempts = file.max_retry_attempts_limits.get(lemma_name, eval_settings.proof_retries)
+                if proof_res_chkpt is None or (not proof_res_chkpt.proof_found and proof_res_chkpt.additional_info["attempt_idx"] < max_retry_attempts - 1):
                     any_proof_attempted = True
                     manager = multiprocessing.Manager()
                     return_dict = manager.dict()
@@ -439,9 +440,12 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         return_dict.clear()
                         max_retry -= 1
                 else:
-                    logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
-                    logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
-                    logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                    proof_res_attempt_idx = proof_res_chkpt.additional_info["attempt_idx"]
+                    if proof_res_attempt_idx == attempt_idx:
+                        logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
+                        logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                    else:
+                        logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
         proof_attempts_done = not any_proof_attempted
 
     if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):

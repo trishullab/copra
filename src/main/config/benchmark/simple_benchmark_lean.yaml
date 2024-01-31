@@ -10,3 +10,10 @@ datasets:
     files:
       - path: src/simple.lean
         theorems: "*"
+        max_retry_attempts_limits:
+          a_plus_b_b_plus_a: 1
+          a_plus_zero: 1
+          ab_square: 2
+          mathd_algebra_478: 1
+          mod_arith_1: 3
+          n_less_2_pow_n: 3

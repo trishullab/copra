@@ -106,6 +106,7 @@ class EvalSettings(object):
 class EvalFile(object):
     path: str
     theorems: typing.Union[str, typing.List[str]]
+    max_retry_attempts_limits: typing.Dict[str, int]
 
 @dataclass_json
 @dataclass
@@ -218,9 +219,14 @@ def parse_config(cfg):
                 theorems = file_cfg["theorems"]
             else:
                 theorems = list(file_cfg["theorems"])
+            if "max_retry_attempts_limits" not in file_cfg:
+                max_retry_attempts_limits = {}
+            else:
+                max_retry_attempts_limits = file_cfg["max_retry_attempts_limits"]
             eval_files.append(EvalFile(
                 path=file_cfg["path"],
-                theorems=theorems))
+                theorems=theorems,
+                max_retry_attempts_limits=max_retry_attempts_limits))
         eval_datasets.append(EvalDataset(
             project=dataset_cfg["project"],
             files=eval_files))
