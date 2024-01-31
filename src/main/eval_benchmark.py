@@ -112,12 +112,20 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
         assert eval_settings.temperature > 0.0, "Proof retries is only supported for temperature > 0.0"
 
     proof_attempts_done = False
+    if "STRICT_TIME_BUDGET_ACCROSS_ATTEMPTS" in os.environ and bool(os.environ["STRICT_TIME_BUDGET_ACCROSS_ATTEMPTS"]):
+        track_time = True
+        logger.info(f"Strict time budget across attempts is enabled. Proofs will not be attempted beyond {eval_benchmark.timeout_per_theorem_in_secs} seconds.")
+    else:
+        track_time = False
+    time_budget_tracker = {}
     for attempt_idx in range(eval_settings.proof_retries):
         if proof_attempts_done:
             break
         any_proof_attempted = False
         for file in dataset.files:
             path = os.path.join(dataset.project, file.path)
+            if track_time and path not in time_budget_tracker:
+                time_budget_tracker[path] = {}
             proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
             if skip_files_in_checkpoint and path in eval_checkpoint_info.theorem_maps:
                 logger.info(f"Skipping the file: {path} as it was already attempted before.")
@@ -205,6 +213,11 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 file.theorems = list(random.sample(file.theorems, sample_size))
                 logger.info(f"Sampled lemmas to prove in file {path}: \n{file.theorems}")
             for lemma_name in file.theorems:
+                if track_time and lemma_name not in time_budget_tracker[path]:
+                    time_budget_tracker[path][lemma_name] = eval_benchmark.timeout_per_theorem_in_secs
+                if track_time and time_budget_tracker[path][lemma_name] <= 0:
+                    logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path} so skipping it.")
+                    continue
                 no_proof_res = ProofSearchResult(
                     None, 
                     False, 
@@ -371,6 +384,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     while should_retry and max_retry > 0:
                         # Run the prover with a timeout
                         timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
+                        if track_time and time_budget_tracker[path][lemma_name] < timeout:
+                            timeout = time_budget_tracker[path][lemma_name]
                         logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
                         p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
                         tic_start = time.time()
@@ -390,7 +405,18 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             # if not then remove "attempted_success" from return_dict so that we know 
                             # that attempt was not successful
                             return_dict.pop("attempted_success")
-                        if "attempted_success" not in return_dict:
+                        if track_time:
+                            time_budget_tracker[path][lemma_name] -= (toc_end - tic_start)
+                        if track_time and time_budget_tracker[path][lemma_name] <= 0:
+                            logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path}")
+                            proof_res_chkpt = copy.deepcopy(no_proof_res)
+                            proof_res_chkpt.is_timeout = True
+                            proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
+                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
+                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                            should_retry = False
+                        elif "attempted_success" not in return_dict:
                             logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                             proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
                             proof_res_chkpt = copy.deepcopy(no_proof_res)
