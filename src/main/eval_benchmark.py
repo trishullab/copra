@@ -125,7 +125,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
         for file in dataset.files:
             path = os.path.join(dataset.project, file.path)
             if track_time and path not in time_budget_tracker:
-                time_budget_tracker[path] = {}
+                if len(file.max_time_limits_in_secs) > 0:
+                    time_budget_tracker[path] = copy.deepcopy(file.max_time_limits_in_secs)
+                else:
+                    time_budget_tracker[path] = {}
             proof_dump_file_name = os.path.join(eval_settings.proof_dump_dir, f"{path.replace('/', '_')}.txt")
             if skip_files_in_checkpoint and path in eval_checkpoint_info.theorem_maps:
                 logger.info(f"Skipping the file: {path} as it was already attempted before.")
@@ -409,20 +412,23 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             time_budget_tracker[path][lemma_name] -= (toc_end - tic_start)
                         if track_time and time_budget_tracker[path][lemma_name] <= 0:
                             logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path}")
+                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
                             proof_res_chkpt = copy.deepcopy(no_proof_res)
                             proof_res_chkpt.is_timeout = True
                             proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
-                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
                             eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                             should_retry = False
                         elif "attempted_success" not in return_dict:
                             logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                             proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
                             proof_res_chkpt = copy.deepcopy(no_proof_res)
                             proof_res_chkpt.is_timeout = True
                             proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
-                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
                             proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
                             eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                             eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
@@ -435,12 +441,13 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 max_retry <= 1:
                                 logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
                                 proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                                proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
                                 proof_res_chkpt = copy.deepcopy(no_proof_res)
                                 proof_res_chkpt.is_timeout = True
                                 proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
-                                proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                                proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
                                 proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
-                                eval_proof_results.add_theorem_to_maps(path, lemma_name, no_proof_res)
+                                eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                                 eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                                 should_retry = False
                             elif return_dict["service_down"]:
@@ -455,8 +462,9 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         else:
                             logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
                             proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
                             proof_res_chkpt : ProofSearchResult = return_dict["proof_res"]
-                            proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
                             proof_res_chkpt.additional_info["total_queries"] = proof_res_queries + proof_res_chkpt.additional_info["queries"]
                             if not proof_res_chkpt.proof_found and "queries" in proof_res_chkpt.additional_info:
                                 proof_res_chkpt.is_inference_exhausted = proof_res_chkpt.additional_info["queries"] >= eval_settings.max_steps_per_episode

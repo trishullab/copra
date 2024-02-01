@@ -107,6 +107,7 @@ class EvalFile(object):
     path: str
     theorems: typing.Union[str, typing.List[str]]
     max_retry_attempts_limits: typing.Dict[str, int]
+    max_time_limits_in_secs: typing.Dict[str, float]
 
 @dataclass_json
 @dataclass
@@ -223,10 +224,15 @@ def parse_config(cfg):
                 max_retry_attempts_limits = {}
             else:
                 max_retry_attempts_limits = file_cfg["max_retry_attempts_limits"]
+            if "max_time_limits_in_secs" not in file_cfg:
+                max_time_limits_in_secs = {}
+            else:
+                max_time_limits_in_secs = file_cfg["max_time_limits_in_secs"]
             eval_files.append(EvalFile(
                 path=file_cfg["path"],
                 theorems=theorems,
-                max_retry_attempts_limits=max_retry_attempts_limits))
+                max_retry_attempts_limits=max_retry_attempts_limits,
+                max_time_limits_in_secs=max_time_limits_in_secs))
         eval_datasets.append(EvalDataset(
             project=dataset_cfg["project"],
             files=eval_files))
