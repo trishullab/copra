@@ -216,11 +216,6 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 file.theorems = list(random.sample(file.theorems, sample_size))
                 logger.info(f"Sampled lemmas to prove in file {path}: \n{file.theorems}")
             for lemma_name in file.theorems:
-                if track_time and lemma_name not in time_budget_tracker[path]:
-                    time_budget_tracker[path][lemma_name] = eval_benchmark.timeout_per_theorem_in_secs
-                if track_time and time_budget_tracker[path][lemma_name] <= 0:
-                    logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path} so skipping it.")
-                    continue
                 no_proof_res = ProofSearchResult(
                     None, 
                     False, 
@@ -235,211 +230,200 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     longest_success_path=-1,
                     additional_info={},
                     language=eval_benchmark.language)
-                logger.info(f"Attempting to prove lemma: {lemma_name}")
-                search_guidance_policy : Policy = None
-                policy_prompter : PolicyPrompter = None
+                try:
+                    if track_time and lemma_name not in time_budget_tracker[path]:
+                        time_budget_tracker[path][lemma_name] = eval_benchmark.timeout_per_theorem_in_secs
+                    if track_time and time_budget_tracker[path][lemma_name] <= 0:
+                        logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path} so skipping it.")
+                        continue
+                    logger.info(f"Attempting to prove lemma: {lemma_name}")
+                    search_guidance_policy : Policy = None
+                    policy_prompter : PolicyPrompter = None
 
-                if eval_settings.policy_name == PolicyName.Dfs:
-                    if prompt_settings.informal_proof_repo is not None:
+                    if eval_settings.policy_name == PolicyName.Dfs:
+                        if prompt_settings.informal_proof_repo is not None:
+                            informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                        else:
+                            informal_proof_repo = None
+                        if eval_settings.use_hammer == ProofAction.HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
+                            policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
+                        else:
+                            policy_prompter_class = DfsCoqGptPolicyPrompter
+                        policy_prompter = policy_prompter_class(
+                            main_sys_prompt_path=prompt_settings.main_prompt,
+                            example_conv_prompt_path=prompt_settings.conv_prompt,
+                            max_tokens_per_action=eval_settings.max_tokens_per_action,
+                            gpt_model_name=eval_settings.gpt_model_name,
+                            temperature=eval_settings.temperature,
+                            max_history_messages=eval_settings.max_history_messages,
+                            k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                            retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                            num_goal_per_prompt=eval_settings.num_goal_per_prompt,
+                            training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                            metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                            language=eval_benchmark.language,
+                            logger=logger,
+                            informal_proof_repo=informal_proof_repo,
+                            lemma_name=lemma_name)
+                        dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
+                        search_guidance_policy = GptGuidedTreeSearchPolicy(
+                            eval_settings.checkpoint_dir, 
+                            lemma_name, 
+                            policy_prompter,
+                            dfs_tree_search,
+                            checkpoint_on_exit=eval_settings.should_checkpoint,
+                            language=eval_benchmark.language)
+                    elif eval_settings.policy_name == PolicyName.Hammer:
+                        if prompt_settings.informal_proof_repo is not None:
+                            informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                        else:
+                            informal_proof_repo = None
+                        policy_prompter = HammerPolicyPrompter(
+                            main_sys_prompt_path=prompt_settings.main_prompt,
+                            example_conv_prompt_path=prompt_settings.conv_prompt,
+                            k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                            retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                            training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                            metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                            language=eval_benchmark.language,
+                            logger=logger)
+                        dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
+                        search_guidance_policy = GptGuidedTreeSearchPolicy(
+                            eval_settings.checkpoint_dir, 
+                            lemma_name, 
+                            policy_prompter,
+                            dfs_tree_search,
+                            checkpoint_on_exit=eval_settings.should_checkpoint,
+                            language=eval_benchmark.language)
+                    elif eval_settings.policy_name == PolicyName.FewShot:
+                        if prompt_settings.informal_proof_repo is not None:
+                            informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                        else:
+                            informal_proof_repo = None
+                        policy_prompter = FewShotGptPolicyPrompter(
+                            main_sys_prompt_path=prompt_settings.main_prompt,
+                            example_conv_prompt_path=prompt_settings.conv_prompt,
+                            temperature=eval_settings.temperature,
+                            max_tokens_per_action=eval_settings.max_tokens_per_action,
+                            max_history_messages=eval_settings.max_history_messages,
+                            gpt_model_name=eval_settings.gpt_model_name,
+                            k=eval_settings.max_theorems_in_prompt,
+                            retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                            training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
+                            metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
+                            language=eval_benchmark.language,
+                            logger=logger)
+                        search_guidance_policy = FewShotGptPolicy(
+                            lemma_name,
+                            eval_settings.checkpoint_dir,
+                            lemma_name,
+                            policy_prompter,
+                            checkpoint_on_exit=eval_settings.should_checkpoint,
+                            language=eval_benchmark.language,
+                            logger=logger,
+                            informal_proof_repo=informal_proof_repo)
+                    elif eval_settings.policy_name == PolicyName.InformalFewShot:
                         informal_proof_repo = prompt_settings.get_informal_proof_repo()
+                        informal_proof_dump_directory = os.path.join(eval_settings.proof_dump_dir, "informal_proofs")
+                        os.makedirs(informal_proof_dump_directory, exist_ok=True)
+                        policy_prompter = InformalFewShotGptPolicyPrompter(
+                            main_sys_prompt_path=prompt_settings.main_prompt,
+                            example_conv_prompt_path=prompt_settings.conv_prompt,
+                            temperature=eval_settings.temperature,
+                            max_tokens_per_action=eval_settings.max_tokens_per_action,
+                            max_history_messages=eval_settings.max_history_messages,
+                            gpt_model_name=eval_settings.gpt_model_name,
+                            k=eval_settings.max_theorems_in_prompt,
+                            retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                            training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
+                            metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
+                            language=eval_benchmark.language,
+                            logger=logger)
+                        search_guidance_policy = InformalFewShotGptPolicy(
+                            lemma_name,
+                            eval_settings.checkpoint_dir,
+                            lemma_name,
+                            policy_prompter,
+                            informal_proof_repo,
+                            checkpoint_on_exit=eval_settings.should_checkpoint,
+                            language=eval_benchmark.language,
+                            logger=logger,
+                            informal_proof_dump_dir=informal_proof_dump_directory)
                     else:
-                        informal_proof_repo = None
-                    if eval_settings.use_hammer == ProofAction.HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
-                        policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
-                    else:
-                        policy_prompter_class = DfsCoqGptPolicyPrompter
-                    policy_prompter = policy_prompter_class(
-                        main_sys_prompt_path=prompt_settings.main_prompt,
-                        example_conv_prompt_path=prompt_settings.conv_prompt,
-                        max_tokens_per_action=eval_settings.max_tokens_per_action,
-                        gpt_model_name=eval_settings.gpt_model_name,
-                        temperature=eval_settings.temperature,
-                        max_history_messages=eval_settings.max_history_messages,
-                        k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
-                        retrieve_prompt_examples=eval_settings.use_example_retrieval,
-                        num_goal_per_prompt=eval_settings.num_goal_per_prompt,
-                        training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
-                        metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
-                        language=eval_benchmark.language,
-                        logger=logger,
-                        informal_proof_repo=informal_proof_repo,
-                        lemma_name=lemma_name)
-                    dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
-                    search_guidance_policy = GptGuidedTreeSearchPolicy(
-                        eval_settings.checkpoint_dir, 
-                        lemma_name, 
-                        policy_prompter,
-                        dfs_tree_search,
-                        checkpoint_on_exit=eval_settings.should_checkpoint,
-                        language=eval_benchmark.language)
-                elif eval_settings.policy_name == PolicyName.Hammer:
-                    if prompt_settings.informal_proof_repo is not None:
-                        informal_proof_repo = prompt_settings.get_informal_proof_repo()
-                    else:
-                        informal_proof_repo = None
-                    policy_prompter = HammerPolicyPrompter(
-                        main_sys_prompt_path=prompt_settings.main_prompt,
-                        example_conv_prompt_path=prompt_settings.conv_prompt,
-                        k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
-                        retrieve_prompt_examples=eval_settings.use_example_retrieval,
-                        training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
-                        metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
-                        language=eval_benchmark.language,
-                        logger=logger)
-                    dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
-                    search_guidance_policy = GptGuidedTreeSearchPolicy(
-                        eval_settings.checkpoint_dir, 
-                        lemma_name, 
-                        policy_prompter,
-                        dfs_tree_search,
-                        checkpoint_on_exit=eval_settings.should_checkpoint,
-                        language=eval_benchmark.language)
-                elif eval_settings.policy_name == PolicyName.FewShot:
-                    if prompt_settings.informal_proof_repo is not None:
-                        informal_proof_repo = prompt_settings.get_informal_proof_repo()
-                    else:
-                        informal_proof_repo = None
-                    policy_prompter = FewShotGptPolicyPrompter(
-                        main_sys_prompt_path=prompt_settings.main_prompt,
-                        example_conv_prompt_path=prompt_settings.conv_prompt,
-                        temperature=eval_settings.temperature,
-                        max_tokens_per_action=eval_settings.max_tokens_per_action,
-                        max_history_messages=eval_settings.max_history_messages,
-                        gpt_model_name=eval_settings.gpt_model_name,
-                        k=eval_settings.max_theorems_in_prompt,
-                        retrieve_prompt_examples=eval_settings.use_example_retrieval,
-                        training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
-                        metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
-                        language=eval_benchmark.language,
-                        logger=logger)
-                    search_guidance_policy = FewShotGptPolicy(
-                        lemma_name,
-                        eval_settings.checkpoint_dir,
-                        lemma_name,
-                        policy_prompter,
-                        checkpoint_on_exit=eval_settings.should_checkpoint,
-                        language=eval_benchmark.language,
-                        logger=logger,
-                        informal_proof_repo=informal_proof_repo)
-                elif eval_settings.policy_name == PolicyName.InformalFewShot:
-                    informal_proof_repo = prompt_settings.get_informal_proof_repo()
-                    informal_proof_dump_directory = os.path.join(eval_settings.proof_dump_dir, "informal_proofs")
-                    os.makedirs(informal_proof_dump_directory, exist_ok=True)
-                    policy_prompter = InformalFewShotGptPolicyPrompter(
-                        main_sys_prompt_path=prompt_settings.main_prompt,
-                        example_conv_prompt_path=prompt_settings.conv_prompt,
-                        temperature=eval_settings.temperature,
-                        max_tokens_per_action=eval_settings.max_tokens_per_action,
-                        max_history_messages=eval_settings.max_history_messages,
-                        gpt_model_name=eval_settings.gpt_model_name,
-                        k=eval_settings.max_theorems_in_prompt,
-                        retrieve_prompt_examples=eval_settings.use_example_retrieval,
-                        training_data_path=eval_benchmark.few_shot_data_path_for_retrieval,
-                        metadata_filename=eval_benchmark.few_shot_metadata_filename_for_retrieval,
-                        language=eval_benchmark.language,
-                        logger=logger)
-                    search_guidance_policy = InformalFewShotGptPolicy(
-                        lemma_name,
-                        eval_settings.checkpoint_dir,
-                        lemma_name,
-                        policy_prompter,
-                        informal_proof_repo,
-                        checkpoint_on_exit=eval_settings.should_checkpoint,
-                        language=eval_benchmark.language,
-                        logger=logger,
-                        informal_proof_dump_dir=informal_proof_dump_directory)
-                else:
-                    raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
+                        raise Exception(f"Unknown policy name: {eval_settings.policy_name}")
 
-                proof_res_chkpt = eval_proof_results.theorem_map.get(path, {}).get(lemma_name, None)
-                max_retry_attempts = file.max_retry_attempts_limits.get(lemma_name, eval_settings.proof_retries)
-                if proof_res_chkpt is None or (not proof_res_chkpt.proof_found and proof_res_chkpt.additional_info["attempt_idx"] < max_retry_attempts - 1):
-                    any_proof_attempted = True
-                    manager = multiprocessing.Manager()
-                    return_dict = manager.dict()
-                    def _run_prover(ret_dict):
-                        try:
-                            with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name, retrieval_strategy=env_settings.retrieval_strategy, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
-                                with search_guidance_policy:
-                                    agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
-                                    agent.run_episodes_till_stop(
-                                        env,
-                                        episodes=eval_settings.max_number_of_episodes,
-                                        render=eval_settings.render,
-                                        stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
-                                        policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode))
-                                proof_res = env.proof_search_res
-                                ret_dict["proof_res"] = proof_res
-                                ret_dict["attempted_success"] = True
+                    proof_res_chkpt = eval_proof_results.theorem_map.get(path, {}).get(lemma_name, None)
+                    max_retry_attempts = file.max_retry_attempts_limits.get(lemma_name, eval_settings.proof_retries)
+                    if proof_res_chkpt is None or (not proof_res_chkpt.proof_found and proof_res_chkpt.additional_info["attempt_idx"] < max_retry_attempts - 1):
+                        any_proof_attempted = True
+                        manager = multiprocessing.Manager()
+                        return_dict = manager.dict()
+                        def _run_prover(ret_dict):
+                            try:
+                                with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name, retrieval_strategy=env_settings.retrieval_strategy, max_proof_depth=eval_settings.max_proof_depth, always_retrieve_thms=eval_settings.always_use_useful_theorem_retrieval, logger=logger) as env:
+                                    with search_guidance_policy:
+                                        agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, eval_settings.should_checkpoint, proof_dump_file_name, logger=logger)
+                                        agent.run_episodes_till_stop(
+                                            env,
+                                            episodes=eval_settings.max_number_of_episodes,
+                                            render=eval_settings.render,
+                                            stop_policy=check_query_limit_reached(eval_settings.max_steps_per_episode),
+                                            policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode))
+                                    proof_res = env.proof_search_res
+                                    ret_dict["proof_res"] = proof_res
+                                    ret_dict["attempted_success"] = True
+                                    ret_dict["service_down"] = False
+                            except ServiceDownError:
+                                logger.exception(f"ServiceDownError occurred while proving lemma: {lemma_name} in file {path}")
+                                ret_dict["attempted_success"] = False
+                                ret_dict["service_down"] = True
+                            except:
+                                logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
+                                ret_dict["attempted_success"] = False
                                 ret_dict["service_down"] = False
-                        except ServiceDownError:
-                            logger.exception(f"ServiceDownError occurred while proving lemma: {lemma_name} in file {path}")
-                            ret_dict["attempted_success"] = False
-                            ret_dict["service_down"] = True
-                        except:
-                            logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
-                            ret_dict["attempted_success"] = False
-                            ret_dict["service_down"] = False
 
-                    should_retry = True
-                    max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
-                    logger.info(f"Attempt {attempt_idx + 1} for proving lemma: {lemma_name} in file {path}")
-                    while should_retry and max_retry > 0:
-                        # Run the prover with a timeout
-                        timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
-                        if track_time and time_budget_tracker[path][lemma_name] < timeout:
-                            timeout = time_budget_tracker[path][lemma_name]
-                        logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
-                        p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
-                        tic_start = time.time()
-                        p.start()
-                        p.join(timeout)
-                        if p.is_alive():
-                            p.kill()
-                            p.join()
-                        p.close()
-                        toc_end = time.time()
-                        if eval_benchmark.language == ProofAction.Language.ISABELLE and \
-                            not IsabelleExecutor.check_server_running(logger) and \
-                            "attempted_success" in return_dict and \
-                            not return_dict["attempted_success"]:
-                            logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
-                            # if it is down then check whether the last proof was completed successfully or not
-                            # if not then remove "attempted_success" from return_dict so that we know 
-                            # that attempt was not successful
-                            return_dict.pop("attempted_success")
-                        if track_time:
-                            time_budget_tracker[path][lemma_name] -= (toc_end - tic_start)
-                        if track_time and time_budget_tracker[path][lemma_name] <= 0:
-                            logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path}")
-                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
-                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
-                            proof_res_chkpt = copy.deepcopy(no_proof_res)
-                            proof_res_chkpt.is_timeout = True
-                            proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
-                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
-                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
-                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
-                            should_retry = False
-                        elif "attempted_success" not in return_dict:
-                            logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
-                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
-                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
-                            proof_res_chkpt = copy.deepcopy(no_proof_res)
-                            proof_res_chkpt.is_timeout = True
-                            proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
-                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
-                            proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
-                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
-                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
-                            should_retry = False
-                        elif not return_dict["attempted_success"]:
-                            if not return_dict["service_down"] or \
-                                (eval_settings.gpt_model_name is not None and \
-                                len(eval_settings.gpt_model_name) != 0 and \
-                                eval_settings.gpt_model_name.startswith("gpt")) or \
-                                max_retry <= 1:
-                                logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                        should_retry = True
+                        max_retry = 4 # This retry is only when for some mysterious reason the llama service goes down
+                        logger.info(f"Attempt {attempt_idx + 1} for proving lemma: {lemma_name} in file {path}")
+                        while should_retry and max_retry > 0:
+                            # Run the prover with a timeout
+                            timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
+                            if track_time and time_budget_tracker[path][lemma_name] < timeout:
+                                timeout = time_budget_tracker[path][lemma_name]
+                            logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")
+                            p = multiprocessing.Process(target=_run_prover, args=(return_dict,))
+                            tic_start = time.time()
+                            p.start()
+                            p.join(timeout)
+                            if p.is_alive():
+                                p.kill()
+                                p.join()
+                            p.close()
+                            toc_end = time.time()
+                            if eval_benchmark.language == ProofAction.Language.ISABELLE and \
+                                not IsabelleExecutor.check_server_running(logger) and \
+                                "attempted_success" in return_dict and \
+                                not return_dict["attempted_success"]:
+                                logger.warning("PISA service is down. The proof might have failed, just because the server was down.")
+                                # if it is down then check whether the last proof was completed successfully or not
+                                # if not then remove "attempted_success" from return_dict so that we know 
+                                # that attempt was not successful
+                                return_dict.pop("attempted_success")
+                            if track_time:
+                                time_budget_tracker[path][lemma_name] -= (toc_end - tic_start)
+                            if track_time and time_budget_tracker[path][lemma_name] <= 0:
+                                logger.info(f"Time budget exhausted for lemma: {lemma_name} in file {path}")
+                                proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                                proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
+                                proof_res_chkpt = copy.deepcopy(no_proof_res)
+                                proof_res_chkpt.is_timeout = True
+                                proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
+                                proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
+                                eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
+                                eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                                should_retry = False
+                            elif "attempted_success" not in return_dict:
+                                logger.info(f"Prover Agent for lemma: {lemma_name} in file {path} got killed as it timed out.")
                                 proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
                                 proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
                                 proof_res_chkpt = copy.deepcopy(no_proof_res)
@@ -450,36 +434,63 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
                                 eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
                                 should_retry = False
-                            elif return_dict["service_down"]:
-                                # Kill the llama process if it is a llama model
-                                should_retry = True
-                                logger.info("Killing the llama process")
-                                LlamaAccess.class_kill()
-                                logger.info("Killed the llama process")
-                                logger.info("Restarting the llama process")
-                                LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
-                                logger.info("Restarted the llama process")                            
-                        else:
-                            logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
-                            proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
-                            proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
-                            proof_res_chkpt : ProofSearchResult = return_dict["proof_res"]
-                            proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
-                            proof_res_chkpt.additional_info["total_queries"] = proof_res_queries + proof_res_chkpt.additional_info["queries"]
-                            if not proof_res_chkpt.proof_found and "queries" in proof_res_chkpt.additional_info:
-                                proof_res_chkpt.is_inference_exhausted = proof_res_chkpt.additional_info["queries"] >= eval_settings.max_steps_per_episode
-                            eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
-                            eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
-                            should_retry = False
-                        return_dict.clear()
-                        max_retry -= 1
-                else:
-                    proof_res_attempt_idx = proof_res_chkpt.additional_info["attempt_idx"]
-                    if proof_res_attempt_idx == attempt_idx:
-                        logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
-                        logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                            elif not return_dict["attempted_success"]:
+                                if not return_dict["service_down"] or \
+                                    (eval_settings.gpt_model_name is not None and \
+                                    len(eval_settings.gpt_model_name) != 0 and \
+                                    eval_settings.gpt_model_name.startswith("gpt")) or \
+                                    max_retry <= 1:
+                                    logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
+                                    proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                                    proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
+                                    proof_res_chkpt = copy.deepcopy(no_proof_res)
+                                    proof_res_chkpt.is_timeout = True
+                                    proof_res_chkpt.proof_time_in_secs = toc_end - tic_start
+                                    proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
+                                    proof_res_chkpt.additional_info["total_queries"] = proof_res_queries
+                                    eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
+                                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
+                                    should_retry = False
+                                elif return_dict["service_down"]:
+                                    # Kill the llama process if it is a llama model
+                                    should_retry = True
+                                    logger.info("Killing the llama process")
+                                    LlamaAccess.class_kill()
+                                    logger.info("Killed the llama process")
+                                    logger.info("Restarting the llama process")
+                                    LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
+                                    logger.info("Restarted the llama process")                            
+                            else:
+                                logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                                proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
+                                proof_attempt_idx = (proof_res_chkpt.additional_info["attempt_idx"] + 1) if proof_res_chkpt is not None and "attempt_idx" in proof_res_chkpt.additional_info else attempt_idx
+                                proof_res_chkpt : ProofSearchResult = return_dict["proof_res"]
+                                proof_res_chkpt.additional_info["attempt_idx"] = proof_attempt_idx
+                                proof_res_chkpt.additional_info["total_queries"] = proof_res_queries + proof_res_chkpt.additional_info["queries"]
+                                if not proof_res_chkpt.proof_found and "queries" in proof_res_chkpt.additional_info:
+                                    proof_res_chkpt.is_inference_exhausted = proof_res_chkpt.additional_info["queries"] >= eval_settings.max_steps_per_episode
+                                eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
+                                eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, True)
+                                should_retry = False
+                            return_dict.clear()
+                            max_retry -= 1
                     else:
-                        logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
+                        proof_res_attempt_idx = proof_res_chkpt.additional_info["attempt_idx"]
+                        if proof_res_attempt_idx == attempt_idx:
+                            logger.info(f"Dumping proof search result:\n{proof_res_chkpt}")
+                            logger.info(f"Prover for lemma: {lemma_name} in file {path} completed.")
+                        else:
+                            logger.info(f"Skipping the attempt for proving lemma: {lemma_name} in file {path} as it was already attempted before.")
+                except:
+                    logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
+                    proof_res_chkpt = copy.deepcopy(no_proof_res)
+                    proof_res_chkpt.is_timeout = True
+                    proof_res_chkpt.additional_info["attempt_idx"] = attempt_idx
+                    proof_res_chkpt.additional_info["total_queries"] = 0
+                    proof_res_chkpt.proof_time_in_secs = 0
+                    proof_res_chkpt.additional_info["queries"] = 0
+                    eval_proof_results.add_theorem_to_maps(path, lemma_name, proof_res_chkpt)
+                    eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
         proof_attempts_done = not any_proof_attempted
 
     if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
