@@ -1,0 +1,51 @@
+name: miniF2F_test_imo_isabelle
+num_files: 1
+language: ISABELLE
+few_shot_data_path_for_retrieval:
+few_shot_metadata_filename_for_retrieval:
+dfs_data_path_for_retrieval:
+dfs_metadata_filename_for_retrieval:
+timeout_per_theorem_in_secs: 2400
+datasets:
+  - project: data/benchmarks/miniF2F/isabelle/test
+    files:
+      - path: imo_1959_p1.thy
+        theorems: "*"
+      - path: imo_1960_p2.thy
+        theorems: "*"
+      - path: imo_1962_p2.thy
+        theorems: "*"
+      - path: imo_1963_p5.thy
+        theorems: "*"
+      - path: imo_1964_p2.thy
+        theorems: "*"
+      - path: imo_1965_p2.thy
+        theorems: "*"
+      - path: imo_1968_p5_1.thy
+        theorems: "*"
+      - path: imo_1969_p2.thy
+        theorems: "*"
+      - path: imo_1974_p3.thy
+        theorems: "*"
+      - path: imo_1977_p6.thy
+        theorems: "*"
+      - path: imo_1981_p6.thy
+        theorems: "*"
+      - path: imo_1982_p1.thy
+        theorems: "*"
+      - path: imo_1983_p6.thy
+        theorems: "*"
+      - path: imo_1984_p6.thy
+        theorems: "*"
+      - path: imo_1985_p6.thy
+        theorems: "*"
+      - path: imo_1992_p1.thy
+        theorems: "*"
+      - path: imo_1997_p5.thy
+        theorems: "*"
+      - path: imo_2001_p6.thy
+        theorems: "*"
+      - path: imo_2019_p1.thy
+        theorems: "*"
+      - path: imosl_2007_algebra_p6.thy
+        theorems: "*"

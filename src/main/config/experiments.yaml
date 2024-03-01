@@ -8,14 +8,16 @@ defaults:
   # - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex
   # - prompt_settings: lean_few_shot_informal_to_formal_dfs_gpt4_turbo
   - env_settings: bm25_retrieval
-  - benchmark: miniF2F_test_isabelle_easy_to_hard # miniF2F_test
-  - eval_settings: n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_hammer_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
-  - prompt_settings: isabelle_dfs_hammer # isabelle_dfs_hammer
+  - benchmark: miniF2F_test_easy_to_hard # miniF2F_test_isabelle_easy_to_hard # miniF2F_test
+  - eval_settings: n_60_dfs_gpt4_128k_always_retrieve_no_ex # n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_hammer_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
+  - prompt_settings: lean_dfs_retrieval # isabelle_dfs_hammer # isabelle_dfs_hammer
   - override hydra/job_logging: 'disabled'
 
-eval_settings:
- use_hammer: ALWAYS
- timeout_in_secs: 120
+# eval_settings:
+#  use_hammer: AUTO
+#  timeout_in_secs: 200
+#  proof_retries: 10
+#  temperature: 0.7
 
 # prompt_settings:
 #   # Informal proof human written

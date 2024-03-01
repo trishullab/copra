@@ -58,6 +58,17 @@ class Lean3Bm25ReRanker(ReRanker):
 if __name__ == "__main__":
     from src.lean_server.lean3_search_tool import Lean3SearchTool
     from src.tools.lean_cmd_executor import Constants
+
+    def take_multiline_input() -> str:
+        inp = []
+        x = None
+        while x != "":
+            if x is not None:
+                inp.append(x)
+            x = input()
+        inp = "\n".join(inp)
+        return inp
+
     mathlib_path = "data/benchmarks/miniF2F/_target/deps/mathlib"
     lean3_search_tool = Lean3SearchTool(mathlib_path=mathlib_path)
     lean3_search_tool.initialize()
@@ -78,7 +89,8 @@ if __name__ == "__main__":
     print('-' * 80)
     while inp != "exit":
         print('=' * 80)
-        inp = input("Query: ")
+        print("Enter query:")
+        inp = take_multiline_input()
         scores = [idx for idx in enumerate(lean3_bm25_reranker.get_scores(inp))]
         # Sort by score
         scores = sorted(scores, key=lambda x: x[1], reverse=True)

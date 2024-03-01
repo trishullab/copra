@@ -8,6 +8,7 @@
 [END]
 
 `example_assistant`
+[PROOF]
 begin
   induction h₀ with k h₀ IH,
   { norm_num },
@@ -15,6 +16,7 @@ begin
     calc k + 1 < 2 * 2^k : by linarith
   }
 end
+[END]
 
 `example_user`
 [THEOREM] some_theorem
@@ -26,10 +28,12 @@ end
 [END]
 
 `example_assistant`
+[PROOF]
 begin
   rw h₀ at h₁,
   linarith,
 end
+[END]
 
 `example_user`
 [THEOREM] some_theorem
@@ -37,10 +41,12 @@ end
 [END]
 
 `example_assistant`
+[PROOF]
 begin
   rw int.floor_eq_iff,
   split,
   all_goals { norm_num },
 end
+[END]
 
 `conv end`
