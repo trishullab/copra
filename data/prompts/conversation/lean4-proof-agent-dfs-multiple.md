@@ -45,7 +45,7 @@ n = 57
 [HYPOTHESIS] h1 : (n * 7) % 398 = 1
 
 [LAST STEP]
-norm_num,
+norm_num
 [ERROR MESSAGE]
 unsolved goals
 state:
