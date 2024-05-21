@@ -49,8 +49,8 @@ norm_num
 [ERROR MESSAGE]
 unsolved goals
 state:
-n : ℕ,
-h0 : n < 398,
+n : ℕ
+h0 : n < 398
 h1 : n * 7 % 398 = 1
 ⊢ n = 57
 [END]
@@ -70,8 +70,8 @@ s 5 = 16
 [HYPOTHESIS] h0: ∀ n, s (n + 2) = s (n + 1) + s n
 [HYPOTHESIS] h1 : s 9 = 110
 [HYPOTHESIS] h2 : s 7 = 42
-[HYPOTHESIS] h : ∀ (n : ℕ), s n = s (n + 2) - s (n + 1),
-[HYPOTHESIS] h3 : s 9 = s 8 + s 7,
+[HYPOTHESIS] h : ∀ (n : ℕ), s n = s (n + 2) - s (n + 1)
+[HYPOTHESIS] h3 : s 9 = s 8 + s 7
 [HYPOTHESIS] h4 : s 8 = 68
 
 
@@ -81,17 +81,17 @@ s 5 = 16
 
 
 [LAST STEP]
-linarith,
+linarith
 [ERROR MESSAGE]
 linarith failed to find a contradiction
 state:
-s : ℕ → ℕ,
-h₀ : ∀ (n : ℕ), s (n + 2) = s (n + 1) + s n,
-h₁ : s 9 = 110,
-h₂ : s 7 = 42,
-h : ∀ (n : ℕ), s n = s (n + 2) - s (n + 1),
-h₃ : s 9 = s 8 + s 7,
-h₄ : s 8 = 68,
+s : ℕ → ℕ
+h₀ : ∀ (n : ℕ), s (n + 2) = s (n + 1) + s n
+h₁ : s 9 = 110
+h₂ : s 7 = 42
+h : ∀ (n : ℕ), s n = s (n + 2) - s (n + 1)
+h₃ : s 9 = s 8 + s 7
+h₄ : s 8 = 68
 a✝ : s 5 < 16
 ⊢ false
 [END]
@@ -136,8 +136,8 @@ Goals to prove:
 b = -2
 [HYPOTHESES] 1
 [HYPOTHESIS] b : ℝ
-[HYPOTHESIS] f : ℝ → ℝ,
-[HYPOTHESIS] h₀ : ∀ (x : ℝ), f x = 3 * x ^ 4 - 7 * x ^ 3 + 2 * x ^ 2 - b * x + 1,
+[HYPOTHESIS] f : ℝ → ℝ
+[HYPOTHESIS] h₀ : ∀ (x : ℝ), f x = 3 * x ^ 4 - 7 * x ^ 3 + 2 * x ^ 2 - b * x + 1
 [HYPOTHESIS] h₁ : 3 * 1 ^ 4 - 7 * 1 ^ 3 + 2 * 1 ^ 2 - b * 1 + 1 = 1
 
 [LAST STEP]
