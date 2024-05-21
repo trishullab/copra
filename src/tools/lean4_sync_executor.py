@@ -700,28 +700,28 @@ if __name__ == "__main__":
                 print('-'*20)
             if executor.lean_error_messages:
                 print("Error messages:\n", executor.lean_error_messages)
-    mathlib_test_file = 'data/test/Mathlib/.lake/packages/mathlib/Mathlib/Data/Nat/Bits.lean'
-    project_root = 'data/test/Mathlib'
-    assert os.path.exists(mathlib_test_file), "Mathlib test file does not exist"
-    assert os.path.exists(project_root), "Project root does not exist"
-    with Lean4SyncExecutor(main_file=mathlib_test_file, project_root=project_root, timeout_in_sec=120) as executor:
-        executor._skip_to_theorem("one_bits")
-        assert executor.proof_context is not None, "Proof context should be present"
-        print("Starting the proof")
-        for goal in executor.proof_context.all_goals:
-            for hyp in goal.hypotheses:
-                print(hyp)
-            print('-'*10)
-            print(goal.goal)
-        while not executor.execution_complete and executor.proof_context is not None:
-            executor.run_next()
-            print("Current statement:", executor.current_stmt)
-            if executor.proof_context is not None:
-                for goal in executor.proof_context.all_goals:
-                    for hyp in goal.hypotheses:
-                        print(hyp)
-                    print('-'*10)
-                    print(goal.goal)
-                print('-'*20)
-            if executor.lean_error_messages:
-                print("Error messages:\n", executor.lean_error_messages)
+    # mathlib_test_file = 'data/test/Mathlib/.lake/packages/mathlib/Mathlib/Data/Nat/Bits.lean'
+    # project_root = 'data/test/Mathlib'
+    # assert os.path.exists(mathlib_test_file), "Mathlib test file does not exist"
+    # assert os.path.exists(project_root), "Project root does not exist"
+    # with Lean4SyncExecutor(main_file=mathlib_test_file, project_root=project_root, timeout_in_sec=120) as executor:
+    #     executor._skip_to_theorem("one_bits")
+    #     assert executor.proof_context is not None, "Proof context should be present"
+    #     print("Starting the proof")
+    #     for goal in executor.proof_context.all_goals:
+    #         for hyp in goal.hypotheses:
+    #             print(hyp)
+    #         print('-'*10)
+    #         print(goal.goal)
+    #     while not executor.execution_complete and executor.proof_context is not None:
+    #         executor.run_next()
+    #         print("Current statement:", executor.current_stmt)
+    #         if executor.proof_context is not None:
+    #             for goal in executor.proof_context.all_goals:
+    #                 for hyp in goal.hypotheses:
+    #                     print(hyp)
+    #                 print('-'*10)
+    #                 print(goal.goal)
+    #             print('-'*20)
+    #         if executor.lean_error_messages:
+    #             print("Error messages:\n", executor.lean_error_messages)
