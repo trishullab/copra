@@ -113,6 +113,11 @@ class ProofAction(Action):
                 # reader = LeanLineByLineReader(file_content=all_tactics)
                 tactics = [all_tactics]
                 self.kwargs['tactics'] = tactics
+            elif self.language == ProofAction.Language.LEAN4:
+                all_tactics = '\n'.join(self.kwargs['tactics'])
+                # reader = LeanLineByLineReader(file_content=all_tactics)
+                tactics = [all_tactics]
+                self.kwargs['tactics'] = tactics
             elif self.language == ProofAction.Language.ISABELLE:
                 all_tactics = '\n'.join(self.kwargs['tactics'])
                 reader = IsabelleLineByLineReader(file_content=all_tactics)
