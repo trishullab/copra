@@ -38,6 +38,8 @@ from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.ray_utils import RayUtils
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from src.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
 from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.tools.informal_proof_repo import InformalProofRepo
 
@@ -53,6 +55,11 @@ def query_limit_info_message(max_query_limit: int) -> typing.Callable[[int, typi
 
 def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: logging.Logger):
     lemmas_to_prove = []
+    if coq_proof_exec_callback.language == ProofAction.Language.LEAN4:
+        theorem_details = get_all_theorems_lean4(coq_proof_exec_callback.file_path)
+        lemmas_to_prove = [get_fully_qualified_theorem_name_lean4(theorem) for theorem in theorem_details]
+        logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
+        return lemmas_to_prove
     with coq_proof_exec_callback.get_proof_executor() as main_executor:
         if isinstance(main_executor, DynamicLeanProofExecutor):
             main_executor.run_all_without_exec()
