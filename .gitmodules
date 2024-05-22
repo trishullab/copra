@@ -10,3 +10,6 @@
 	path = src/pisa
 	url = https://github.com/albertqjiang/Portal-to-ISAbelle.git
 	ignore = dirty
+[submodule "src/tools/repl"]
+	path = src/tools/repl
+	url = https://github.com/amit9oct/repl.git

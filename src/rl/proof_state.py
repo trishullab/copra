@@ -39,7 +39,7 @@ class ProofState(State):
             return self.training_data_format == other.training_data_format
         if self.language == ProofAction.Language.COQ:
             desc_cmp = DynamicCoqProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)
-        elif self.language == ProofAction.Language.LEAN:
+        elif self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.LEAN4:
             desc_cmp = DynamicLeanProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)
         elif self.language == ProofAction.Language.ISABELLE:
             desc_cmp = DynamicIsabelleProofExecutor.goal_description_compare(self.training_data_format.goal_description, other.training_data_format.goal_description)

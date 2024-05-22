@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [[ ! -d "src/scripts" ]]; then
     # Raise an error if the scripts directory is not present
     echo "Please run this script from the root of the repository, cannot find src/scripts"
@@ -23,15 +25,46 @@ echo "Installing Elan (Lean version manager) ..."
 curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
 echo "Installed Elan (Lean version manager) successfully!"
 source $HOME/.elan/env
-echo "Installing Lean (lean:3.42.1) ..."
-elan toolchain install leanprover-community/lean:3.42.1
-elan override set leanprover-community/lean:3.42.1
-echo "Installed Lean (lean:3.42.1) successfully!"
+
+# Default Lean version
+lean3_version="3.42.1"
+lean4_version="4.7.0-rc2" # "nightly" # "4.7.0" # "stable"
+lean_type="lean" # For Lean 3 use lean
+lean_repo="leanprover-community/lean" # For Lean 3
+# Check if lean_version is passed as an argument
+if [[ $# -eq 1 ]]; then
+    lean_type=$1
+fi
+
+if [[ $# -eq 2 ]]; then
+    lean_type=$1
+fi
+
+if [[ $lean_type == "lean" ]]; then
+    lean_version=$lean3_version
+    lean_repo="leanprover-community/lean"
+elif [[ $lean_type == "lean4" ]]; then
+    lean_version=$lean4_version
+    lean_repo="leanprover/lean4"
+else
+    echo "Invalid Lean version, please choose between lean or lean4"
+    exit 1
+fi
+
+
+echo "Installing dependencies..."
+echo "Installing Elan (Lean version manager) ..."
+# # For Lean:
+# # https://leanprover-community.github.io/install/debian_details.html
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
+echo "Installed Elan (Lean version manager) successfully!"
+source $HOME/.elan/env
+echo "Installing $lean_type ($lean_repo:$lean_version)..."
+elan toolchain install $lean_repo:$lean_version
+elan override set $lean_repo:$lean_version
+echo "Installed $lean_type ($lean_repo:$lean_version) successfully!"
 export PATH=$PATH:$HOME/.elan/bin
-# # # For installing leanproject
-# echo "Installing leanproject..."
-# $pip_exe install --user mathlibtools
-# echo "Installed leanproject successfully!"
+
 echo "Installing OCaml (opam)..."
 opam init -a --compiler=4.07.1
 eval `opam config env`
@@ -77,27 +110,50 @@ cd ..
 popd
 echo "Building Coq's Simple Benchmark done!"
 echo "Coq's Setup complete!"
-echo "Building Lean's projects ..."
-(
-    # Build Lean's projects
-    echo "Building miniF2F..."
-    echo "This may take a while... (don't underestimate the time taken to build miniF2F, meanwhile you can take a coffee break!)"
-    pushd ./data/benchmarks
-    set -euv
-    cd miniF2F
-    leanpkg configure
-    leanproject get-mathlib-cache # This allows us to use .olean files from mathlib without building them again
+
+if [[ $lean_type == "lean" ]]; then
+    echo "Building Lean's projects ..."
+    (
+        # Build Lean's projects
+        echo "Building miniF2F..."
+        echo "This may take a while... (don't underestimate the time taken to build miniF2F, meanwhile you can take a coffee break!)"
+        pushd ./data/benchmarks
+        set -euv
+        cd miniF2F
+        leanpkg configure
+        leanproject get-mathlib-cache # This allows us to use .olean files from mathlib without building them again
+        leanproject build
+        popd
+        echo "miniF2F built successfully!"
+    ) || exit 1
+    echo "Building Lean's Simple Benchmark..."
+    pushd ./data/test/lean_proj
     leanproject build
     popd
-    echo "miniF2F built successfully!"
-) || exit 1
-echo "Building Lean's Simple Benchmark..."
-pushd ./data/test/lean_proj
-leanproject build
-popd
-echo "Building Lean's Simple Benchmark done!"
-echo "Building Lean's projects done!"
-echo "Lean's Setup complete!"
+    echo "Building Lean's Simple Benchmark done!"
+    echo "Building Lean's projects done!"
+    echo "Lean's Setup complete!"
+fi
+
+if [[ $lean_type == "lean4" ]]; then
+    echo "Building Lean 4's projects ..."
+    (
+        # Build Lean 4's projects
+        echo "Building Lean 4's Simple Benchmark..."
+        pushd ./src/data/test/lean4_proj
+        lake build lean4_proj
+        popd
+        echo "Building Lean 4's Simple Benchmark done!"
+    ) || exit 1
+    echo "Building Lean 4's interface REPL..."
+    (
+        # Build Lean 4's interface REPL
+        pushd ./src/tools/repl
+        lake build repl
+        popd
+        echo "Lean 4's interface REPL built successfully!"
+    ) || exit 1
+fi
 
 # Download Isabelle
 # First check if Isabelle is already installed

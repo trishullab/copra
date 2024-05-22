@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
+
+from tokenizers import Tokenizer
 root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
@@ -11,7 +13,7 @@ import openai
 import random
 import logging
 import threading
-from litellm import token_counter
+# from litellm import token_counter
 from subprocess import Popen, PIPE, STDOUT
 from src.gpts.gpt_access import GptAccess
 from src.gpts.llama2_chat_format import Llama2FormatChat
@@ -158,9 +160,16 @@ class LlamaAccess(GptAccess):
         LlamaAccess.docker_logging_thread = threading.Thread(target=LlamaAccess._docker_service_logs)
         LlamaAccess.docker_logging_thread.start()
 
+    def token_counter(self, model_name: str, text: typing.List[str]) -> int:
+        tokenizer = Tokenizer.from_pretrained("hf-internal-testing/llama-tokenizer")
+        text = " ".join([message["content"] for message in messages])
+        enc = tokenizer.encode(text)
+        num_tokens = len(enc.ids)
+        return num_tokens
+
     def num_tokens_from_messages(self, messages, model=None):
         model = model if model is not None else self.model_name
-        num_tokens = token_counter(model, messages=messages)
+        num_tokens = self.token_counter(model, messages=messages)
         return num_tokens
     
     def complete_chat(self,
