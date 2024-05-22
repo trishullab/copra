@@ -90,7 +90,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self.language = language
         if language == ProofAction.Language.COQ:
             self.failed_proof_state = FailedCoqProofState
-        elif language == ProofAction.Language.LEAN:
+        elif language == ProofAction.Language.LEAN or language == ProofAction.Language.LEAN4:
             self.failed_proof_state = FailedLeanProofState
         elif language == ProofAction.Language.ISABELLE:
             self.failed_proof_state = FailedIsabelleProofState
