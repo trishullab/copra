@@ -18,6 +18,7 @@ from src.tools.isabelle_executor import IsabelleExecutor
 from src.tools.proof_exec_callback import ProofExecutorCallback
 from src.tools.training_data_format import TrainingDataFormat
 from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from src.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
 from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
 from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
@@ -101,7 +102,7 @@ class ProofEnv(Env):
             if ProofEnv._re_ranker is None or str(self.language) != ProofEnv._re_ranker.language:
                 if self.language == ProofAction.Language.COQ:
                     ProofEnv._re_ranker = CoqBm25ReRanker(language=str(self.language))
-                elif self.language == ProofAction.Language.LEAN:
+                elif self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.LEAN4:
                     ProofEnv._re_ranker = Lean3Bm25ReRanker(language=str(self.language))
                 elif self.language == ProofAction.Language.ISABELLE:
                     ProofEnv._re_ranker = IsabelleBm25ReRanker(language=str(self.language))
@@ -507,7 +508,8 @@ class ProofEnv(Env):
                     _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
                     if self._dynamic_proof_executor.execution_complete:
                         break
-        elif isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor):
+        elif isinstance(self._dynamic_proof_executor, DynamicLeanProofExecutor) or \
+            isinstance(self._dynamic_proof_executor, DynamicLean4ProofExecutor):
             self._dynamic_proof_executor.skip_to_theorem(self.lemma_name)
             lemma_found = True
         elif isinstance(self._dynamic_proof_executor, DynamicIsabelleProofExecutor):
@@ -565,7 +567,7 @@ if __name__ == "__main__":
         else:
             raise Exception(f"Invalid action type {action_type}")
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    inp = input("Want to run coq, lean, or isabelle env? (Enter 'coq'/'lean'/'isabelle') ")
+    inp = input("Want to run coq, lean, or isabelle env? (Enter 'coq'/'lean'/'lean4'/'isabelle') ")
     language = ProofAction.Language.COQ
     if inp == 'coq':
         proof_exec_callback = ProofExecutorCallback(
@@ -585,6 +587,17 @@ if __name__ == "__main__":
         theorem_name = "mathd_algebra_478"
         language = ProofAction.Language.LEAN
         always_retrieve_thms = True
+    elif inp == 'lean4':
+        proof_exec_callback = ProofExecutorCallback(
+            project_folder="data/test/lean4_proj",
+            file_path="data/test/lean4_proj/Lean4Proj/Basic.lean",
+            use_hammer=False,
+            language=ProofAction.Language.LEAN4,
+            always_use_retrieval=False
+        )
+        theorem_name = "test3"
+        language = ProofAction.Language.LEAN4
+        always_retrieve_thms = False
     elif inp == 'isabelle':
         proof_exec_callback = ProofExecutorCallback(
             project_folder="data/test",
