@@ -10,7 +10,7 @@ defaults:
   - env_settings: bm25_retrieval
   - benchmark: simple_benchmark_lean4 # miniF2F_test_easy_to_hard # miniF2F_test_isabelle_easy_to_hard # miniF2F_test
   - eval_settings: n_60_dfs_gpt4_128k_always_retrieve_no_ex # n_60_dfs_gpt4_128k_no_retrieve_no_ex # n_60_hammer_no_retrieve_no_ex # n_60_dfs_gpt35_no_retrieve_no_ex
-  - prompt_settings: lean_dfs_retrieval # isabelle_dfs_hammer # isabelle_dfs_hammer
+  - prompt_settings: lean4_dfs # isabelle_dfs_hammer # isabelle_dfs_hammer
   - override hydra/job_logging: 'disabled'
 
 eval_settings:
@@ -43,3 +43,5 @@ eval_settings:
 
 # Dfs Agent Isabelle
 # nohup python src/main/eval_benchmark.py prompt_settings=isabelle_dfs_hammer env_settings=bm25_retrieval eval_settings=n_60_dfs_gpt35_always_retrieve_no_ex benchmark=simple_benchmark_isabelle  &
+
+# Dfs Agent Lean4

@@ -1,0 +1,4 @@
+name: lean4_few_shot
+main_prompt: data/prompts/baseline/simple-prompt-lean4-fewshot.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-lean4.md
+informal_proof_repo:
