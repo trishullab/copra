@@ -95,6 +95,9 @@ AdditionalInfo: {self.additional_info}
             elif self.language == ProofAction.Language.LEAN:
                 proof_start = "begin"
                 proof_end = "end"
+            else:
+                proof_start = ""
+                proof_end = ""
             all_proof_steps = "\n    ".join(lines[:-1]) if len(lines) > 1 else ""
             last_line = (lines[-1] if lines[-1] == proof_end else f"    {lines[-1]}\n") if len(lines) > 0 else ""
             return f"""{self.lemma_name}

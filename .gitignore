@@ -192,3 +192,5 @@ api_log.json
 *.tar.gz
 
 .lake
+
+temptodel*

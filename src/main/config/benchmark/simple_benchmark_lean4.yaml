@@ -9,7 +9,7 @@ timeout_per_theorem_in_secs: 600
 datasets:
   - project: data/test/lean4_proj
     files:
-      - path: Lean4Proj/Basic.lean
+      - path: Lean4Proj/Temp.lean
         theorems: "*"
         # max_retry_attempts_limits:
         #   a_plus_b_b_plus_a: 1

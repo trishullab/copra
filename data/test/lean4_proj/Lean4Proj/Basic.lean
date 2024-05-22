@@ -17,8 +17,6 @@ end Lean4Proj1
 
 namespace Lean4Proj2
 
-example : p -> q -> p ∧ q ∧ p := fun hp hq => ⟨hp, ⟨hq, hp⟩⟩
-
 theorem test (p q : Prop) (hp : p) (hq : q)
 : p ∧ q ∧ p := by
     apply And.intro

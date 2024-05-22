@@ -17,7 +17,7 @@ from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, S
 from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
 from src.rl.simple_proof_env import ProofEnvInfo, ProgressState
 from src.rl.proof_action import ProofAction
-from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState, FailedIsabelleProofState
+from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState, FailedIsabelleProofState, FailedLean4ProofState
 from src.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
 
 @dataclass_json
@@ -90,8 +90,10 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self.language = language
         if language == ProofAction.Language.COQ:
             self.failed_proof_state = FailedCoqProofState
-        elif language == ProofAction.Language.LEAN or language == ProofAction.Language.LEAN4:
+        elif language == ProofAction.Language.LEAN:
             self.failed_proof_state = FailedLeanProofState
+        elif language == ProofAction.Language.LEAN4:
+            self.failed_proof_state = FailedLean4ProofState
         elif language == ProofAction.Language.ISABELLE:
             self.failed_proof_state = FailedIsabelleProofState
         else:
@@ -121,6 +123,9 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         elif self.language == ProofAction.Language.ISABELLE:
             description_match = DynamicIsabelleProofExecutor.ProofFinishedDescription
             qed_tac = ["qed"]
+        elif self.language == ProofAction.Language.LEAN4:
+            description_match = DynamicLeanProofExecutor.ProofFinishedDescription
+            qed_tac = ["\n"]
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         if next_state.training_data_format is not None and next_state.training_data_format.goal_description == description_match:

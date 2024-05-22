@@ -144,7 +144,7 @@ class DynamicProofExecutor(Lean4SyncExecutor):
     
     def get_all_relevant_thms(self) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
-        self.lean_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        # self.lean_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
         return training_data_format
     
     def get_all_relevant_thms_within_local_context(self) -> TrainingDataFormat:
@@ -160,8 +160,8 @@ class DynamicProofExecutor(Lean4SyncExecutor):
     def get_all_relevant_defns_and_thms(self, should_print_symbol: bool = False, only_local: bool = False, only_proof_state: bool = False) -> TrainingDataFormat:
         training_data_format = self.get_current_proof_state_as_training_data()
         # self.lean_context_helper.set_relevant_defns_in_training_data_point(training_data_format, self, self.logger)
-        if not only_proof_state:
-            self.lean_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
+        # if not only_proof_state:
+        #     self.lean_context_helper.set_all_type_matched_query_result(training_data_format, self, self.logger)
         return training_data_format
 
     def run_cmds(self, cmds: typing.List[str], raise_exception=False) -> typing.Tuple[int, bool]:

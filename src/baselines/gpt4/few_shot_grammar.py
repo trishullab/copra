@@ -98,6 +98,8 @@ LmResponse:
             self.keywords = [FewShotGptCoqKeywords.THEOREM, FewShotGptCoqKeywords.DEFINITION, FewShotGptCoqKeywords.DEFINITIONS, FewShotGptCoqKeywords.LEMMA, FewShotGptCoqKeywords.LEMMAS, FewShotGptCoqKeywords.END]
         elif language == ProofAction.Language.LEAN:
             self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END, FewShotGptLeanKeywords.INFORMAL_THEOREM, FewShotGptLeanKeywords.INFORMAL_PROOF]
+        elif language == ProofAction.Language.LEAN4:
+            self.keywords = [FewShotGptLeanKeywords.THEOREM, FewShotGptLeanKeywords.DEFINITION, FewShotGptLeanKeywords.DEFINITIONS, FewShotGptLeanKeywords.LEMMA, FewShotGptLeanKeywords.LEMMAS, FewShotGptLeanKeywords.END]
         elif language == ProofAction.Language.ISABELLE:
             self.keywords = [FewShotGptIsabelleKeywords.THEOREM, FewShotGptIsabelleKeywords.DEFINITION, FewShotGptIsabelleKeywords.DEFINITIONS, FewShotGptIsabelleKeywords.LEMMA, FewShotGptIsabelleKeywords.LEMMAS, FewShotGptIsabelleKeywords.END, FewShotGptIsabelleKeywords.INFORMAL_THEOREM, FewShotGptIsabelleKeywords.INFORMAL_PROOF]
         else:
@@ -117,6 +119,19 @@ Lms: "{FewShotGptCoqKeywords.LEMMAS}";
 String:;
 """
         elif language == ProofAction.Language.LEAN:
+            terminals = f"""
+terminals
+End: "{FewShotGptLeanKeywords.END}";
+Thm: "{FewShotGptLeanKeywords.THEOREM}";
+Dfn: "{FewShotGptLeanKeywords.DEFINITION}";
+Dfns: "{FewShotGptLeanKeywords.DEFINITIONS}";
+Lm: "{FewShotGptLeanKeywords.LEMMA}";
+Lms: "{FewShotGptLeanKeywords.LEMMAS}"
+InfThm: "{FewShotGptLeanKeywords.INFORMAL_THEOREM}"
+InfPrf: "{FewShotGptLeanKeywords.INFORMAL_PROOF}";
+String:;
+"""
+        elif language == ProofAction.Language.LEAN4:
             terminals = f"""
 terminals
 End: "{FewShotGptLeanKeywords.END}";
@@ -160,6 +175,15 @@ String:;
             self.LEMMAS = FewShotGptLeanKeywords.LEMMAS
             self.INFORMAL_THEOREM = FewShotGptLeanKeywords.INFORMAL_THEOREM
             self.INFORMAL_PROOF = FewShotGptLeanKeywords.INFORMAL_PROOF
+        elif language == ProofAction.Language.LEAN4:
+            self.END = FewShotGptLeanKeywords.END
+            self.THEOREM = FewShotGptLeanKeywords.THEOREM
+            self.DEFINITION = FewShotGptLeanKeywords.DEFINITION
+            self.DEFINITIONS = FewShotGptLeanKeywords.DEFINITIONS
+            self.LEMMA = FewShotGptLeanKeywords.LEMMA
+            self.LEMMAS = FewShotGptLeanKeywords.LEMMAS
+            self.INFORMAL_THEOREM = FewShotGptLeanKeywords.INFORMAL_THEOREM
+            self.INFORMAL_PROOF = FewShotGptLeanKeywords.INFORMAL_PROOF
         elif language == ProofAction.Language.ISABELLE:
             self.END = FewShotGptIsabelleKeywords.END
             self.THEOREM = FewShotGptIsabelleKeywords.THEOREM
@@ -193,7 +217,7 @@ String:;
             self.DEFINITIONS,
             self.THEOREM
         ]
-        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
+        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE or self.language == ProofAction.Language.LEAN4:
             lines_map[self.INFORMAL_THEOREM] = []
             lines_map[self.INFORMAL_PROOF] = []
             lines_order = [
@@ -227,7 +251,7 @@ String:;
                 break
             lines_map[self.LEMMAS].append(f"{self.LEMMA} {lm}")
         
-        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE:
+        if self.language == ProofAction.Language.LEAN or self.language == ProofAction.Language.ISABELLE or self.language == ProofAction.Language.LEAN4:
             if coq_gpt_response.informal_theorem is not None:
                 lines_map[self.INFORMAL_THEOREM] = ["\n" + self.INFORMAL_THEOREM]
                 lines_map[self.INFORMAL_THEOREM].append(coq_gpt_response.informal_theorem)
@@ -281,6 +305,8 @@ Prog:
             self.keywords = [FewShotGptCoqKeywords.PROOF, FewShotGptCoqKeywords.QED]
         elif language == ProofAction.Language.LEAN:
             self.keywords = [FewShotGptLeanKeywords.PROOF, FewShotGptLeanKeywords.QED]
+        elif language == ProofAction.Language.LEAN4:
+            self.keywords = [FewShotGptLeanKeywords.PROOF, FewShotGptLeanKeywords.END]
         elif language == ProofAction.Language.ISABELLE:
             self.keywords = [FewShotGptIsabelleKeywords.PROOF, FewShotGptIsabelleKeywords.QED]
         else:
@@ -302,6 +328,13 @@ Proof: "{FewShotGptLeanKeywords.PROOF}";
 Qed: "{FewShotGptLeanKeywords.QED}";
 String:;
 """
+        elif self.language == ProofAction.Language.LEAN4:
+            terminals = f"""
+terminals
+Proof: "{FewShotGptLeanKeywords.PROOF}";
+Qed: "{FewShotGptLeanKeywords.QED}";
+String:;
+"""
         elif self.language == ProofAction.Language.ISABELLE:
             terminals = f"""
 terminals
@@ -317,6 +350,9 @@ String:;
         elif language == ProofAction.Language.LEAN:
             self.PROOF = FewShotGptLeanKeywords.PROOF
             self.QED = FewShotGptLeanKeywords.QED
+        elif language == ProofAction.Language.LEAN4:
+            self.PROOF = FewShotGptLeanKeywords.PROOF
+            self.QED = FewShotGptLeanKeywords.END
         elif language == ProofAction.Language.ISABELLE:
             self.PROOF = FewShotGptIsabelleKeywords.PROOF
             self.QED = FewShotGptIsabelleKeywords.QED
@@ -337,6 +373,10 @@ String:;
                     actions = actions[len("begin"):]
                 if not actions.endswith("end"):
                     actions += "end"
+            elif self.language == ProofAction.Language.LEAN4:
+                actions = str(nodes[1]).strip()
+                if actions.startswith("by"):
+                    actions = actions[len("by"):]
             elif self.language == ProofAction.Language.ISABELLE:
                 actions = str(nodes[1]).strip().strip("proof -").strip()
                 if not actions.endswith("qed"):

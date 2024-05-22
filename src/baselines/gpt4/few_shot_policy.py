@@ -85,6 +85,9 @@ class FewShotGptPolicy(Policy):
             elif self.language == ProofAction.Language.LEAN:
                 self._asked_for_dfns_and_lms = True
                 # Move on because we don't support retrieving definitions and theorems for Lean as of now
+            elif self.language == ProofAction.Language.LEAN4:
+                self._asked_for_dfns_and_lms = True
+                # Move on because we don't support retrieving definitions and theorems for Lean4 as of now
             elif self.language == ProofAction.Language.ISABELLE:
                 if len(state.training_data_format.all_useful_defns_theorems) == 0:
                     self._asked_for_dfns_and_lms = True
@@ -100,6 +103,19 @@ class FewShotGptPolicy(Policy):
                     lemmas=[str(state.training_data_format.all_useful_defns_theorems[lemma_ref.lemma_idx]) for lemma_ref in state.training_data_format.start_goals[0].possible_useful_theorems_local], # We don't allow any sophisticated retrieval action here
                 )
             elif self.language == ProofAction.Language.LEAN:
+                theorem_statement_with_name = state.theorem_statement_with_name
+                # Replace the theorem name with the some anonymous name
+                theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
+                gpt_response = FewShotGptResponse(
+                    theorem=theorem_statement_with_name,
+                    defintions=[],
+                    lemmas=[],
+                )
+                if self.informal_proof_repo is not None:
+                    informal_thm, informal_proof = self.informal_proof_repo.get_informal_thm_proof(self.lemma_name)
+                    gpt_response.informal_theorem = informal_thm
+                    gpt_response.informal_proof = informal_proof
+            elif self.language == ProofAction.Language.LEAN4:
                 theorem_statement_with_name = state.theorem_statement_with_name
                 # Replace the theorem name with the some anonymous name
                 theorem_statement_with_name = theorem_statement_with_name.replace(state.theorem_name, "some_theorem")
