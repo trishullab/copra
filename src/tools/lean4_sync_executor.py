@@ -19,8 +19,13 @@ from typing import Iterator, List, Optional, Tuple, OrderedDict, Generator, Dict
 
 class Lean4SyncExecutor:
     theorem_start_regex = r"[\s]*(theorem|lemma|example)[\s]+"
-    theorem_end_regex = r"(theorem|lemma|example) [\S|\s]*?(:=|\|)[\s]*?"
-    theorem_regex = r"((((theorem|lemma) ([\S]*))|example)([\S|\s]*?)(:=|\|)[\s]*?)[\s]+"
+    # Non tactic mode support removed because of complications in parsing
+    # theorem_end_regex = r"(theorem|lemma|example) [\S|\s]*?(:=|\|)[\s]*?"
+    # theorem_regex = r"((((theorem|lemma) ([\S]*))|example)([\S|\s]*?)(:=|\|)[\s]*?)[\s]+"
+    # We ONLY support proofs which are written in tactic mode i.e. with := syntax
+    theorem_endings = r"(:=|(\|[\S|\s]*=>))"
+    theorem_end_regex = r"(theorem|lemma|example)([\s|\S]*?)(:=|=>)"
+    theorem_regex = r"((((theorem|lemma)[\s]+([\S]*))|example)([\S|\s]*?)(:=|=>)[\s]*?)[\s]+"
     remove_proof_regex = r"([\s|\S]*(:=|\|))[\s|\S]*?"
     proof_context_separator = "⊢"
     proof_context_regex = r"((\d+) goals)*([\s|\S]*?)\n\n"
@@ -337,16 +342,38 @@ class Lean4SyncExecutor:
             return self.curr_lemma_name
     
     def _parse_theorem_stmt(self, stmt: str) -> str:
-        matches = Lean4SyncExecutor.theorem_match.findall(stmt)
+        matches = list(Lean4SyncExecutor.theorem_match.finditer(stmt))
         if len(matches) == 0:
             return None, None, None
         # if len(matches) == 0:
         #     raise ValueError(f"Could not find the theorem in the statement: {stmt}")
         # We are only interested in the last theorem
-        groups = matches[-1]
-        full_stmt = groups[0]
-        theorem_name = groups[4]
-        theorem_stmt = groups[5]
+        match = matches[-1]
+        _, span_end = match.span()
+        full_stmt = match.group(1)
+        theorem_name = match.group(5)
+        theorem_stmt = match.group(6)
+        thm_end_style = match.group(7)
+        if thm_end_style == "=>":
+            # Find the last '|' in the full_stmt
+            thm_end_idx = full_stmt.rfind('|')
+            if thm_end_idx == -1:
+                remaining_stmt = stmt[span_end:]
+                thm_end_idx = remaining_stmt.find(':=')
+                if thm_end_idx == -1:
+                    return None
+                full_stmt = full_stmt + remaining_stmt[:thm_end_idx] + ' :='
+            else:
+                full_stmt = full_stmt[:thm_end_idx]
+            thm_end_idx = theorem_stmt.rfind('|')
+            if thm_end_idx == -1:
+                remaining_stmt = stmt[span_end:]
+                thm_end_idx = remaining_stmt.find(':=')
+                if thm_end_idx == -1:
+                    return None
+                theorem_stmt = theorem_stmt + remaining_stmt[:thm_end_idx]
+            else:
+                theorem_stmt = theorem_stmt[:thm_end_idx]
         return theorem_name, theorem_stmt, full_stmt
 
     def _stmt_has_lemma(self, stmt: str) -> bool:
@@ -361,14 +388,15 @@ class Lean4SyncExecutor:
         self._content_till_last_theorem_stmt = full_stmt[:-1]
         process_namespaces(full_stmt, self._namespaces, has_content)
         if is_theorem_started and is_theorem_ended:
-            self._last_theorem = self._parse_theorem_stmt(full_stmt)
-            self._theorem_started = False
-        elif is_theorem_started:
-            self._theorem_started = True
-        elif is_theorem_ended and self._theorem_started:
-            self._theorem_started = False
-            self._last_theorem = self._parse_theorem_stmt(full_stmt)
-        return is_theorem_started or self._theorem_started or is_theorem_ended
+            last_thm = self._parse_theorem_stmt(full_stmt)
+        else:
+            last_thm = None
+        self._theorem_started = last_thm is not None
+        is_theorem_started = self._theorem_started
+        is_theorem_ended = is_theorem_started and is_theorem_ended
+        if last_thm is not None:
+            self._last_theorem = last_thm
+        return is_theorem_started
     
     def _get_env(self, idx) -> Optional[int]:
         env_idx = None
@@ -386,21 +414,32 @@ class Lean4SyncExecutor:
         self._last_proof_state_idx = idx
     
     def _should_start_proof(self, stmt: str) -> bool:
-        return not self._theorem_started
+        return self._theorem_started
     
     def _remove_proof_add_sorry(self) -> str:
         # Find the last ':= by' and replace it with 'sorry' and remove the rest of the proof
-        matches = Lean4SyncExecutor.remove_proof_match.findall(self._content_till_last_theorem_stmt)
+        matches = list(Lean4SyncExecutor.theorem_end_match.finditer(self._content_till_last_theorem_stmt))
         if len(matches) == 0:
             raise ValueError(f"Could not find the proof in the statement: {self._content_till_last_theorem_stmt}")
-        assert len(matches[-1]) == 2, f"Matches should be 2 {matches[-1]}"
-        groups = matches[-1][0]
-        thm_ending_stmt = matches[-1][1]
-        assert isinstance(groups, str), "Groups should be a string"
-        new_stmt = groups
-        if thm_ending_stmt == "|":
-            new_stmt = new_stmt.strip('| ')
-            new_stmt += ' :='
+        last_match = matches[-1]
+        _, span_end = last_match.span()
+        full_stmt = self._content_till_last_theorem_stmt[:span_end]
+        thm_end_style = last_match.group(3)
+        if thm_end_style == "=>":
+            # Find the last '|' in the full_stmt
+            thm_end_idx = full_stmt.rfind('|')
+            if thm_end_idx == -1:
+                remaining_stmt = self._content_till_last_theorem_stmt[span_end:]
+                thm_end_idx = remaining_stmt.find(':=')
+                if thm_end_idx == -1:
+                    raise ValueError(f"Could not find the start of proof in the statement: {self._content_till_last_theorem_stmt}")
+                full_stmt = full_stmt + remaining_stmt[:thm_end_idx] + ' :='
+                new_stmt = full_stmt
+            else:
+                full_stmt = full_stmt[:thm_end_idx] + ' :='
+                new_stmt = full_stmt
+        else:
+            new_stmt = full_stmt
         new_stmt += " by sorry"
         self._content_till_last_theorem_stmt = new_stmt
 
@@ -448,7 +487,10 @@ class Lean4SyncExecutor:
             self.process_interace.send_command(cmd)
             timed_out = False
             try:
-                response = self.process_interace.read_response(self.timeout_in_sec)
+                timed_out_in_secs = self.timeout_in_sec
+                if use_file:
+                    timed_out_in_secs *= 4 # File can be big and take time
+                response = self.process_interace.read_response(timed_out_in_secs)
                 if 'messages' in response and 'proofState' not in response and 'sorries' not in response:
                     messages = response['messages']
                     sevierities = [msg['severity'] for msg in messages]
@@ -511,7 +553,10 @@ class Lean4SyncExecutor:
                     proof_state_idx = None
                     proof_goals = []
                     if 'sorries' in response:
-                        proof_state = response['sorries'][0]
+                        sorries = response['sorries']
+                        # TODO: Go over all the sorries and find the one which matches the line number with idx + 1
+                        # Now we are only supporting the last sorry
+                        proof_state = sorries[-1]
                         proof_state_idx = proof_state['proofState']
                         proof_goals = [proof_state['goal']]
                     elif 'proofState' in response:
@@ -663,26 +708,34 @@ def get_theorem_name_resembling(file_path: str, theorem_name: str, use_cache: bo
     assert thm_found, "The theorem was not found some code bug in finding the theorem names"
     theorem_name_matches = all_theorems_name_unique_map[full_name]
     if len(theorem_name_matches) == 1:
-        return full_name
+        if len(theorem_name_matches[0].theorem_namespace) == 0:
+            return theorem_name_matches[0].theorem_name
+        else:
+            dict_thm = {"namespace": theorem_name_matches[0].theorem_namespace, "name": theorem_name_matches[0].theorem_name}
+            return json.dumps(dict_thm)
     else:
         # We need to find the namespace which matches with the theorem_name
         for thm in theorem_name_matches:
-            if theorem_name.endswith(thm.theorem_namespace + '.' + thm.theorem_name):
+            if theorem_name.endswith(thm.theorem_namespace + '.' + thm.theorem_name) or\
+            (theorem_name.strip() == thm.theorem_name and len(thm.theorem_namespace) == 0):
                 dict_thm = {"namespace": thm.theorem_namespace, "name": thm.theorem_name}
                 return json.dumps(dict_thm)
         raise ValueError(f"The theorem '{theorem_name}' was not found in the file '{file_path}'")
 
 if __name__ == "__main__":
+    # project_root = 'data/test/lean4_proj/'
+    # file_path = 'data/test/lean4_proj/Lean4Proj/Basic.lean'
     project_root = 'data/test/lean4_proj/'
-    file_path = 'data/test/lean4_proj/Lean4Proj/Basic.lean'
+    file_path = 'data/test/lean4_proj/Lean4Proj/putnam_test15.lean'
     os.chdir(root_dir)
     assert os.path.exists(project_root), "Project root does not exist"
     assert os.path.exists(file_path), "File path does not exist"
     print("Finding all theorems in the file")
     all_theorems = get_all_theorems_in_file(file_path, use_cache=True)
     print(all_theorems)
-    theorems_similar_to_test = get_theorem_name_resembling(file_path, "Lean4Proj2.test", use_cache=True)
-    print("Theorem similar to ", "Lean4Proj2.test", " is ", theorems_similar_to_test)
+    theorem_name = "putnam_2018_b2"
+    theorems_similar_to_test = get_theorem_name_resembling(file_path, theorem_name, use_cache=True)
+    print("Theorem similar to ", theorem_name, " is ", theorems_similar_to_test)
     with Lean4SyncExecutor(main_file=file_path, project_root=project_root) as executor:
         executor._skip_to_theorem(theorems_similar_to_test)
         while not executor.execution_complete:
