@@ -191,7 +191,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 logger.warning("PISA service is down. Restarting it.")
                 IsabelleExecutor.start_server(logger) # Restart the server
                 logger.warning("Restarted the PISA service.")
-            file_time_out = eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50
+            file_time_out = min(720, eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50)
             logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
             p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
             p.start()
