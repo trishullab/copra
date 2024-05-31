@@ -114,10 +114,14 @@ class DynamicProofExecutor(Lean4SyncExecutor):
     def get_focussed_goals(self) -> typing.List[Goal]:
         if not self.is_in_proof_mode():
             return []
+        if self.proof_context is None:
+            return []
         return self.lean_context_helper.get_focussed_goals(self)
     
     def get_unfocussed_goals(self) -> typing.List[Goal]:
         if not self.is_in_proof_mode():
+            return []
+        if self.proof_context is None:
             return []
         return self.lean_context_helper.get_unfocussed_goals(self)
 
@@ -139,7 +143,10 @@ class DynamicProofExecutor(Lean4SyncExecutor):
         else:
             current_goals = self.get_focussed_goals()
             training_data_format = TrainingDataFormat(start_goals=current_goals)
-            training_data_format.goal_description = None
+            if len(self.lean_error_messages) > 0:
+                training_data_format.goal_description = '\n'.join(self.lean_error_messages)
+            else:
+                training_data_format.goal_description = None
         return training_data_format
     
     def get_all_relevant_thms(self) -> TrainingDataFormat:

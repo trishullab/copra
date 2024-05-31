@@ -595,7 +595,6 @@ if __name__ == "__main__":
             language=ProofAction.Language.LEAN4,
             always_use_retrieval=False
         )
-        # theorem_name = "test3"
         theorem_name = "{\"namespace\": \"Lean4Proj1\", \"name\": \"test\"}"
         language = ProofAction.Language.LEAN4
         always_retrieve_thms = False
