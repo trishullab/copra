@@ -1,0 +1,26 @@
+name: n_4_few_gpt4_o
+setting_type: Agent
+use_hammer: ALLOW
+max_proof_depth: 100
+timeout_in_secs: 60
+proof_retries: 1
+# main_prompt: data/prompts/baseline/simple-prompt.md
+# conv_prompt: data/prompts/baseline/simple-prompt-conv.md
+max_tokens_per_action: 1000
+max_theorems_in_prompt: 7
+gpt_model_name: gpt-4o
+max_number_of_episodes: 1
+max_steps_per_episode: 4
+render: False
+checkpoint_dir: .log/checkpoints
+should_checkpoint: False
+temperature: 0.0
+max_history_messages: 0
+policy_name: FewShot
+proof_dump_dir: .log/proofs/eval_driver/few_shot/gpt4_turbo
+use_human_readable_proof_context: True
+sample: 1.0
+sample_seed: 0xf00
+use_example_retrieval: False
+always_use_useful_theorem_retrieval: False
+num_goal_per_prompt:

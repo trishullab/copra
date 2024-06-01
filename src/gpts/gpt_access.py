@@ -37,6 +37,11 @@ class GptAccess(object):
             "request_limit_per_min": 20,
             "max_token_per_prompt": int(1.2*10**5) # less than 128k because additional tokens are added at times
         },
+        "gpt-4o": {
+            "token_limit_per_min": 8000000,
+            "request_limit_per_min": 8000,
+            "max_token_per_prompt": int(1.2*10**5) # less than 128k because additional tokens are added at times
+        },
         'codellama/CodeLlama-7b-Instruct-hf': {
             "token_limit_per_min": 10**6,
             "request_limit_per_min": 10**6,
@@ -171,7 +176,7 @@ class GptAccess(object):
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
-            print("Warning: model not found. Using cl100k_base encoding.")
+            # print("Warning: model not found. Using cl100k_base encoding.")
             encoding = tiktoken.get_encoding("cl100k_base")
         if model in {
             "gpt-3.5-turbo-0613",
