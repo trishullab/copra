@@ -24,9 +24,9 @@ class Lean4SyncExecutor:
     # theorem_regex = r"((((theorem|lemma) ([\S]*))|example)([\S|\s]*?)(:=|\|)[\s]*?)[\s]+"
     # We ONLY support proofs which are written in tactic mode i.e. with := syntax
     theorem_endings = r"(:=|(\|[\S|\s]*=>))"
-    theorem_end_regex = r"(theorem|lemma|example)([\s|\S]*?)(:=|=>)"
-    theorem_regex = r"((((theorem|lemma)[\s]+([\S]*))|example)([\S|\s]*?)(:=|=>)[\s]*?)[\s]+"
-    remove_proof_regex = r"([\s|\S]*(:=|\|))[\s|\S]*?"
+    theorem_end_regex = r"(theorem|lemma|example)([\s|\S]*?)(:=)"
+    theorem_regex = r"((((theorem|lemma)[\s]+([\S]*))|example)([\S|\s]*?)(:=)[\s]*?)[\s]+"
+    remove_proof_regex = r"([\s|\S]*(:=))[\s|\S]*?"
     proof_context_separator = "⊢"
     proof_context_regex = r"((\d+) goals)*([\s|\S]*?)\n\n"
     goal_regex = rf"([\s|\S]*?){proof_context_separator}([\s|\S]*)"
