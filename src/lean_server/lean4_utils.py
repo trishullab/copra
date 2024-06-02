@@ -167,13 +167,21 @@ class Lean4Utils:
         goal_str = goal_str.strip()
         goal = ""
         hyps_goals = re.findall(Lean4Utils.goal_regex, goal_str, re.MULTILINE)
-        assert len(hyps_goals) == 1, f"Found more than one goal in the goal string: {goal_str}"
-        hypotheses_str, goal = hyps_goals[0]
-        hypotheses_str = hypotheses_str.strip()
-        goal = goal.strip()
-        hypotheses = [hyp.rstrip(',') for hyp in hypotheses_str.split("\n")]
-        goal = Obligation(hypotheses, goal)
-        return goal
+        assert len(hyps_goals) <= 1, f"Found more than one goal in the goal string: {goal_str}"
+        if len(hyps_goals) == 1:
+            hypotheses_str, goal = hyps_goals[0]
+            hypotheses_str = hypotheses_str.strip()
+            goal = goal.strip()
+            hypotheses = [hyp.rstrip(',') for hyp in hypotheses_str.split("\n")]
+            goal = Obligation(hypotheses, goal)
+            return goal
+        else:
+            # Everyline except the last one is a hypothesis
+            hypotheses = goal_str.split("\n")
+            goal = hypotheses[-1]
+            hypotheses = hypotheses[:-1]
+            goal = Obligation(hypotheses, goal)
+            return goal
 
 if __name__ == '__main__':
     goals = "case intro.inl\n\u03b1 : Type u_1\n\u03b2 : Type u_2\n\u03b3 : Type u_3\nr r' : \u03b1 \u2192 \u03b1 \u2192 Prop\ninst\u271d\u00b9 : LinearOrder \u03b2\nh : WellFounded fun x x_1 => x < x_1\ninst\u271d : PartialOrder \u03b3\nf g : \u03b2 \u2192 \u03b3\nhf : StrictMono f\nhg : StrictMono g\nhfg : range f = range g\nb : \u03b2\nH : \u2200 a < b, f a = g a\nc : \u03b2\nhc : f c = g b\nhcb : c < b\n\u22a2 f b \u2264 g b\n\ncase intro.inr\n\u03b1 : Type u_1\n\u03b2 : Type u_2\n\u03b3 : Type u_3\nr r' : \u03b1 \u2192 \u03b1 \u2192 Prop\ninst\u271d\u00b9 : LinearOrder \u03b2\nh : WellFounded fun x x_1 => x < x_1\ninst\u271d : PartialOrder \u03b3\nf g : \u03b2 \u2192 \u03b3\nhf : StrictMono f\nhg : StrictMono g\nhfg : range f = range g\nb : \u03b2\nH : \u2200 a < b, f a = g a\nc : \u03b2\nhc : f c = g b\nhbc : b \u2264 c\n\u22a2 f b \u2264 g b"
