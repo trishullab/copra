@@ -10,6 +10,7 @@ import logging
 import re
 import time
 import json
+import typing
 from src.lean_server.lean_context import ProofContext
 from src.lean_server.lean4_utils import Lean4Utils
 from src.tools.lean_parse_utils import LeanLineByLineReader
@@ -24,13 +25,15 @@ class Lean4SyncExecutor:
     # theorem_regex = r"((((theorem|lemma) ([\S]*))|example)([\S|\s]*?)(:=|\|)[\s]*?)[\s]+"
     # We ONLY support proofs which are written in tactic mode i.e. with := syntax
     theorem_endings = r"(:=|(\|[\S|\s]*=>))"
-    theorem_end_regex = r"(theorem|lemma|example)([\s|\S]*?)(:=)"
-    theorem_regex = r"((((theorem|lemma)[\s]+([\S]*))|example)([\S|\s]*?)(:=)[\s]*?)[\s]+"
-    remove_proof_regex = r"([\s|\S]*(:=))[\s|\S]*?"
+    theorem_end_regex = r"(theorem|lemma|example)([\s|\S]*?)(:=|=>)"
+    theorem_regex = r"((((theorem|lemma)[\s]+([\S]*))|example)([\S|\s]*?)(:=|=>)[\s]*?)[\s]+"
+    theorem_name_regex = r"(((theorem|lemma)[\s]+([\S]*))|example)"
+    remove_proof_regex = r"([\s|\S]*(:=|\|))[\s|\S]*?"
     proof_context_separator = "⊢"
     proof_context_regex = r"((\d+) goals)*([\s|\S]*?)\n\n"
     goal_regex = rf"([\s|\S]*?){proof_context_separator}([\s|\S]*)"
     theorem_match = re.compile(theorem_regex, re.MULTILINE)
+    theorem_name_match = re.compile(theorem_name_regex, re.MULTILINE)
     proof_context_match = re.compile(proof_context_regex, re.MULTILINE)
     goal_match = re.compile(goal_regex, re.MULTILINE)
     theorem_start_match = re.compile(theorem_start_regex, re.MULTILINE)
@@ -39,6 +42,8 @@ class Lean4SyncExecutor:
     proof_context_generation_tactic = "\nend"
     proof_context_generation_tactic_curlies = "\n}"
     proof_state_running_message = "tactic failed, there are unsolved goals\nstate:"
+    unsolved_message = "unsolved goals"
+    theorem_detection_message = "unexpected end of input; expected '{'"
     def __init__(self, 
         project_root: Optional[str] = None, 
         prefix: Optional[str] = None, 
@@ -343,46 +348,79 @@ class Lean4SyncExecutor:
         else:
             return self.curr_lemma_name
     
-    def _parse_theorem_stmt(self, stmt: str) -> str:
-        matches = list(Lean4SyncExecutor.theorem_match.finditer(stmt))
-        if len(matches) == 0:
-            return None, None, None
-        # if len(matches) == 0:
-        #     raise ValueError(f"Could not find the theorem in the statement: {stmt}")
-        # We are only interested in the last theorem
-        match = matches[-1]
-        _, span_end = match.span()
-        full_stmt = match.group(1)
-        theorem_name = match.group(5)
-        theorem_stmt = match.group(6)
-        thm_end_style = match.group(7)
+    def _check_if_thm_read(self, full_stmt: str) -> bool:
+        ticks = self.ticks + "1"
+        temp_filename_suffix = f"temptodel{ticks}.lean"
+        temp_file_full_path = os.path.join(self.project_root, temp_filename_suffix)
+        temp_file_full_path = os.path.abspath(temp_file_full_path)
+        try:
+            with open(temp_file_full_path, "w") as f:
+                f.write(full_stmt)
+            self.process_interace.send_command({"path": temp_file_full_path})
+            timeout_in_secs = self.timeout_in_sec * 4
+            response = self.process_interace.read_response(timeout_in_secs)
+            messages = response.get('messages', [])
+            has_cnt = 0
+            has_unfocussed_goal = 0
+            for msg in messages:
+                if msg['severity'] == 'error' and 'pos' in msg and 'endPos' in msg and \
+                ((msg['endPos'] is not None and 'line' in msg['endPos'] and msg['endPos']['line'] >= self.line_num) or \
+                    (msg['pos'] is not None and 'line' in msg['pos'] and msg['pos']['line'] >= self.line_num)):
+                    if msg['data'].startswith(Lean4SyncExecutor.theorem_detection_message) and msg['endPos'] is None:
+                        has_cnt += 1
+                    elif msg['data'].startswith(Lean4SyncExecutor.unsolved_message):
+                        has_unfocussed_goal += 1
+            return has_cnt == 1 and has_unfocussed_goal == 1
+        finally:
+            if os.path.exists(temp_file_full_path):
+                os.remove(temp_file_full_path)
+    
+    def _parse_theorem_stmt(self, stmt: str, do_full_check: bool = False, interesting_span: typing.Tuple[int, int] = None) -> str:
+        if interesting_span is not None:
+            span_start, span_end = interesting_span
+            full_stmt = stmt[span_start:span_end]
+            thm_name_matches = list(Lean4SyncExecutor.theorem_name_match.finditer(full_stmt))
+            if len(thm_name_matches) == 0:
+                return None
+            thm_end_style = '=>' if stmt.strip().endswith('=>') else ':='
+            thm_name_match = thm_name_matches[-1]
+            _, nspan_end = thm_name_match.span()
+            theorem_name = thm_name_match.group(4)
+            theorem_stmt = full_stmt[nspan_end:].strip().strip(thm_end_style)
+        else:
+            matches = list(Lean4SyncExecutor.theorem_match.finditer(stmt))
+            if len(matches) == 0:
+                return None
+            # We are only interested in the last theorem
+            match = matches[-1]
+            span_start, _ = match.span()
+            full_stmt = match.group(1)
+            theorem_name = match.group(5)
+            theorem_stmt = match.group(6)
+            thm_end_style = match.group(7)
         if thm_end_style == "=>":
             # Find the last '|' in the full_stmt
             thm_end_idx = full_stmt.rfind('|')
             if thm_end_idx == -1:
-                remaining_stmt = stmt[span_end:]
-                thm_end_idx = remaining_stmt.find(':=')
-                if thm_end_idx == -1:
-                    return None
-                full_stmt = full_stmt + remaining_stmt[:thm_end_idx] + ' :='
+                return None
             else:
-                full_stmt = full_stmt[:thm_end_idx]
+                full_stmt = full_stmt[:thm_end_idx] + ' :='
             thm_end_idx = theorem_stmt.rfind('|')
             if thm_end_idx == -1:
-                remaining_stmt = stmt[span_end:]
-                thm_end_idx = remaining_stmt.find(':=')
-                if thm_end_idx == -1:
-                    return None
-                theorem_stmt = theorem_stmt + remaining_stmt[:thm_end_idx]
+                return None
             else:
                 theorem_stmt = theorem_stmt[:thm_end_idx]
+        if do_full_check:
+            check_stmt = stmt[:span_start] + full_stmt + ' by\n'
+            if not self._check_if_thm_read(check_stmt):
+                return None
         return theorem_name, theorem_stmt, full_stmt
 
-    def _stmt_has_lemma(self, stmt: str) -> bool:
+    def _stmt_has_lemma(self, stmt: str, do_full_check: bool = False) -> bool:
         # Match the theorem regex
         has_content = self._content_till_last_theorem_stmt is not None
         full_stmt = (stmt if self._content_till_last_theorem_stmt is None else self._content_till_last_theorem_stmt + '\n' + stmt) + '\n'
-        theorem_started = Lean4SyncExecutor.theorem_start_match.findall(full_stmt)
+        theorem_started = list(Lean4SyncExecutor.theorem_start_match.finditer(full_stmt))
         theorem_ended = Lean4SyncExecutor.theorem_end_match.findall(full_stmt)
         is_theorem_started = len(theorem_started) > 0
         is_theorem_ended = len(theorem_ended) > 0
@@ -390,7 +428,26 @@ class Lean4SyncExecutor:
         self._content_till_last_theorem_stmt = full_stmt[:-1]
         process_namespaces(full_stmt, self._namespaces, has_content)
         if is_theorem_started and is_theorem_ended:
-            last_thm = self._parse_theorem_stmt(full_stmt)
+            last_span_start, last_span_end = theorem_started[-1].span()
+            # Look for all ':=' in the full_stmt
+            endings = [i for i in range(last_span_end, len(full_stmt)) if full_stmt.startswith(':=', i)]
+            last_thm = None
+            for ending in endings:
+                interesting_stmt = full_stmt[:ending] + ':= ' # We need to add ':=' to the end
+                interesting_span = (last_span_start, len(interesting_stmt))
+                last_thm = self._parse_theorem_stmt(interesting_stmt, do_full_check, interesting_span) 
+                if last_thm is not None:
+                    self._content_till_last_theorem_stmt = full_stmt[:last_span_start] + last_thm[2] + ' by\n'
+                    break
+            if last_thm is None:
+                endings = [i for i in range(last_span_end, len(full_stmt)) if full_stmt.startswith('=> ', i)]
+                for ending in endings:
+                    interesting_stmt = full_stmt[:ending] + '=> ' # We need to add '=>' to the end
+                    interesting_span = (last_span_start, len(interesting_stmt))
+                    last_thm = self._parse_theorem_stmt(interesting_stmt, do_full_check, interesting_span) 
+                    if last_thm is not None:
+                        self._content_till_last_theorem_stmt = full_stmt[:last_span_start] + last_thm[2] + ' by\n'
+                        break
         else:
             last_thm = None
         self._theorem_started = last_thm is not None
@@ -424,12 +481,12 @@ class Lean4SyncExecutor:
         if len(matches) == 0:
             raise ValueError(f"Could not find the proof in the statement: {self._content_till_last_theorem_stmt}")
         last_match = matches[-1]
-        _, span_end = last_match.span()
+        span_start, span_end = last_match.span()
         full_stmt = self._content_till_last_theorem_stmt[:span_end]
         thm_end_style = last_match.group(3)
         if thm_end_style == "=>":
             # Find the last '|' in the full_stmt
-            thm_end_idx = full_stmt.rfind('|')
+            thm_end_idx = full_stmt.rfind('|', start = span_start)
             if thm_end_idx == -1:
                 remaining_stmt = self._content_till_last_theorem_stmt[span_end:]
                 thm_end_idx = remaining_stmt.find(':=')
@@ -448,7 +505,7 @@ class Lean4SyncExecutor:
             new_stmt += " by\n"
         self._content_till_last_theorem_stmt = new_stmt
 
-    def _run_stmt_on_lean_server(self, idx : int, stmt: str):
+    def _run_stmt_on_lean_server(self, idx : int, stmt: str, theorem_started: bool = False):
         always_use_file = True
         self.use_file = always_use_file
         if "sorry" in stmt and self._proof_running:
@@ -460,7 +517,7 @@ class Lean4SyncExecutor:
             self.lean_error_messages = ["There is no tactic in the statement, it is just empty line or whitespace"]
             return
         proof_should_run = False
-        if not self._proof_running and self._stmt_has_lemma(stmt):
+        if theorem_started or (not self._proof_running and self._stmt_has_lemma(stmt)):
             proof_should_run = self._should_start_proof(stmt)
             if proof_should_run:
                 theorem_name, theorem_stmt, full_stmt = self._last_theorem
@@ -473,9 +530,9 @@ class Lean4SyncExecutor:
                 self.local_theorem_lemma_description[theorem_name] = full_stmt
         if not self._proof_running and not proof_should_run:
             return
-        if proof_should_run:
-            # We need to augment the statement with a sorry
-            self._remove_proof_add_sorry()
+        # if proof_should_run:
+        #     # We need to augment the statement with a sorry
+        #     self._remove_proof_add_sorry()
         env_idx = self._get_env(idx)
         cmd_was_executed = False
         use_file = self.use_file or always_use_file
@@ -532,7 +589,7 @@ class Lean4SyncExecutor:
                         if msg['severity'] == 'error' and 'pos' in msg and 'endPos' in msg and \
                         ((msg['endPos'] is not None and 'line' in msg['endPos'] and msg['endPos']['line'] >= idx + 1) or \
                          (msg['pos'] is not None and 'line' in msg['pos'] and msg['pos']['line'] >= idx + 1)):
-                            if msg['data'].startswith("unexpected end of input; expected '{'") and msg['endPos'] is None:
+                            if msg['data'].startswith(Lean4SyncExecutor.theorem_detection_message) and msg['endPos'] is None:
                                 continue # Ignore this error
                             relevant_messages.append(msg)
                     sevierities = [msg['severity'] for msg in messages]
@@ -582,8 +639,8 @@ class Lean4SyncExecutor:
                 error_messages = []
                 for msg in relevant_messages:
                     text_msg = msg.get('data', None)
-                    if text_msg is not None and text_msg.startswith('unsolved goals'):
-                        goal_text = text_msg[len('unsolved goals'):]
+                    if text_msg is not None and text_msg.startswith(Lean4SyncExecutor.unsolved_message):
+                        goal_text = text_msg[len(Lean4SyncExecutor.unsolved_message):]
                     else:
                         error_messages.append(msg)
                 if len(error_messages) == 0:
@@ -655,9 +712,14 @@ class Lean4SyncExecutor:
                     last_namespace = self._namespaces[-1] if len(self._namespaces) > 0 else ""
                     if thm_name is not None and thm_name == given_theorem_name and (len(thm_namespace) == 0 or thm_namespace == last_namespace):
                         found_theorem = True
+                        orig_thm_started = self._theorem_started
                         self._theorem_started = True
                         self._content_till_last_theorem_stmt = '\n'.join(self._lines_executed)
-                        self._run_stmt_on_lean_server(len(self._lines_executed), stmt)
+                        if self._stmt_has_lemma(stmt, do_full_check=True):
+                            self._run_stmt_on_lean_server(len(self._lines_executed), stmt, theorem_started=True)
+                        else:
+                            found_theorem = False
+                            self._theorem_started = orig_thm_started
                     elif thm_name is not None:
                         if len(thm_name) == 0:
                             self._anon_theorem_count += 1
