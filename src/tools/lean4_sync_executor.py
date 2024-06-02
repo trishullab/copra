@@ -362,6 +362,7 @@ class Lean4SyncExecutor:
             messages = response.get('messages', [])
             has_cnt = 0
             has_unfocussed_goal = 0
+            has_other_error = 0
             for msg in messages:
                 if msg['severity'] == 'error' and 'pos' in msg and 'endPos' in msg and \
                 ((msg['endPos'] is not None and 'line' in msg['endPos'] and msg['endPos']['line'] >= self.line_num) or \
@@ -370,7 +371,9 @@ class Lean4SyncExecutor:
                         has_cnt += 1
                     elif msg['data'].startswith(Lean4SyncExecutor.unsolved_message):
                         has_unfocussed_goal += 1
-            return has_cnt == 1 and has_unfocussed_goal == 1
+                    else:
+                        has_other_error += 1
+            return has_cnt == 1 and has_unfocussed_goal == 1 and has_other_error == 0
         finally:
             if os.path.exists(temp_file_full_path):
                 os.remove(temp_file_full_path)
@@ -726,7 +729,9 @@ class Lean4SyncExecutor:
                             thm_name = f"anon_theorem____{self._anon_theorem_count}"
                         self.local_file_lemmas[thm_name] = thm_stmt
                         self.local_theorem_lemma_description[thm_name] = full_thm_stmt
-                    self._content_till_last_theorem_stmt = None
+                        self._content_till_last_theorem_stmt = None
+                    else:
+                        self._content_till_last_theorem_stmt = None
             self._lines_executed.append(stmt)
         if not found_theorem:
             raise ValueError(f"The theorem '{theorem}' was not found in the file '{self.main_file}'")
