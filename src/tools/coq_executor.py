@@ -10,7 +10,8 @@ import typing
 import functools
 import random
 import re
-from src.coq_ser_api import SerapiInstance
+import subprocess
+from src.coq_ser_api import SerapiInstance, GetCoqAgent, CoqAgent
 from src.tools.coq_parse_utils import CoqLineByLineReader, CoqStepByStepStdInReader
 logger = logging.getLogger()
 
@@ -28,7 +29,7 @@ class CoqExecutor:
         "move", "move =>", "move ->", "move => ->", 
         ":", ".", "=>", "{", "}"
     }
-    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False):
+    def __init__(self, project_root: str = None, main_file: str = None, use_hammer: bool = False, timeout_in_sec: int = 60, use_human_readable_proof_context: bool = False, proof_step_iter: typing.Iterator[str] = None, suppress_error_log: bool = False, setup_cmds: typing.List[str] = []):
         assert proof_step_iter is None or isinstance(proof_step_iter, typing.Iterator), \
             "proof_step_iter must be an iterator"
         assert main_file is not None or proof_step_iter is not None, \
@@ -48,17 +49,26 @@ class CoqExecutor:
         self.line_num = 0
         self.main_file_iter = proof_step_iter
         self.suppress_error_log = suppress_error_log
-        self.coq : SerapiInstance = None
+        self.coq : CoqAgent = None
         self.execution_complete = False
+        self.setup_cmds = setup_cmds
     
     def __enter__(self):
         self._all_dep_handles = []
-        self.coq = SerapiInstance(["sertop", "--implicit"], None, self.project_root,
-                             use_hammer=self.use_hammer,
-                             log_outgoing_messages=None,
-                             timeout=self.timeout_in_sec,
-                             use_human_readable_str=self.use_human_readable_proof_context)
-        self.coq.quiet = self.suppress_error_log
+        all_setup_cmds = '\n'.join(self.setup_cmds)
+        if len(all_setup_cmds) > 0:
+            try:
+                env_settings = subprocess.run(all_setup_cmds, shell=True, stdout=subprocess.PIPE, check=True, text=True).stdout
+            except:
+                env_settings = None
+                logger.error(f"Got an exception while running setup commands:\n {all_setup_cmds}")
+                logger.exception(f"Exception Log")
+                logger.info(f"Continuing without setting up the environment")
+        else:
+            env_settings = None
+        self.coq : CoqAgent = GetCoqAgent(prelude=self.project_root, use_human_readable_str=self.use_human_readable_proof_context, env_string=env_settings, timeout=self.timeout_in_sec)
+        if hasattr(self.coq, "quiet"):
+            self.coq.quiet = self.suppress_error_log
         if self.main_file_iter is None:
             self.main_file_iter = CoqLineByLineReader(self.main_file).instruction_step_generator()
         return self
@@ -365,6 +375,24 @@ class CoqExecutor:
             return self.coq.cur_lemma_name
         except:
             return None
+    
+def get_all_lemmas_in_file(coq_executor: CoqExecutor, logger: logging.Logger) -> typing.List[str]:
+    lemmas_to_prove = []
+    while not coq_executor.execution_complete:
+        assert not coq_executor.is_in_proof_mode(), "main_executor must not be in proof mode"
+        _ = list(coq_executor.run_till_next_lemma_return_exec_stmt())
+        if coq_executor.execution_complete:
+            break
+        lemma_name = coq_executor.get_lemma_name_if_running()
+        if lemma_name is None:
+            _ = list(coq_executor.run_to_finish_lemma_return_exec())
+            if coq_executor.execution_complete:
+                break
+        else:
+            logger.info(f"Discovered lemma: {lemma_name}")
+            lemmas_to_prove.append(lemma_name)
+            coq_executor.run_to_finish_lemma()
+    return lemmas_to_prove
 
 class CoqStdInOutExecutor:
     def __init__(self):
