@@ -326,7 +326,18 @@ class CoqAgent:
             raise ValueError(f"Can't print {term}")
         return result[0]
     def search_about(self, symbol: str) -> List[str]:
-        return self.backend.queryVernac(f"Search {symbol}.")
+        vernac = symbol.replace("\\", "\\\\") # Replace \ with \\
+        vernac = vernac.replace("\"", "\\\"") # Replace " with \"
+        vernac = f"\"{vernac}\""
+        vernac = f"Search {vernac}."
+        vernac = vernac.replace("\\", "\\\\") # Replace \ with \\
+        vernac = vernac.replace("\"", "\\\"") # Replace " with \"
+        try:
+            vals = self.backend.queryVernac(vernac)
+        except:
+            vals = []
+        return vals
+        # return self.backend.queryVernac(f"Search {symbol}.")
     def enter_file(self, filename: str) -> None:
         self.backend.setFilename(filename)
         self._file_state.sm_stack = initial_sm_stack(filename)
