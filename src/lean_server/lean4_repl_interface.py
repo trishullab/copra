@@ -8,14 +8,24 @@ import logging
 
 class ProcessInterface:
     buffer_size = 1024
-    def __init__(self, command, cwd, logger: logging.Logger = None, log_level=logging.INFO):
+    def __init__(self, command, cwd, logger: logging.Logger = None, log_level=logging.INFO, reboot_every_n_commands=10):
         """
         Note: This class is not thread-safe. It is intended to be used in a single-threaded environment.
         """
+        assert reboot_every_n_commands > 0
+        self.command = command
+        self.cwd = cwd
+        self.reboot_every_n_commands = reboot_every_n_commands
+        self._last_reboot = 0
+        self._start()
+        self.logger = logger if logger else logging.getLogger(__name__)
+        self.logger.setLevel(log_level)
+    
+    def _start(self):
         master, slave = pty.openpty()
         self.process = subprocess.Popen(
-            command.split(),
-            cwd=cwd,
+            self.command.split(),
+            cwd=self.cwd,
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
@@ -25,8 +35,7 @@ class ProcessInterface:
         self.master = master
         self.buffer = ''  # Buffer to accumulate data from stdout
         self.sent_commands = ''  # Buffer to track sent commands
-        self.logger = logger if logger else logging.getLogger(__name__)
-        self.logger.setLevel(log_level)
+        pass
 
     def send_command(self, command_dict):
         # Check if the process is still running
@@ -97,6 +106,11 @@ class ProcessInterface:
             response = json.loads(self.buffer)
             self.logger.debug(f"Received: {response}")
             self.buffer = ''  # Clear buffer after successful parse
+            self._last_reboot += 1
+            if self._last_reboot >= self.reboot_every_n_commands:
+                self.close()
+                self._start()
+                self._last_reboot = 0
             return response
         except json.JSONDecodeError as e:
             self.logger.debug("Failed to parse JSON. Waiting for more data.")
@@ -111,14 +125,14 @@ class ProcessInterface:
 # Process interface test
 if __name__ == "__main__":
     #.lake/bin/repl
-    repl_path = "./imports/repl/.lake/build/bin/repl"
-    # lean4_proj_path = "./src/data/test/lean4_proj"
-    # file_path = "Lean4Proj/Basic.lean"
-    lean4_proj_path = './src/data/test/Mathlib'
-    file_path = './src/data/test/Mathlib/.lake/packages/mathlib/Mathlib/Data/Nat/Bits.lean'
+    repl_path = "./src/tools/repl/.lake/build/bin/repl"
+    lean4_proj_path = "./data/test/lean4_proj"
+    file_path = "./data/test/lean4_proj/Lean4Proj/Basic.lean"
+    # lean4_proj_path = './src/data/test/Mathlib'
+    # file_path = './src/data/test/Mathlib/.lake/packages/mathlib/Mathlib/Data/Nat/Bits.lean'
     file_path = os.path.abspath(file_path)
     abs_repl_path = os.path.abspath(repl_path)
-    interface = ProcessInterface(f"lake env {abs_repl_path}", lean4_proj_path, log_level=logging.DEBUG)
+    interface = ProcessInterface(f"lake env {abs_repl_path}", lean4_proj_path, log_level=logging.DEBUG, reboot_every_n_commands=1)
     try:
         interface.send_command({"path": file_path, "allTactics": True})
         response = interface.read_response(1000)

@@ -135,7 +135,8 @@ class Lean4SyncExecutor:
             command=f"lake env {path_to_repl_exec}",
             cwd=self.project_root,
             logger=self.logger,
-            log_level=logging.INFO)
+            log_level=logging.INFO,
+            reboot_every_n_commands=1)
         if self.main_file_iter is None:
             self.main_file_iter = LeanLineByLineReader(self.main_file, remove_comments=True, no_strip=True).instruction_step_generator()
         return self
