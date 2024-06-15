@@ -125,6 +125,8 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
     else:
         track_time = False
     time_budget_tracker = {}
+    server_use_count = 0
+    max_server_use_count = 5
     for attempt_idx in range(eval_settings.proof_retries):
         if proof_attempts_done:
             break
@@ -181,6 +183,18 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     logger.exception(f"Exception occurred while getting all lemmas in file: {path}")
             manager = multiprocessing.Manager()
             return_dict = manager.dict()
+            if server_use_count >= max_server_use_count:
+                # Restart the server
+                server_use_count = 0
+                if eval_benchmark.language == ProofAction.Language.ISABELLE:
+                    logger.warning(f"Server use count exceeded {max_server_use_count}. Restarting the PISA service.")
+                    IsabelleExecutor.stop_server()
+                    logger.warning("Stopped the PISA service.")
+                    logger.warning("Waiting for 10 seconds before starting the PISA service.")
+                    time.sleep(15)
+                    logger.warning("Starting the PISA service again.")
+                    IsabelleExecutor.start_server(logger)
+                    logger.warning("Started the PISA service.")
             # Check if PISA service is down otherwise restart it
             if eval_benchmark.language == ProofAction.Language.ISABELLE and not IsabelleExecutor.check_server_running(logger):
                 # Kill the logging thread
@@ -191,6 +205,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 logger.warning("PISA service is down. Restarting it.")
                 IsabelleExecutor.start_server(logger) # Restart the server
                 logger.warning("Restarted the PISA service.")
+            server_use_count += 1
             file_time_out = min(720, eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50)
             logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
             p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
