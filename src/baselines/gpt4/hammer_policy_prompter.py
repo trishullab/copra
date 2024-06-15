@@ -20,6 +20,7 @@ from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 
 class HammerPolicyPrompter(PolicyPrompter):
     sledgehammer_command = "show ?thesis sledgehammer"
+    coq_hammer_command = "hammer."
     _cache: typing.Dict[str, typing.Any] = {}
     def __init__(self, 
             main_sys_prompt_path: str, 
@@ -30,7 +31,7 @@ class HammerPolicyPrompter(PolicyPrompter):
             metadata_filename: typing.Optional[str] = None,
             language: ProofAction.Language = ProofAction.Language.ISABELLE,
             logger = None):
-        assert language == ProofAction.Language.ISABELLE, f"Language {language} is not supported for hammer policy prompter"
+        assert language == ProofAction.Language.ISABELLE or language == ProofAction.Language.COQ, f"Language {language} is not supported for hammer policy prompter"
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
@@ -86,7 +87,12 @@ class HammerPolicyPrompter(PolicyPrompter):
     def run_prompt(self, request) -> list:
         # No matter what the request is, we always return show ?thesis sledgehammer
         self._num_api_calls += 1
-        message_content = f"[RUN TACTIC]\n{HammerPolicyPrompter.sledgehammer_command}\n"
+        if self.language == ProofAction.Language.COQ:
+            message_content = f"[RUN TACTIC]\n{HammerPolicyPrompter.coq_hammer_command}\n"
+        elif self.language == ProofAction.Language.ISABELLE:
+            message_content = f"[RUN TACTIC]\n{HammerPolicyPrompter.sledgehammer_command}\n"
+        else:
+            raise Exception(f"Language {self.language} is not supported")
         message = self.agent_grammar.get_openai_main_message_from_string(message_content, "assistant")
         message["finish_reason"] = "stop"
         self.logger.info(f"Command running:\n{message_content}")
