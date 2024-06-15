@@ -1,0 +1,4 @@
+name: coq_few_shot_no_ret
+main_prompt: data/prompts/baseline/simple-prompt-no-ret.md
+conv_prompt: data/prompts/baseline/simple-prompt-conv-no-ret.md
+informal_proof_repo:
