@@ -159,6 +159,12 @@ fi
 # First check if Isabelle is already installed
 default_isabelle_dir="$HOME/Isabelle2022" # Don't change this, otherwise PISA will not work
 issabell_installed=false
+isabelle_installed_enable=false
+if [[ $isabelle_installed_enable == false ]]; then
+    echo "Isabelle is already installed at $default_isabelle_dir"
+    echo "If you want to reinstall Isabelle, please delete the directory $default_isabelle_dir and run this script again"
+    exit 0
+fi
 if [[ -d "$default_isabelle_dir" ]]; then
     echo "Isabelle is already installed at $default_isabelle_dir"
     echo "If you want to reinstall Isabelle, please delete the directory $default_isabelle_dir and run this script again"
