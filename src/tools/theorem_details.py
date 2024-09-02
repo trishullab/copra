@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import typing
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 @dataclass_json
@@ -7,6 +8,7 @@ class TheoremDetails:
     theorem_name: str
     theorem_namespace: str
     theorem_file_path: str
+    theorem_pos: typing.Dict[str, int] = field(default_factory=dict) 
 
     def __str__(self):
         return f"{self.theorem_namespace}.{self.theorem_name}"
