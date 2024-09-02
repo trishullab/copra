@@ -41,4 +41,4 @@ To run Lean 4 test you need to run additional steps:
 1. Make sure to fetch the REPL submodule in `src/tools/repl`.
 2. Build the REPL module using `lake build repl`.
 3. Build the test repository by changing directory to `data/test/lean4_proj` and run `lake build`. (Note: For the first time it will take longer)
-4. From the root folder run `python src/main/eval_benchmark.py --config-name lean4_simple_experiment`
+4. From the repository's root folder run `python src/main/eval_benchmark.py --config-name lean4_simple_experiment`
