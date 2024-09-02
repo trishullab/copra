@@ -8,14 +8,14 @@ import logging
 
 class ProcessInterface:
     buffer_size = 1024
-    def __init__(self, command, cwd, logger: logging.Logger = None, log_level=logging.INFO, reboot_every_n_commands=10):
+    def __init__(self, command, cwd, logger: logging.Logger = None, log_level=logging.INFO, reboot_every_n_commands = 50):
         """
         Note: This class is not thread-safe. It is intended to be used in a single-threaded environment.
         """
         assert reboot_every_n_commands > 0
+        self.reboot_every_n_commands = reboot_every_n_commands
         self.command = command
         self.cwd = cwd
-        self.reboot_every_n_commands = reboot_every_n_commands
         self._last_reboot = 0
         self._start()
         self.logger = logger if logger else logging.getLogger(__name__)
@@ -37,11 +37,14 @@ class ProcessInterface:
         self.sent_commands = ''  # Buffer to track sent commands
         pass
 
+    def is_rebooted(self):
+        return self._last_reboot == 0
+
     def send_command(self, command_dict):
         # Check if the process is still running
         if not self.process_is_running():
             raise Exception("Process is not running.")
-        json_command = json.dumps(command_dict, ensure_ascii=True) + '\n\n'
+        json_command = json.dumps(command_dict, ensure_ascii=False) + '\n\n'
         normalized_command = json_command.replace('\r\n', '\n')  # Normalize newlines
         os.write(self.master, normalized_command.encode('utf-8'))  # Send command to process
         self.logger.debug(f"Sent: {normalized_command}")
@@ -121,6 +124,7 @@ class ProcessInterface:
         os.close(self.master)
         self.process.terminate()
         self.process.wait()
+
 
 # Process interface test
 if __name__ == "__main__":
