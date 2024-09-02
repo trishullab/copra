@@ -1,0 +1,11 @@
+defaults:
+  - env_settings: bm25_retrieval
+  - benchmark: simple_benchmark_lean4
+  - eval_settings: n_60_dfs_gpt4_o_no_retrieve_no_ex
+  - prompt_settings: lean4_dfs
+  - override hydra/job_logging: 'disabled'
+
+eval_settings:
+ timeout_in_secs: 200
+ proof_retries: 4
+ temperature: 0.7
