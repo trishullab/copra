@@ -42,3 +42,15 @@ To run Lean 4 test you need to run additional steps:
 2. Build the REPL module using `lake build repl`.
 3. Build the test repository by changing directory to `data/test/lean4_proj` and run `lake build`. (Note: For the first time it will take longer)
 4. From the repository's root folder run `python src/main/eval_benchmark.py --config-name lean4_simple_experiment`
+
+## Paper:
+You can cite our paper:
+```
+@inproceedings{thakur2024context,
+  title={An in-context learning agent for formal theorem-proving},
+  author={Thakur, Amitayush and Tsoukalas, George and Wen, Yeming and Xin, Jimmy and Chaudhuri, Swarat},
+  booktitle={First Conference on Language Modeling},
+  year={2024}
+}
+```
+Our paper can be found here: [OpenReview](https://openreview.net/forum?id=V7HRrxXUhN#discussion) and [ArXiv](https://arxiv.org/abs/2310.04353)
