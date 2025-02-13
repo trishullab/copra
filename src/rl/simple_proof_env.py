@@ -511,7 +511,7 @@ class ProofEnv(Env):
                 lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
                 if lemma_name is not None:
                     lemma_name = lemma_name.strip()
-                lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
+                lemma_found = lemma_name == self.lemma_name if lemma_name is not None else False
                 if not lemma_found:
                     _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
                     if self._dynamic_proof_executor.execution_complete:
@@ -529,7 +529,7 @@ class ProofEnv(Env):
                 lemma_name = self._dynamic_proof_executor.get_lemma_name_if_running()
                 if lemma_name is not None:
                     lemma_name = lemma_name.strip()
-                lemma_found = lemma_name.startswith(self.lemma_name) if lemma_name is not None else False
+                lemma_found = lemma_name == self.lemma_name if lemma_name is not None else False
                 if not lemma_found:
                     _ = list(self._dynamic_proof_executor.run_to_finish_lemma_return_exec())
                     if self._dynamic_proof_executor.execution_complete:
