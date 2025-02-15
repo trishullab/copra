@@ -5,17 +5,17 @@ import typing
 import logging
 import time
 import os
-from copra.rl.proof_tree import ProofSearchResult, ProofTree
-from copra.rl.proof_state import ProofState
-from copra.rl.proof_action import ProofAction
-from copra.rl.abstraction import State, Action, Env
-from copra.tools.isabelle_executor import IsabelleExecutor
-from copra.tools.proof_exec_callback import ProofExecutorCallback
-from copra.tools.training_data_format import TrainingDataFormat
-from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
-from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from itp_interface.rl.proof_tree import ProofSearchResult, ProofTree
+from itp_interface.rl.proof_state import ProofState
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.rl.abstraction import State, Action, Env
+from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
+from itp_interface.tools.training_data_format import TrainingDataFormat
+from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from itp_interface.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from copra.retrieval.coq_bm25_reranker import CoqBm25ReRanker
 from copra.retrieval.lean3_bm25_reranker import Lean3Bm25ReRanker
 from copra.retrieval.isabelle_bm25_reranker import IsabelleBm25ReRanker

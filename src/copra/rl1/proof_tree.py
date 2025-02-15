@@ -3,8 +3,8 @@
 import typing
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass, field
-from copra.rl.proof_action import ProofAction
-from copra.tools.training_data_format import TrainingDataFormat
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.tools.training_data_format import TrainingDataFormat
 
 @dataclass_json
 @dataclass

@@ -10,10 +10,10 @@ from copra.agent.gpt_guided_tree_search_policy import ProofQTree
 from copra.agent.rate_limiter import InvalidActionException
 from copra.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptResponse
 from copra.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
-from copra.rl.abstraction import Policy
-from copra.rl.proof_action import ProofAction
-from copra.rl.proof_state import ProofState
-from copra.rl.simple_proof_env import ProofEnvInfo
+from itp_interface.rl.abstraction import Policy
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.rl.proof_state import ProofState
+from itp_interface.rl.simple_proof_env import ProofEnvInfo
 from copra.tools.informal_proof_repo import InformalProofRepo
 
 

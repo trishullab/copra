@@ -7,12 +7,12 @@ import typing
 import shutil
 import psutil
 import gc
-from copra.tools.ray_utils import RayUtils
-from copra.tools.training_data import TrainingData
-from copra.tools.coq_build_tool import CoqRepoBuilder
-from copra.tools.coq_executor import CoqExecutor
-from copra.tools.coq_local_data_generation_transform import LocalDataGenerationTransform
-from copra.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
+from itp_interface.tools.ray_utils import RayUtils
+from itp_interface.tools.training_data import TrainingData
+from itp_interface.tools.coq_build_tool import CoqRepoBuilder
+from itp_interface.tools.coq_executor import CoqExecutor
+from itp_interface.tools.coq_local_data_generation_transform import LocalDataGenerationTransform
+from itp_interface.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
 
 class RunDataGenerationTransforms(object):
     def __init__(self, transforms: typing.List[GenericTrainingDataGenerationTransform], logging_dir: str, save_intermidiat_transforms: bool = True, logger: logging.Logger = None):

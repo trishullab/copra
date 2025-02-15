@@ -4,7 +4,7 @@ import typing
 import copy
 from rank_bm25 import BM25Okapi
 from copra.lean_server.lean_utils import Lean3Utils
-from copra.tools.lean_cmd_executor import Lean3Executor
+from itp_interface.tools.lean_cmd_executor import Lean3Executor
 from copra.retrieval.abstraction import ReRanker
 
 class Lean3Bm25ReRanker(ReRanker):
@@ -51,7 +51,7 @@ class Lean3Bm25ReRanker(ReRanker):
 
 if __name__ == "__main__":
     from copra.lean_server.lean3_search_tool import Lean3SearchTool
-    from copra.tools.lean_cmd_executor import Constants
+    from itp_interface.tools.lean_cmd_executor import Constants
 
     def take_multiline_input() -> str:
         inp = []

@@ -2,8 +2,8 @@
 
 import logging
 import typing
-from copra.tools.coq_executor import CoqExecutor
-from copra.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
+from itp_interface.tools.coq_executor import CoqExecutor
+from itp_interface.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 
 class CoqContextHelper(object):

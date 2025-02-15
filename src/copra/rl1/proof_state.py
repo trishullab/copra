@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import typing
-from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
-from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from copra.rl.abstraction import State
-from copra.rl.proof_action import ProofAction
-from copra.tools.training_data_format import TrainingDataFormat
+from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from itp_interface.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from itp_interface.rl.abstraction import State
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.tools.training_data_format import TrainingDataFormat
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 

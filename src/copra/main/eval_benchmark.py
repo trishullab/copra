@@ -10,7 +10,6 @@ import math
 import typing
 import multiprocessing
 from copra.baselines.gpt4.hammer_policy_prompter import HammerPolicyPrompter
-from copra.tools.log_utils import setup_logger
 from copra.gpts.llama_access import LlamaAccess, ServiceDownError
 from copra.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
 from copra.agent.dfs_tree_search_with_stack import DFSTreeSearch
@@ -21,21 +20,19 @@ from copra.baselines.gpt4.few_shot_policy import FewShotGptPolicy
 from copra.baselines.gpt4.few_shot_policy_prompter import FewShotGptPolicyPrompter
 from copra.main.config import EnvSettings, EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings, Experiments, PolicyName, EvalRunCheckpointInfo, PromptSettings, parse_config
 from copra.prompt_generator.prompter import PolicyPrompter
-from copra.rl.abstraction import Policy
-from copra.rl.proof_tree import ProofSearchResult
-from copra.rl.simple_proof_env import ProofEnv
-from copra.rl.proof_action import ProofAction
 from copra.baselines.gpt4.informal_few_shot_policy import InformalFewShotGptPolicy
 from copra.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
-from copra.tools.isabelle_executor import IsabelleExecutor
-from copra.tools.proof_exec_callback import ProofExecutorCallback
-from copra.tools.ray_utils import RayUtils
-from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
-from copra.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
-from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from copra.tools.informal_proof_repo import InformalProofRepo
+from itp_interface.tools.log_utils import setup_logger
+from itp_interface.rl.abstraction import Policy
+from itp_interface.rl.proof_tree import ProofSearchResult
+from itp_interface.rl.simple_proof_env import ProofEnv
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
+from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from itp_interface.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
+from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):

@@ -5,9 +5,9 @@ import logging
 import typing
 import copy
 from rank_bm25 import BM25Okapi
-from copra.tools.isabelle_executor import IsabelleExecutor
-from copra.tools.training_data import TrainingData
-from copra.tools.training_data_format import TrainingDataFormat
+from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.training_data import TrainingData
+from itp_interface.tools.training_data_format import TrainingDataFormat
 from copra.retrieval.abstraction import ReRanker
 
 class IsabelleBm25ReRanker(ReRanker):

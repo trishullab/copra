@@ -10,7 +10,7 @@ from copra.agent.rate_limiter import RateLimiter, InvalidActionException
 from copra.agent.gpt_guided_tree_search_policy import TreeSearchAction
 from copra.gpts.gpt_access import GptAccess
 from copra.gpts.llama_access import LlamaAccess
-from copra.rl.proof_action import ProofAction
+from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.baselines.gpt4.few_shot_grammar import FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar

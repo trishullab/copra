@@ -6,10 +6,10 @@ import json
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from enum import Enum
-from copra.rl.proof_tree import ProofSearchResult
-from copra.rl.proof_action import ProofAction
-from copra.rl.simple_proof_env import ProofEnvReRankStrategy
 from copra.tools.informal_proof_repo import InformalProofRepo
+from itp_interface.rl.proof_tree import ProofSearchResult
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.rl.simple_proof_env import ProofEnvReRankStrategy
 
 class SettingType(Enum):
     Agent = "Agent"

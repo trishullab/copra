@@ -12,8 +12,8 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 from copra.pisa.src.main.python.pisa_client import PisaEnv, initialise_env, IsabelleLemma
-from copra.rl.proof_action import ProofAction
-from copra.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.tools.isabelle_parse_utils import IsabelleLineByLineReader, IsabelleStepByStepStdInReader
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import typing
-from copra.rl.proof_action import ProofAction
+from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.interpreter import Grammar
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json

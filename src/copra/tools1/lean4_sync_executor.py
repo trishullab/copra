@@ -12,8 +12,8 @@ import shutil
 import typing
 from copra.lean_server.lean_context import ProofContext
 from copra.lean_server.lean4_utils import Lean4Utils
-from copra.tools.lean_parse_utils import LeanLineByLineReader
-from copra.tools.theorem_details import TheoremDetails
+from itp_interface.tools.lean_parse_utils import LeanLineByLineReader
+from itp_interface.tools.theorem_details import TheoremDetails
 from copra.lean_server.lean4_repl_interface import ProcessInterface
 from typing import Iterator, List, Optional, Tuple, OrderedDict, Generator, Dict
 

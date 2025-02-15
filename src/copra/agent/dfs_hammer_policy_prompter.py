@@ -2,9 +2,9 @@
 
 import typing
 from copra.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
-from copra.rl.proof_action import ProofAction
 from copra.prompt_generator.dfs_gpt_response_grammar import CoqGptResponse
 from copra.tools.informal_proof_repo import InformalProofRepo
+from itp_interface.rl.proof_action import ProofAction
 
 class HammerDfsIsabelleGptPolicyPrompter(DfsCoqGptPolicyPrompter):
     sledgehammer_command = "show ?thesis sledgehammer"

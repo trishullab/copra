@@ -3,7 +3,7 @@
 import typing
 import copy
 from collections import OrderedDict, deque
-from copra.rl.abstraction import State, Action
+from itp_interface.rl.abstraction import State, Action
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 

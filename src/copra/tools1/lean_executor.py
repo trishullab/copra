@@ -8,7 +8,7 @@ import functools
 import random
 import re
 from collections import OrderedDict
-from copra.tools.lean_parse_utils import LeanLineByLineReader
+from itp_interface.tools.lean_parse_utils import LeanLineByLineReader
 from copra.lean_server.lean_sync_server import SyncLeanServer
 from copra.lean_server.commands import Message
 from copra.retrieval.abstraction import ReRanker

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import typing
-from copra.tools.training_data_format import TrainingDataFormat
+from itp_interface.tools.training_data_format import TrainingDataFormat
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 

@@ -2,8 +2,8 @@
 
 import typing
 import math
-from copra.rl.abstraction import QFunction, State, Action
-from copra.rl.proof_env import ProofEnvInfo
+from itp_interface.rl.abstraction import QFunction, State, Action
+from itp_interface.rl.simple_proof_env import ProofEnvInfo
 from copra.rl.q_tree import QGraph
 
 class ProofQFunction(QFunction):

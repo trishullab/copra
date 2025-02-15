@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import typing
-from copra.tools.coq_parse_utils import CoqLineByLineReader
-from copra.tools.lean_parse_utils import LeanLineByLineReader
-from copra.tools.isabelle_parse_utils import IsabelleLineByLineReader
-from copra.rl.abstraction import Action
+from itp_interface.tools.coq_parse_utils import CoqLineByLineReader
+from itp_interface.tools.lean_parse_utils import LeanLineByLineReader
+from itp_interface.tools.isabelle_parse_utils import IsabelleLineByLineReader
+from itp_interface.rl.abstraction import Action
 from enum import Enum
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json

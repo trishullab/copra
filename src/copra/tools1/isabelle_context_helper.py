@@ -2,8 +2,8 @@
 
 import logging
 import typing
-from copra.tools.isabelle_executor import IsabelleExecutor
-from copra.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
+from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 
 class IsabelleContextHelper(object):

@@ -8,7 +8,7 @@ import random
 import re
 import subprocess
 from copra.coq_ser_api import SerapiInstance, GetCoqAgent, CoqAgent
-from copra.tools.coq_parse_utils import CoqLineByLineReader, CoqStepByStepStdInReader
+from itp_interface.tools.coq_parse_utils import CoqLineByLineReader, CoqStepByStepStdInReader
 logger = logging.getLogger()
 
 class CoqExecutor:

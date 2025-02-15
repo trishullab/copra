@@ -6,8 +6,8 @@ import typing
 import argparse
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass, field
-from copra.tools.coq_executor import CoqExecutor
-from copra.tools.coq_build_spec import CoqBuildSpec
+from itp_interface.tools.coq_executor import CoqExecutor
+from itp_interface.tools.coq_build_spec import CoqBuildSpec
 from torch.multiprocessing import Pool, set_start_method
 from multiprocessing.pool import AsyncResult
 from multiprocessing import Lock

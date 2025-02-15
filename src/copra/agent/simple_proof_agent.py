@@ -2,9 +2,9 @@
 
 import logging
 import typing
-from copra.rl.proof_action import ProofAction
-from copra.rl.abstraction import Agent, Policy
-from copra.rl.simple_proof_env import ProofEnv
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.rl.abstraction import Agent, Policy
+from itp_interface.rl.simple_proof_env import ProofEnv
 
 
 class ProofAgent(Agent):

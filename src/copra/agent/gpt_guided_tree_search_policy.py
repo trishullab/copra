@@ -9,8 +9,8 @@ from dataclasses_json import dataclass_json
 from abc import ABC, abstractmethod
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
-from copra.rl.abstraction import Policy
-from copra.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
+from itp_interface.rl.abstraction import Policy
+from itp_interface.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
 
 class TreeSearchActionType(Enum):
     # The action to generate a summary prompt

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import typing
-from copra.tools.coq_context_helper import CoqContextHelper
-from copra.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
-from copra.tools.training_data_format import Goal, MergableCollection, TrainingDataMetadataFormat, TrainingDataCollection, TrainingDataFormat
-from copra.tools.coq_executor import CoqExecutor
-from copra.tools.training_data import TrainingData
+from itp_interface.tools.coq_context_helper import CoqContextHelper
+from itp_interface.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
+from itp_interface.tools.training_data_format import Goal, MergableCollection, TrainingDataMetadataFormat, TrainingDataCollection, TrainingDataFormat
+from itp_interface.tools.coq_executor import CoqExecutor
+from itp_interface.tools.training_data import TrainingData
 
 class LocalDataGenerationTransform(GenericTrainingDataGenerationTransform):
     def __init__(self,

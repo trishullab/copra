@@ -2,19 +2,19 @@
 
 import logging
 import typing
-from copra.rl.proof_action import ProofAction
-from copra.tools.coq_context_helper import CoqContextHelper
-from copra.tools.lean_context_helper import Lean3ContextHelper
-from copra.tools.lean4_context_helper import Lean4ContextHelper
-from copra.tools.isabelle_context_helper import IsabelleContextHelper
-from copra.tools.coq_executor import CoqExecutor
-from copra.tools.lean_cmd_executor import Lean3Executor
-from copra.tools.lean4_sync_executor import Lean4SyncExecutor
-from copra.tools.isabelle_executor import IsabelleExecutor
-from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.tools.coq_context_helper import CoqContextHelper
+from itp_interface.tools.lean_context_helper import Lean3ContextHelper
+from itp_interface.tools.lean4_context_helper import Lean4ContextHelper
+from itp_interface.tools.isabelle_context_helper import IsabelleContextHelper
+from itp_interface.tools.coq_executor import CoqExecutor
+from itp_interface.tools.lean_cmd_executor import Lean3Executor
+from itp_interface.tools.lean4_sync_executor import Lean4SyncExecutor
+from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from itp_interface.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
 
 class ProofExecutorCallback(object):
     def __init__(self,

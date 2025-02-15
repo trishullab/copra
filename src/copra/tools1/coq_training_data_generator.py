@@ -3,7 +3,7 @@
 import typing
 import logging
 import enum
-from copra.tools.training_data_format import MergableCollection, TrainingDataFormat
+from itp_interface.tools.training_data_format import MergableCollection, TrainingDataFormat
 logger = logging.getLogger("CoqTrainingGenerator")
 
 class TrainingDataGenerationType(enum.Enum):

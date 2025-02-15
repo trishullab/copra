@@ -2,8 +2,8 @@
 
 import logging
 import typing
-from copra.tools.lean_cmd_executor import Lean3Executor
-from copra.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
+from itp_interface.tools.lean_cmd_executor import Lean3Executor
+from itp_interface.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 
 class Lean3ContextHelper(object):

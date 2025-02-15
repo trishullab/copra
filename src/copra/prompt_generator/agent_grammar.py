@@ -3,7 +3,7 @@
 import os
 import typing
 from copra.prompt_generator.interpreter import Grammar
-from copra.tools.training_data_format import TrainingDataFormat
+from itp_interface.tools.training_data_format import TrainingDataFormat
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
