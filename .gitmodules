@@ -7,9 +7,9 @@
 	url = https://github.com/facebookresearch/miniF2F.git
 	ignore = dirty
 [submodule "src/Portal-to-ISAbelle"]
-	path = src/pisa
+	path = src/copra/pisa
 	url = https://github.com/albertqjiang/Portal-to-ISAbelle.git
 	ignore = dirty
 [submodule "src/tools/repl"]
-	path = src/tools/repl
+	path = src/copra/tools/repl
 	url = https://github.com/amit9oct/repl.git
