@@ -11,7 +11,7 @@ import threading
 import time
 from typing import Optional, List
 
-from src.lean_server.commands import (SyncRequest, InfoRequest,
+from copra.lean_server.commands import (SyncRequest, InfoRequest,
                                   Request, CommandResponse, Message, Task,
                                   InfoResponse, AllMessagesResponse, CurrentTasksResponse, ErrorResponse,
                                   OkResponse, SyncResponse)

@@ -10,18 +10,18 @@ import os
 import time
 import logging
 from openai.error import InvalidRequestError
-from src.agent.rate_limiter import RateLimiter, InvalidActionException
-from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
-from src.gpts.gpt_access import GptAccess
-from src.gpts.llama_access import LlamaAccess, ServiceDownError
-from src.rl.proof_action import ProofAction
-from src.rl.simple_proof_env import ProgressState
-from src.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
-from src.prompt_generator.prompter import PolicyPrompter
-from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
-from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
-from src.tools.informal_proof_repo import InformalProofRepo
+from copra.agent.rate_limiter import RateLimiter, InvalidActionException
+from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
+from copra.gpts.gpt_access import GptAccess
+from copra.gpts.llama_access import LlamaAccess, ServiceDownError
+from copra.rl.proof_action import ProofAction
+from copra.rl.simple_proof_env import ProgressState
+from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
+from copra.prompt_generator.prompter import PolicyPrompter
+from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
+from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
+from copra.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
+from copra.tools.informal_proof_repo import InformalProofRepo
 
 class DfsCoqGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}

@@ -6,8 +6,8 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
 import typing
-from src.prompt_generator.interpreter import Grammar
-from src.tools.training_data_format import TrainingDataFormat
+from copra.prompt_generator.interpreter import Grammar
+from copra.tools.training_data_format import TrainingDataFormat
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 

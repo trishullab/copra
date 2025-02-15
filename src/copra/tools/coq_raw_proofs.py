@@ -9,13 +9,13 @@ import logging
 import os
 import typing
 import ray
-from src.rl.proof_action import ProofAction
-from src.tools.ray_utils import RayUtils
-from src.tools.coq_parse_utils import CoqLineByLineReader
-from src.tools.training_data_format import Goal, TrainingDataFormat, TrainingDataMetadataFormat
-from src.tools.training_data import TrainingData
-from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.tools.coq_build_tool import CoqRepoBuilder
+from copra.rl.proof_action import ProofAction
+from copra.tools.ray_utils import RayUtils
+from copra.tools.coq_parse_utils import CoqLineByLineReader
+from copra.tools.training_data_format import Goal, TrainingDataFormat, TrainingDataMetadataFormat
+from copra.tools.training_data import TrainingData
+from copra.tools.proof_exec_callback import ProofExecutorCallback
+from copra.tools.coq_build_tool import CoqRepoBuilder
 
 def extract_raw_proof(file_content: str, lemma_name: str) -> TrainingDataFormat:
     # Find the first occurence of the lemma_name and then find the first occurence of "Qed."

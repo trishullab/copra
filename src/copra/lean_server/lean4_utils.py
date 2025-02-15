@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import os
 import re
 import typing
-from src.lean_server.lean_context import Obligation, ProofContext
+from copra.lean_server.lean_context import Obligation, ProofContext
 
 class Lean4Utils:
     lean_internal_lib_cmd = "elan which lean"

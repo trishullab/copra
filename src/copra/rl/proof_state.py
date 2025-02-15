@@ -6,13 +6,13 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from src.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
-from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from src.rl.abstraction import State
-from src.rl.proof_action import ProofAction
-from src.tools.training_data_format import TrainingDataFormat
+from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from copra.rl.abstraction import State
+from copra.rl.proof_action import ProofAction
+from copra.tools.training_data_format import TrainingDataFormat
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass
 

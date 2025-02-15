@@ -12,10 +12,10 @@ from enum import Enum
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from abc import ABC, abstractmethod
-from src.prompt_generator.prompter import PolicyPrompter
-from src.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
-from src.rl.abstraction import Policy
-from src.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
+from copra.prompt_generator.prompter import PolicyPrompter
+from copra.rl.q_tree import QGraph, QInfo, QTreeNode, QTreeStateInfo
+from copra.rl.abstraction import Policy
+from copra.rl.simple_proof_env import ProofAction, ProofState, ProofEnvInfo
 
 class TreeSearchActionType(Enum):
     # The action to generate a summary prompt

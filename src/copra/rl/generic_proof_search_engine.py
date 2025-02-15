@@ -12,10 +12,10 @@ import time
 import os
 import copy
 import math
-from src.rl.proof_tree import ProofSearchResult, ProofTree
-from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor
-from src.tools.training_data_format import TrainingDataFormat
+from copra.rl.proof_tree import ProofSearchResult, ProofTree
+from copra.tools.proof_exec_callback import ProofExecutorCallback
+from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor
+from copra.tools.training_data_format import TrainingDataFormat
 
 class TacticGenerationEngineParams(object):
     def get_tactic_generation_engine(self, logger: logging.Logger = None):
@@ -344,8 +344,8 @@ class Prover(object):
 if __name__ == "__main__":
     # Write a mock tactic engine
     import os
-    from src.tools.coq_parse_utils import CoqLineByLineReader
-    from src.tools.coq_executor import CoqExecutor
+    from copra.tools.coq_parse_utils import CoqLineByLineReader
+    from copra.tools.coq_executor import CoqExecutor
     class MockTacticEngine(GenericTacticGenerationEngine):
         def __init__(self, file_name: str):
             assert file_name is not None, "file_name must not be None"

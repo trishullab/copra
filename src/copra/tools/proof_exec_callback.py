@@ -7,19 +7,19 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import logging
 import typing
-from src.rl.proof_action import ProofAction
-from src.tools.coq_context_helper import CoqContextHelper
-from src.tools.lean_context_helper import Lean3ContextHelper
-from src.tools.lean4_context_helper import Lean4ContextHelper
-from src.tools.isabelle_context_helper import IsabelleContextHelper
-from src.tools.coq_executor import CoqExecutor
-from src.tools.lean_cmd_executor import Lean3Executor
-from src.tools.lean4_sync_executor import Lean4SyncExecutor
-from src.tools.isabelle_executor import IsabelleExecutor
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from src.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from copra.rl.proof_action import ProofAction
+from copra.tools.coq_context_helper import CoqContextHelper
+from copra.tools.lean_context_helper import Lean3ContextHelper
+from copra.tools.lean4_context_helper import Lean4ContextHelper
+from copra.tools.isabelle_context_helper import IsabelleContextHelper
+from copra.tools.coq_executor import CoqExecutor
+from copra.tools.lean_cmd_executor import Lean3Executor
+from copra.tools.lean4_sync_executor import Lean4SyncExecutor
+from copra.tools.isabelle_executor import IsabelleExecutor
+from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
 
 class ProofExecutorCallback(object):
     def __init__(self,

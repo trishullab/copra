@@ -15,10 +15,10 @@ import random
 import re
 import copy
 from collections import OrderedDict
-from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.lean_server.lean_cmd_server import LeanCmdServer
-from src.lean_server.lean_utils import Lean3Utils
-from src.lean_server.lean3_search_tool import Constants, Lean3Lemma, Lean3SearchTool
+from copra.tools.lean_parse_utils import LeanLineByLineReader
+from copra.lean_server.lean_cmd_server import LeanCmdServer
+from copra.lean_server.lean_utils import Lean3Utils
+from copra.lean_server.lean3_search_tool import Constants, Lean3Lemma, Lean3SearchTool
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):

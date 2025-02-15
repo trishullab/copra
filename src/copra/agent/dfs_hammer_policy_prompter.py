@@ -5,10 +5,10 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from src.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
-from src.rl.proof_action import ProofAction
-from src.prompt_generator.dfs_gpt_response_grammar import CoqGptResponse
-from src.tools.informal_proof_repo import InformalProofRepo
+from copra.agent.dfs_policy_prompter import DfsCoqGptPolicyPrompter
+from copra.rl.proof_action import ProofAction
+from copra.prompt_generator.dfs_gpt_response_grammar import CoqGptResponse
+from copra.tools.informal_proof_repo import InformalProofRepo
 
 class HammerDfsIsabelleGptPolicyPrompter(DfsCoqGptPolicyPrompter):
     sledgehammer_command = "show ?thesis sledgehammer"

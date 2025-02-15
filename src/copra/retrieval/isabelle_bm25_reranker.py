@@ -11,10 +11,10 @@ import logging
 import typing
 import copy
 from rank_bm25 import BM25Okapi
-from src.tools.isabelle_executor import IsabelleExecutor
-from src.tools.training_data import TrainingData
-from src.tools.training_data_format import TrainingDataFormat
-from src.retrieval.abstraction import ReRanker
+from copra.tools.isabelle_executor import IsabelleExecutor
+from copra.tools.training_data import TrainingData
+from copra.tools.training_data_format import TrainingDataFormat
+from copra.retrieval.abstraction import ReRanker
 
 class IsabelleBm25ReRanker(ReRanker):
     def __init__(self, k1: float = 1.0, b: float = 0.75, epsilon: float = 0.25, language: str = '') -> None:

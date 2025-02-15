@@ -5,7 +5,7 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import os
-from src.prompt_generator.interpreter import Grammar
+from copra.prompt_generator.interpreter import Grammar
 
 class DfsAgentGrammar(Grammar):
     grammar = """

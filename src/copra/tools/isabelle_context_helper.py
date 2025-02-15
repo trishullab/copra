@@ -7,8 +7,8 @@ if root_dir not in sys.path:
 
 import logging
 import typing
-from src.tools.isabelle_executor import IsabelleExecutor
-from src.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
+from copra.tools.isabelle_executor import IsabelleExecutor
+from copra.tools.training_data_format import Goal, LemmaRefWithScore, LemmaReferences, TrainingDataFormat
 from typing import List
 
 class IsabelleContextHelper(object):

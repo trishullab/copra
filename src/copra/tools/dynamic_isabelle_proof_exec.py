@@ -10,11 +10,11 @@ import os
 import copy
 import enum
 import logging
-from src.rl.proof_action import ProofAction
-from src.tools.training_data_format import Goal, TrainingDataFormat
-from src.tools.isabelle_parse_utils import IsabelleLineByLineReader
-from src.tools.isabelle_executor import IsabelleExecutor
-from src.tools.isabelle_context_helper import IsabelleContextHelper
+from copra.rl.proof_action import ProofAction
+from copra.tools.training_data_format import Goal, TrainingDataFormat
+from copra.tools.isabelle_parse_utils import IsabelleLineByLineReader
+from copra.tools.isabelle_executor import IsabelleExecutor
+from copra.tools.isabelle_context_helper import IsabelleContextHelper
 
 class IntertwinedIterator(object):
     def __init__(self, iterator: typing.Optional[typing.Iterator[str]] = None):

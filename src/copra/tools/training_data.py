@@ -13,8 +13,8 @@ import typing
 import logging
 import time
 import psutil
-from src.tools.ray_utils import RayUtils
-from src.tools.training_data_format import LemmaRefWithScore, LemmaReferencesCollection, MergableCollection, TrainingDataCollection, TrainingDataFormat, TrainingDataMetadataFormat
+from copra.tools.ray_utils import RayUtils
+from copra.tools.training_data_format import LemmaRefWithScore, LemmaReferencesCollection, MergableCollection, TrainingDataCollection, TrainingDataFormat, TrainingDataMetadataFormat
 
 
 class TrainingData(MergableCollection):

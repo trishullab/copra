@@ -8,7 +8,7 @@ if root_dir not in sys.path:
 import os
 import typing
 import re
-from src.lean_server.lean_utils import Lean3Utils
+from copra.lean_server.lean_utils import Lean3Utils
 
 class Constants(object):
     mathlib_useful_imports = [

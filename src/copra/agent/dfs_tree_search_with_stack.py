@@ -9,16 +9,16 @@ import typing
 from collections import deque
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from src.rl.q_tree import QTreeStateInfo
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from src.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
-from src.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
-from src.rl.simple_proof_env import ProofEnvInfo, ProgressState
-from src.rl.proof_action import ProofAction
-from src.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState, FailedIsabelleProofState, FailedLean4ProofState
-from src.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
+from copra.rl.q_tree import QTreeStateInfo
+from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQTree, StateType, TreeSearchAction, TreeSearchActionType
+from copra.agent.gpt_guided_tree_search_policy import ProofQInfo, ProofQTree
+from copra.rl.simple_proof_env import ProofEnvInfo, ProgressState
+from copra.rl.proof_action import ProofAction
+from copra.rl.proof_state import ProofState, FailedCoqProofState, FailedLeanProofState, FailedIsabelleProofState, FailedLean4ProofState
+from copra.agent.gpt_guided_tree_search_policy import TreeSearchAlgorithm
 
 @dataclass_json
 @dataclass

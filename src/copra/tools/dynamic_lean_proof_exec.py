@@ -10,10 +10,10 @@ import os
 import copy
 import enum
 import logging
-from src.tools.lean_cmd_executor import Lean3Executor
-from src.tools.training_data_format import Goal, TrainingDataFormat
-from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.tools.lean_context_helper import Lean3ContextHelper
+from copra.tools.lean_cmd_executor import Lean3Executor
+from copra.tools.training_data_format import Goal, TrainingDataFormat
+from copra.tools.lean_parse_utils import LeanLineByLineReader
+from copra.tools.lean_context_helper import Lean3ContextHelper
 
 class IntertwinedIterator(object):
     def __init__(self, iterator: typing.Optional[typing.Iterator[str]] = None):

@@ -10,20 +10,20 @@ import typing
 import logging
 import time
 import os
-from src.rl.proof_tree import ProofSearchResult, ProofTree
-from src.rl.proof_state import ProofState
-from src.rl.proof_action import ProofAction
-from src.rl.abstraction import State, Action, Env
-from src.tools.isabelle_executor import IsabelleExecutor
-from src.tools.proof_exec_callback import ProofExecutorCallback
-from src.tools.training_data_format import TrainingDataFormat
-from src.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
-from src.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
-from src.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
-from src.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
-from src.retrieval.coq_bm25_reranker import CoqBm25ReRanker
-from src.retrieval.lean3_bm25_reranker import Lean3Bm25ReRanker
-from src.retrieval.isabelle_bm25_reranker import IsabelleBm25ReRanker
+from copra.rl.proof_tree import ProofSearchResult, ProofTree
+from copra.rl.proof_state import ProofState
+from copra.rl.proof_action import ProofAction
+from copra.rl.abstraction import State, Action, Env
+from copra.tools.isabelle_executor import IsabelleExecutor
+from copra.tools.proof_exec_callback import ProofExecutorCallback
+from copra.tools.training_data_format import TrainingDataFormat
+from copra.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
+from copra.tools.dynamic_lean4_proof_exec import DynamicProofExecutor as DynamicLean4ProofExecutor
+from copra.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
+from copra.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from copra.retrieval.coq_bm25_reranker import CoqBm25ReRanker
+from copra.retrieval.lean3_bm25_reranker import Lean3Bm25ReRanker
+from copra.retrieval.isabelle_bm25_reranker import IsabelleBm25ReRanker
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from enum import Enum

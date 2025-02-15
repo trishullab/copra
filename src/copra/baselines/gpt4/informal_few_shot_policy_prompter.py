@@ -12,15 +12,15 @@ import os
 import time
 from openai.error import InvalidRequestError
 import logging
-from src.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
-from src.agent.rate_limiter import RateLimiter, InvalidActionException
-from src.agent.gpt_guided_tree_search_policy import TreeSearchAction
-from src.gpts.gpt_access import GptAccess
-from src.gpts.llama_access import LlamaAccess
-from src.rl.proof_action import ProofAction
-from src.prompt_generator.prompter import PolicyPrompter
-from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from src.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptRequestGrammar, InformalFewShotGptResponse, InformalFewShotGptResponseGrammar
+from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
+from copra.agent.rate_limiter import RateLimiter, InvalidActionException
+from copra.agent.gpt_guided_tree_search_policy import TreeSearchAction
+from copra.gpts.gpt_access import GptAccess
+from copra.gpts.llama_access import LlamaAccess
+from copra.rl.proof_action import ProofAction
+from copra.prompt_generator.prompter import PolicyPrompter
+from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
+from copra.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptRequestGrammar, InformalFewShotGptResponse, InformalFewShotGptResponseGrammar
 
 
 class InformalFewShotGptPolicyPrompter(PolicyPrompter):

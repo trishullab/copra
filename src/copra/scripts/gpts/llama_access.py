@@ -15,8 +15,8 @@ import logging
 import threading
 # from litellm import token_counter
 from subprocess import Popen, PIPE, STDOUT
-from src.gpts.gpt_access import GptAccess
-from src.gpts.llama2_chat_format import Llama2FormatChat
+from copra.gpts.gpt_access import GptAccess
+from copra.gpts.llama2_chat_format import Llama2FormatChat
 from huggingface_hub import InferenceClient
 
 class ServiceDownError(Exception):

@@ -9,9 +9,9 @@ import os
 import typing
 import copy
 from rank_bm25 import BM25Okapi
-from src.lean_server.lean_utils import Lean3Utils
-from src.tools.lean_cmd_executor import Lean3Executor
-from src.retrieval.abstraction import ReRanker
+from copra.lean_server.lean_utils import Lean3Utils
+from copra.tools.lean_cmd_executor import Lean3Executor
+from copra.retrieval.abstraction import ReRanker
 
 class Lean3Bm25ReRanker(ReRanker):
     def __init__(self, k1: float = 1.0, b: float = 0.75, epsilon: float = 0.25, language: str = '') -> None:
@@ -56,8 +56,8 @@ class Lean3Bm25ReRanker(ReRanker):
         self.bm25 = BM25Okapi(tokenized_index_data, k1=self.k1, b=self.b)
 
 if __name__ == "__main__":
-    from src.lean_server.lean3_search_tool import Lean3SearchTool
-    from src.tools.lean_cmd_executor import Constants
+    from copra.lean_server.lean3_search_tool import Lean3SearchTool
+    from copra.tools.lean_cmd_executor import Constants
 
     def take_multiline_input() -> str:
         inp = []

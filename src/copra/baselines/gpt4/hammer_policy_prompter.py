@@ -7,16 +7,16 @@ if root_dir not in sys.path:
 import typing
 import os
 import logging
-from src.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
-from src.prompt_generator.agent_grammar import CoqGPTResponseGrammar
-from src.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
-from src.agent.rate_limiter import RateLimiter
-from src.agent.gpt_guided_tree_search_policy import TreeSearchAction, TreeSearchActionType
-from src.gpts.gpt_access import GptAccess
-from src.gpts.llama_access import LlamaAccess
-from src.rl.proof_action import ProofAction
-from src.prompt_generator.prompter import PolicyPrompter
-from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
+from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
+from copra.prompt_generator.agent_grammar import CoqGPTResponseGrammar
+from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
+from copra.agent.rate_limiter import RateLimiter
+from copra.agent.gpt_guided_tree_search_policy import TreeSearchAction, TreeSearchActionType
+from copra.gpts.gpt_access import GptAccess
+from copra.gpts.llama_access import LlamaAccess
+from copra.rl.proof_action import ProofAction
+from copra.prompt_generator.prompter import PolicyPrompter
+from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 
 class HammerPolicyPrompter(PolicyPrompter):
     sledgehammer_command = "show ?thesis sledgehammer"

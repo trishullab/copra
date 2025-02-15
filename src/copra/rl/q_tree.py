@@ -7,7 +7,7 @@ if root_dir not in sys.path:
 import typing
 import copy
 from collections import OrderedDict, deque
-from src.rl.abstraction import State, Action
+from copra.rl.abstraction import State, Action
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 

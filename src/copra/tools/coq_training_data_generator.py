@@ -8,7 +8,7 @@ if root_dir not in sys.path:
 import typing
 import logging
 import enum
-from src.tools.training_data_format import MergableCollection, TrainingDataFormat
+from copra.tools.training_data_format import MergableCollection, TrainingDataFormat
 from torch.multiprocessing import set_start_method
 try:
      set_start_method('spawn')

@@ -10,16 +10,16 @@ import os
 import uuid
 import typing
 import logging
-from src.agent.gpt_guided_tree_search_policy import ProofQTree
-from src.agent.gpt_guided_tree_search_policy import ProofQTree
-from src.agent.rate_limiter import InvalidActionException
-from src.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptResponse
-from src.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
-from src.rl.abstraction import Policy
-from src.rl.proof_action import ProofAction
-from src.rl.proof_state import ProofState
-from src.rl.simple_proof_env import ProofEnvInfo
-from src.tools.informal_proof_repo import InformalProofRepo
+from copra.agent.gpt_guided_tree_search_policy import ProofQTree
+from copra.agent.gpt_guided_tree_search_policy import ProofQTree
+from copra.agent.rate_limiter import InvalidActionException
+from copra.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptResponse
+from copra.baselines.gpt4.informal_few_shot_policy_prompter import InformalFewShotGptPolicyPrompter
+from copra.rl.abstraction import Policy
+from copra.rl.proof_action import ProofAction
+from copra.rl.proof_state import ProofState
+from copra.rl.simple_proof_env import ProofEnvInfo
+from copra.tools.informal_proof_repo import InformalProofRepo
 
 
 class InformalFewShotGptPolicy(Policy):

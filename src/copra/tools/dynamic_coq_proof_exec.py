@@ -10,10 +10,10 @@ import typing
 import os
 import enum
 import logging
-from src.tools.training_data_format import Goal, TrainingDataFormat
-from src.tools.coq_parse_utils import CoqLineByLineReader
-from src.tools.coq_executor import CoqExecutor
-from src.tools.coq_context_helper import CoqContextHelper
+from copra.tools.training_data_format import Goal, TrainingDataFormat
+from copra.tools.coq_parse_utils import CoqLineByLineReader
+from copra.tools.coq_executor import CoqExecutor
+from copra.tools.coq_context_helper import CoqContextHelper
 
 class IntertwinedIterator(object):
     def __init__(self, iterator: typing.Optional[typing.Iterator[str]] = None):

@@ -7,9 +7,9 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import logging
 import typing
-from src.rl.proof_action import ProofAction
-from src.rl.abstraction import Agent, Policy
-from src.rl.simple_proof_env import ProofEnv
+from copra.rl.proof_action import ProofAction
+from copra.rl.abstraction import Agent, Policy
+from copra.rl.simple_proof_env import ProofEnv
 
 
 class ProofAgent(Agent):

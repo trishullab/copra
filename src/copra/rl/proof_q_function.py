@@ -6,9 +6,9 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 import math
-from src.rl.abstraction import QFunction, State, Action
-from src.rl.proof_env import ProofEnvInfo
-from src.rl.q_tree import QGraph
+from copra.rl.abstraction import QFunction, State, Action
+from copra.rl.proof_env import ProofEnvInfo
+from copra.rl.q_tree import QGraph
 
 class ProofQFunction(QFunction):
     def __init__(self):

@@ -11,10 +11,10 @@ import json
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from enum import Enum
-from src.rl.proof_tree import ProofSearchResult
-from src.rl.proof_action import ProofAction
-from src.rl.simple_proof_env import ProofEnvReRankStrategy
-from src.tools.informal_proof_repo import InformalProofRepo
+from copra.rl.proof_tree import ProofSearchResult
+from copra.rl.proof_action import ProofAction
+from copra.rl.simple_proof_env import ProofEnvReRankStrategy
+from copra.tools.informal_proof_repo import InformalProofRepo
 
 class SettingType(Enum):
     Agent = "Agent"

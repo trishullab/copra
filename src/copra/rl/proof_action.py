@@ -6,10 +6,10 @@ root_dir = f"{__file__.split('src')[0]}"
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
-from src.tools.coq_parse_utils import CoqLineByLineReader
-from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.tools.isabelle_parse_utils import IsabelleLineByLineReader
-from src.rl.abstraction import Action
+from copra.tools.coq_parse_utils import CoqLineByLineReader
+from copra.tools.lean_parse_utils import LeanLineByLineReader
+from copra.tools.isabelle_parse_utils import IsabelleLineByLineReader
+from copra.rl.abstraction import Action
 from enum import Enum
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json

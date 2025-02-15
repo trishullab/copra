@@ -13,10 +13,10 @@ import functools
 import random
 import re
 from collections import OrderedDict
-from src.tools.lean_parse_utils import LeanLineByLineReader
-from src.lean_server.lean_sync_server import SyncLeanServer
-from src.lean_server.commands import Message
-from src.retrieval.abstraction import ReRanker
+from copra.tools.lean_parse_utils import LeanLineByLineReader
+from copra.lean_server.lean_sync_server import SyncLeanServer
+from copra.lean_server.commands import Message
+from copra.retrieval.abstraction import ReRanker
 logger = logging.getLogger()
 
 class Obligation(typing.NamedTuple):

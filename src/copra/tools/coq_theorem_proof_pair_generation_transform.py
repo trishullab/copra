@@ -7,11 +7,11 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 import typing
-from src.tools.coq_context_helper import CoqContextHelper
-from src.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
-from src.tools.training_data_format import Goal, MergableCollection, TrainingDataMetadataFormat, TrainingDataCollection, TrainingDataFormat
-from src.tools.coq_executor import CoqExecutor
-from src.tools.training_data import TrainingData
+from copra.tools.coq_context_helper import CoqContextHelper
+from copra.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
+from copra.tools.training_data_format import Goal, MergableCollection, TrainingDataMetadataFormat, TrainingDataCollection, TrainingDataFormat
+from copra.tools.coq_executor import CoqExecutor
+from copra.tools.training_data import TrainingData
 
 class LocalTheoremProofPairGenerationTransform(GenericTrainingDataGenerationTransform):
     def __init__(self,

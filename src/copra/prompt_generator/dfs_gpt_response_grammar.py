@@ -6,8 +6,8 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import typing
 from enum import Enum
-from src.prompt_generator.interpreter import Grammar
-from src.tools.training_data_format import Goal, TrainingDataFormat
+from copra.prompt_generator.interpreter import Grammar
+from copra.tools.training_data_format import Goal, TrainingDataFormat
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
@@ -310,7 +310,7 @@ ErrorString:;
 
 if __name__ == "__main__":
     import os
-    from src.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
+    from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
     os.chdir(root_dir)
     agent_grammar = DfsAgentGrammar("example_user", "example_assistant")
     conv_file = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"

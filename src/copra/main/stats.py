@@ -6,7 +6,7 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 import logging
 import os
-from src.main.config import EvalProofResults
+from copra.main.config import EvalProofResults
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
