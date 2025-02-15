@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 class Llama2FormatChat(object):
     """
         prompt  = f"<<SYS>>\\n{system}\\n<</SYS>>\\n\\n{user_1}"

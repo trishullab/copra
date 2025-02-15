@@ -27,7 +27,10 @@ dependencies = [
     "itp-interface==1.1.5",
     "openai==0.27.8",
     "tiktoken==0.4.0",
-    "huggingface-hub==0.17.3"
+    "gradio==3.48.0",
+    "sentencepiece==0.1.99",
+    "spaces==0.16.1",
+    "transformers==4.48.0"
 ]
 
 [project.urls]

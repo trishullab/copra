@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from tokenizers import Tokenizer
 import time
 import typing
 import os
