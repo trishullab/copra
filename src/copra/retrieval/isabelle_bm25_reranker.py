@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import logging
 import typing
@@ -60,7 +54,6 @@ class IsabelleBm25ReRanker(ReRanker):
 
 if __name__ == "__main__":
     logging.basicConfig(filename='isabelle_executor.log', filemode='w', level=logging.INFO)
-    os.chdir(root_dir)
     with IsabelleExecutor(use_human_readable_proof_context=True, main_file="data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", project_root="data/benchmarks/miniF2F") as isabelle_exec:
         isabelle_exec.run_to_finish()
         all_lemmas = [str(lemma) for lemma in isabelle_exec.search_type_matching_defns("")] # Get all lemmas

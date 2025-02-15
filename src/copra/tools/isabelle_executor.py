@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
 import signal
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import subprocess
 import logging
@@ -818,11 +814,9 @@ if __name__ == "__main__":
     # with IsabelleStdInOutExecutor() as isabelle_exec:
         # isabelle_exec.run_in_loop()
 
-    # os.chdir(root_dir)
     # with IsabelleCustomFileExec("data/benchmarks/miniF2F/isabelle/test/aime_1983_p1.thy", "data/benchmarks/miniF2F") as isabelle_exec:
     #     isabelle_exec.run_in_loop()
 
-    os.chdir(root_dir)
     IsabelleExecutor.start_server(port=13000)
     try:
         with IsabelleCustomFileExec("data/test/SimpleAlgebra.thy", "data/test") as isabelle_exec:

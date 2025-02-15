@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import logging
 import typing
@@ -121,7 +115,6 @@ class CoqBM25TrainingDataRetriever(object):
 if __name__ == "__main__":
     import time
     import argparse
-    os.chdir(root_dir)
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     logging_dir = f".log/retriever/bm25/{current_time}"
     os.makedirs(logging_dir, exist_ok=True)

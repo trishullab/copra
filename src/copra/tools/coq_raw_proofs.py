@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import logging
 import os
 import typing
@@ -172,7 +167,7 @@ def count_proofs(repo_builder: CoqRepoBuilder, logger: logging.Logger):
 if __name__ == "__main__":
     import time
     import argparse
-    os.chdir(root_dir)
+    root_dir = os.path.abspath(".")
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     logging_dir = f".log/tools/coq_raw_proofs/{current_time}"
     os.makedirs(logging_dir, exist_ok=True)

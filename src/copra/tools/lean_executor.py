@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import copy
 import os
 import logging
@@ -736,7 +731,6 @@ class LeanCustomFileExec:
 
 if __name__ == "__main__":
     logging.basicConfig(filename='lean_executor.log', filemode='w', level=logging.INFO)
-    os.chdir(root_dir)
     project = "data/benchmarks/miniF2F"
     file = "data/benchmarks/miniF2F/lean/src/temp.lean"
     with LeanCustomFileExec(file, project) as lean_exec:

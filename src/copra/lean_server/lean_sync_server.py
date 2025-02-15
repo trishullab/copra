@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 from subprocess import Popen, PIPE, STDOUT
 from threading import Event
@@ -143,7 +139,6 @@ class SyncLeanServer:
 
 if __name__ == "__main__":
     from pathlib import Path
-    os.chdir(root_dir)
     # cwd = 'data/benchmarks/miniF2F'
     cwd = 'data/test/lean_proj'
     # path = f'{cwd}/lean/src/test.lean'

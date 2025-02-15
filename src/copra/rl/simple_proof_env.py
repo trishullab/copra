@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import copy
 import typing
 import logging
@@ -556,7 +551,6 @@ class ProofEnv(Env):
 
 if __name__ == "__main__":
     import os
-    os.chdir(root_dir)
 
     print("Interactive Proof Environment")
     supported_actions = [x.name for x in ProofAction.ActionType]

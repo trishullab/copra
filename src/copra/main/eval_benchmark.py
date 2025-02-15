@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import hydra
 import copy
 import logging
@@ -594,7 +588,6 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
 @hydra.main(config_path="config", config_name="experiments", version_base="1.2")
 def main(cfg):
     experiment = parse_config(cfg)
-    os.chdir(root_dir)
     log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, time.strftime("%Y%m%d-%H%M%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "eval.log")

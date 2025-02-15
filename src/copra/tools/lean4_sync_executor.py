@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import bisect
 import random
@@ -1022,7 +1018,6 @@ if __name__ == "__main__":
     # file_path = 'data/test/lean4_proj/Lean4Proj/Basic.lean'
     project_root = 'data/test/lean4_proj/'
     file_path = 'data/test/lean4_proj/Lean4Proj/Basic.lean'
-    os.chdir(root_dir)
     assert os.path.exists(project_root), "Project root does not exist"
     assert os.path.exists(file_path), "File path does not exist"
     print("Finding all theorems in the file")

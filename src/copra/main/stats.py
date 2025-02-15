@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import logging
 import os
 from copra.main.config import EvalProofResults
@@ -117,7 +113,6 @@ if __name__ == "__main__":
     parser.add_argument("--b", type=str, required=True)
     parser.add_argument("--info", choices=["diff"], required=True)
     args = parser.parse_args()
-    os.chdir(root_dir)
     log_dir = ".log/stats/{}".format(time.strftime("%Y%m%d-%H%M%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, f"stats_{args.info}.log")

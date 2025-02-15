@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import typing
 from copra.prompt_generator.interpreter import Grammar
@@ -281,7 +277,6 @@ String:;
         return result
 
 if __name__ == "__main__":
-    os.chdir(root_dir)
     grammar = GptAgentGrammar("example_user", "example_assistant")
     result = grammar.get_openai_conv_messages("data/prompts/conversation/coq-proof-agent-example.md", "system")
     print(result)  

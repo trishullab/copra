@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import logging
 import typing
@@ -477,6 +473,5 @@ if __name__ == "__main__":
     logging.basicConfig(filename='coq_executor.log', filemode='w', level=logging.INFO)
     # with CoqStdInOutExecutor() as coq_exec:
     #     coq_exec.run_in_loop()
-    os.chdir(root_dir)
     with CoqCustomFileExec("data/test/SimpleAlgebra.v") as coq_exec:
         coq_exec.run_in_loop()

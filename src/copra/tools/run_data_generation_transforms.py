@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import ray
 import logging
@@ -310,7 +305,6 @@ class RunDataGenerationTransforms(object):
 if __name__ == "__main__":
     import time
     import argparse
-    os.chdir(root_dir)
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     logging_dir = f".log/run_data_generation_transforms/logs/{current_time}"
     os.makedirs(logging_dir, exist_ok=True)

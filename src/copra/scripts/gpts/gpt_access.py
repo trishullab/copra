@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import json
 import openai
@@ -222,7 +218,6 @@ class GptAccess(object):
         return self.usage
 
 if __name__ == "__main__":
-    os.chdir(root_dir)
     # openai_access = GptAccess(model_name="gpt-3.5-turbo")
     openai_access = GptAccess(model_name="gpt-4")
     # openai_access = GptAccess(model_name="davinci")

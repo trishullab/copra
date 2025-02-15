@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import logging
 import typing
@@ -269,7 +265,6 @@ class CoqRepoBuilder:
 # nohup python3 src/tools/coq_build_tool.py --root_project data/benchmarks/CompCert --build_spec data/benchmarks/compcert_projs_splits.json --info_file data/benchmarks/compcert_projs_build.log.json --option build &
 if __name__ == "__main__":
     import time
-    os.chdir(root_dir)
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     logging_dir = f".log/build_logs"
     try:

@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 
-import sys
-
 from tokenizers import Tokenizer
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import time
 import typing
 import os
-import openai
 import random
 import logging
 import threading

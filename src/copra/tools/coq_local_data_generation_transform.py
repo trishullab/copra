@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
-
 import typing
 from copra.tools.coq_context_helper import CoqContextHelper
 from copra.tools.coq_training_data_generator import GenericTrainingDataGenerationTransform, TrainingDataGenerationType
@@ -118,7 +112,6 @@ if __name__ == "__main__":
     import os
     import logging
     import time
-    os.chdir(root_dir)
     project_dir = "data/test/coq/custom_group_theory/theories"
     file_name = "data/test/coq/custom_group_theory/theories/grpthm.v"
     output_path = ".log/local_data_generation_transform/data/"

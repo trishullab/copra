@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 from copra.prompt_generator.interpreter import Grammar
 
@@ -115,7 +111,6 @@ String:;
         return result
 
 if __name__ == "__main__":
-    os.chdir(root_dir)
     grammar = DfsAgentGrammar("example_user", "example_assistant")
     conv_file = "data/prompts/conversation/coq-proof-agent-example-long-conv-dfs.md"
     assert os.path.exists(conv_file), f"File {conv_file} does not exist"

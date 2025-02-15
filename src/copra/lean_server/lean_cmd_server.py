@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-root_dir = f"{__file__.split('src')[0]}"
-if root_dir not in sys.path:
-    sys.path.append(root_dir)
 import os
 import typing
 from subprocess import Popen, PIPE, STDOUT
@@ -101,7 +97,6 @@ class LeanCmdServer:
         return LeanCmdServerResponse(state, final_messages)
 
 if __name__ == "__main__":
-    os.chdir(root_dir)
     cwd = 'data/test/lean_proj'
     path = 'src/simple.lean'
     server = LeanCmdServer(cwd=cwd)
