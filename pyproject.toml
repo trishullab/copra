@@ -1,0 +1,44 @@
+[build-system]
+requires = [
+    "hatchling"
+]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/copra"]
+
+
+[project]
+name = "copra"
+version = "1.0.0"
+authors = [
+  { name="Amitayush Thakur", email="amitayush@utexas.edu" },
+]
+description = "Python library for running proof search using CoPra"
+readme = "README.md"
+requires-python = ">=3.9, <3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    "itp-interface==1.1.7",
+    "openai==0.27.8",
+    "tiktoken==0.4.0",
+    "gradio==3.48.0",
+    "sentencepiece==0.1.99",
+    "spaces==0.16.1",
+    "transformers==4.48.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/trishullab/copra"
+Issues = "https://github.com/trishullab/copra/issues"
+
+# [project.scripts]
+# copra-install-prereqs = "copra.main.install:install_prereqs"
+# copra-build-compcert = "copra.main.install:build_compcert"
+# copra-build-minif2f-lean3 = "copra.main.install:build_minif2f_lean3"
+# copra-build-minif2f-lean4 = "copra.main.install:build_minif2f_lean4"
