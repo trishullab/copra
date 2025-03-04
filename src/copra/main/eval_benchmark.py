@@ -540,7 +540,7 @@ def measure_success(benchmark : EvalBenchmark, eval_settings : EvalSettings, eva
         logger.info(f"Success rate: {success_count}/{total_attempted} = {success_count/total_attempted} for benchmark: {benchmark.name}")
         f.write(f"Success rate: {success_count}/{total_attempted} = {success_count/total_attempted} for benchmark: {benchmark.name}\n")
 
-def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None):
+def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger = None, timestr = None):
     trial_cnt = 1
     env_settings = experiment.env_settings
     eval_settings = experiment.eval_settings
@@ -557,7 +557,7 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
         eval_settings.proof_dump_dir = checkpoint_info.proof_dump_dir
         checkpoint_info.logging_dirs.append(log_dir)
     else:
-        time_now = time.strftime("%Y%m%d-%H%M%S")
+        time_now = time.strftime("%Y%m%d-%H%M%S") if timestr is None else timestr
         eval_settings.proof_dump_dir = os.path.join(eval_settings.proof_dump_dir, benchmark.name, time_now)
         os.makedirs(eval_settings.proof_dump_dir, exist_ok=True)
         checkpoint_info = EvalRunCheckpointInfo(
@@ -589,13 +589,14 @@ def eval_benchmark(experiment: Experiments, log_dir: str, logger: logging.Logger
 @hydra.main(config_path="config", config_name="experiments", version_base="1.2")
 def main(cfg):
     experiment = parse_config(cfg)
-    log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, time.strftime("%Y%m%d-%H%M%S"))
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    log_dir = ".log/evals/benchmark/{}/{}".format(experiment.benchmark.name, timestr)
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "eval.log")
     logger = setup_logger(__name__, log_path, logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.info(f"Pid: {os.getpid()}")
     logger.info(f"Running Experiment: {experiment.to_json(indent=4)}")
-    eval_benchmark(experiment, log_dir, logger=logger)
+    eval_benchmark(experiment, log_dir, logger=logger, timestr=timestr)
     pass
 
 if __name__ == "__main__":
