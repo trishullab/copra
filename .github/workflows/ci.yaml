@@ -50,7 +50,7 @@ jobs:
           source $HOME/.elan/env
 
       - name: Configure
-        working-directory: lean4
+        working-directory: data/test/lean4_proj
         run: |
             source $HOME/.elan/env
             lake exe cache get
