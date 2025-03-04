@@ -152,7 +152,10 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 project_folder=dataset.project,
                 file_path=path,
                 language=eval_benchmark.language,
-                use_hammer=eval_settings.use_hammer,
+                use_hammer=False 
+                if eval_benchmark.language == ProofAction.Language.LEAN4 or 
+                eval_benchmark.language == ProofAction.Language.LEAN
+                else eval_settings.use_hammer,
                 timeout_in_secs=eval_settings.timeout_in_secs,
                 use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
                 suppress_error_log=True,
@@ -162,7 +165,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 project_folder=dataset.project,
                 file_path=path,
                 language=eval_benchmark.language,
-                use_hammer=HammerMode.NONE, # We don't need hammer for this
+                use_hammer=False, # We don't need hammer for this
                 timeout_in_secs=eval_settings.timeout_in_secs,
                 use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
                 suppress_error_log=True,
