@@ -20,11 +20,6 @@ jobs:
             path: ~/.cache
             key: oleans
 
-      - name: Configure
-        working-directory: lean4
-        run: |
-            lake exe cache get
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -53,6 +48,11 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           source $HOME/.elan/env
+
+      - name: Configure
+        working-directory: lean4
+        run: |
+            lake exe cache get
 
       - name: Install Lean and ITP Interface
         run: |
