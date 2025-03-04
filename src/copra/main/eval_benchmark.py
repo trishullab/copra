@@ -33,6 +33,7 @@ from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as D
 from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as DynamicLeanProofExecutor
 from itp_interface.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
 from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
+from itp_interface.tools.misc_defns import HammerMode
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -161,7 +162,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 project_folder=dataset.project,
                 file_path=path,
                 language=eval_benchmark.language,
-                use_hammer=ProofAction.HammerMode.NONE, # We don't need hammer for this
+                use_hammer=HammerMode.NONE, # We don't need hammer for this
                 timeout_in_secs=eval_settings.timeout_in_secs,
                 use_human_readable_proof_context=eval_settings.use_human_readable_proof_context,
                 suppress_error_log=True,
@@ -258,7 +259,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             informal_proof_repo = prompt_settings.get_informal_proof_repo()
                         else:
                             informal_proof_repo = None
-                        if eval_settings.use_hammer == ProofAction.HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
+                        if eval_settings.use_hammer == HammerMode.ALWAYS and eval_benchmark.language == ProofAction.Language.ISABELLE:
                             policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
                         else:
                             policy_prompter_class = DfsCoqGptPolicyPrompter
