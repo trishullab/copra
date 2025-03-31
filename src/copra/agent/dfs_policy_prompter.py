@@ -5,19 +5,19 @@ import typing
 import os
 import time
 import logging
-from openai.error import InvalidRequestError
+from itp_interface.rl.proof_action import ProofAction
+from itp_interface.rl.simple_proof_env import ProgressState
 from copra.agent.rate_limiter import RateLimiter, InvalidActionException
 from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
 from copra.gpts.gpt_access import GptAccess
 from copra.gpts.llama_access import LlamaAccess, ServiceDownError
-from itp_interface.rl.proof_action import ProofAction
-from itp_interface.rl.simple_proof_env import ProgressState
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
 from copra.tools.informal_proof_repo import InformalProofRepo
+from copra.tools.misc import is_open_ai_model
 
 class DfsCoqGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
@@ -38,18 +38,19 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None,
             informal_proof_repo: typing.Optional[InformalProofRepo] = None,
-            lemma_name: typing.Optional[str] = None):
+            lemma_name: typing.Optional[str] = None,
+            model_params: typing.Optional[typing.Dict[str, typing.Any]] = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.model_name = gpt_model_name
-        use_defensive_parsing = not gpt_model_name.startswith("gpt")
+        use_defensive_parsing = not is_open_ai_model(gpt_model_name)
         self.coq_gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
         self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not gpt_model_name.startswith("gpt"):
+        if not is_open_ai_model(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
@@ -60,6 +61,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self.temperature = temperature
         self.num_sequences = num_sequences
         self.system_token_count = self._gpt_access.num_tokens_from_messages(self.system_messages)
+        self._model_params = model_params if model_params is not None else {}
         self._max_tokens_per_action = max_tokens_per_action
         self._history_token_count = 0
         self._message_history = []
@@ -344,12 +346,21 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                         self.logger.info(f"Example {idx + 1} [{msg['role'], msg['name']}] :\n{msg['content']}")
                 self.logger.info(f"Prompt Message:\n{prompt_message['content']}")
                 request_start_time = time.time()
-                responses, usage = self._gpt_access.complete_chat(
-                    messages,
-                    n=self.num_sequences,
-                    temperature=temperature,
-                    max_tokens=tokens_to_generate,
-                    stop=["[END]"])
+                if len(self._model_params) > 0:
+                    responses, usage = self._gpt_access.complete_chat(
+                        messages,
+                        n=self.num_sequences,
+                        temperature=temperature,
+                        max_tokens=tokens_to_generate,
+                        stop=["[END]"],
+                        **self._model_params)
+                else:
+                    responses, usage = self._gpt_access.complete_chat(
+                        messages,
+                        n=self.num_sequences,
+                        temperature=temperature,
+                        max_tokens=tokens_to_generate,
+                        stop=["[END]"])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
@@ -374,10 +385,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                         self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                         self.logger.debug(f"Response messages: \n{responses}")
                 self._num_api_calls += 1
-            except InvalidRequestError as e:
-                self.logger.info("Got an invalid request error. Not retrying.")
-                self.logger.exception(e)
-                raise
             except ServiceDownError as e:
                 self.logger.info("Got a service down error. Will giveup until the docker container is restarted.")
                 self.logger.exception(e)

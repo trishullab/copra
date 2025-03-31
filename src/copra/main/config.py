@@ -3,7 +3,7 @@
 import typing
 import os
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from enum import Enum
 from copra.tools.informal_proof_repo import InformalProofRepo
@@ -96,6 +96,7 @@ class EvalSettings(object):
     use_example_retrieval: bool = False
     always_use_useful_theorem_retrieval: bool = False
     num_goal_per_prompt: typing.Optional[int] = None
+    model_params: typing.Dict[str, typing.Any] = field(default_factory=dict)
 
 @dataclass_json
 @dataclass
@@ -203,7 +204,8 @@ def parse_config(cfg):
         sample_seed=eval_settings_cfg["sample_seed"],
         use_example_retrieval=eval_settings_cfg["use_example_retrieval"],
         always_use_useful_theorem_retrieval=eval_settings_cfg["always_use_useful_theorem_retrieval"],
-        num_goal_per_prompt=eval_settings_cfg["num_goal_per_prompt"])
+        num_goal_per_prompt=eval_settings_cfg["num_goal_per_prompt"],
+        model_params=eval_settings_cfg["model_params"] if "model_params" in eval_settings_cfg else {})
     benchmark_cfg = cfg["benchmark"]
     datasets_cfg = benchmark_cfg["datasets"]
     eval_datasets = []

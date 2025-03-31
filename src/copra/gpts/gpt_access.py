@@ -169,7 +169,7 @@ class GptAccess:
                         message["role"] = "user" # No system role in o1
                     name = message.get("name")
                     if name is not None:
-                        message["content"] = f"\n`{name}:\n{message['content']}`\n"
+                        message["content"] = f"```\n{name}:\n{message['content']}```\n"
                         message.pop("name")
                 # Now merge all same role messages occurring together into one message
                 merged_messages = []
@@ -179,6 +179,10 @@ class GptAccess:
                     else:
                         merged_messages[-1]["content"] += message["content"]
                 messages = merged_messages
+                for message in messages:
+                    for key in message:
+                        if key not in ["role", "content"]:
+                            message.pop(key)
                 if self.model_name == "o1-mini":
                     response = self.client.chat.completions.create(
                         model=model,
@@ -208,8 +212,8 @@ class GptAccess:
                     self.usage["completion_tokens"] += usage.output_tokens
                     self.usage["total_tokens"] += usage.total_tokens
                     return_responses = [{"role": "assistant", "content": response.output_text}]
-                    return_responses[-1]["finish_reason"] = "stop" if response.status == "complete" else "length"
-                    stopping_reasons = "stop" if response.status == "complete" else "length"
+                    return_responses[-1]["finish_reason"] = "stop" if response.status == "completed" else "length"
+                    stopping_reasons = "stop" if response.status == "completed" else "length"
             else:
                 response = self.client.chat.completions.create(
                     model=model,

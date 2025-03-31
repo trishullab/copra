@@ -58,6 +58,7 @@ jobs:
       - name: Install Lean and ITP Interface
         run: |
           source $HOME/.elan/env
+          export LEAN_VERSION="4.17.0"
           install-lean-repl
           install-itp-interface
           

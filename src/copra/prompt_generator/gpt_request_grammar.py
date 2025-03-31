@@ -108,7 +108,8 @@ String:;
             return self.normal_parsing(message)
     
     def normal_parsing(self, message):
-        message += CoqGPTRequestGrammar.end
+        if not message.endswith(CoqGPTRequestGrammar.end):
+            message += CoqGPTRequestGrammar.end
         result : CoqGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
