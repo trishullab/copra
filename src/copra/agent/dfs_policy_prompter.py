@@ -326,7 +326,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, self._max_tokens_per_action)
         success = False
-        retries = 3
+        retries = 6
         time_to_sleep = 60
         exp_factor = 1.06
         tokens_factor = 1.75
@@ -334,7 +334,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         max_temp = 0.4
         temperature = self.temperature
         tokens_to_generate = self._max_tokens_per_action
-        upper_bound = 3 * self._max_tokens_per_action
+        upper_bound = 10 * self._max_tokens_per_action
         responses = None
         while not success and retries > 0:
             try:
@@ -364,13 +364,13 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
-                self.logger.debug(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Approx. output {apporx_output_tokens} tokens.")
+                self.logger.info(f"Request took {time_taken} seconds. Used {usage['total_tokens']} tokens. Used {usage['completion_tokens']} completion tokens. Approx. output {apporx_output_tokens} tokens.")
                 reason = usage["reason"]
                 self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
                 success = reason != "length" or tokens_to_generate >= upper_bound
                 if not success:
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
-                    self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.")
+                    self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.  Used {usage['completion_tokens']} completion tokens.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     max_token_per_prompt = self._max_token_per_prompt - self.system_token_count - tokens_to_generate
                     prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_token_per_prompt) # Re-generate the prompt message within new token limit

@@ -261,7 +261,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         max_temp = 0.4
         temperature = self.temperature
         tokens_to_generate = self._max_tokens_per_action
-        upper_bound = 3 * self._max_tokens_per_action
+        upper_bound = 5 * self._max_tokens_per_action
         responses = None
         while not success and retries > 0:
             try:
