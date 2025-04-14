@@ -74,6 +74,7 @@ class GptAccess:
         assert os.path.exists(secret_filepath), "Secret filepath does not exist"
         self.secret_filepath = secret_filepath
         self._load_secret()
+        self.is_open_ai_model = True
         # Use our static dictionary keys as the supported model list.
         self.models_supported_name = list(self.gpt_model_info.keys())
         if model_name is not None:
@@ -123,26 +124,6 @@ class GptAccess:
         results.sort(key=lambda x: x[1], reverse=True)
         return results
 
-    def __init__(self,
-        secret_filepath: str = ".secrets/openai_key.json",
-        model_name: typing.Optional[str] = None) -> None:
-        assert secret_filepath.endswith(".json"), "Secret filepath must be a .json file"
-        assert os.path.exists(secret_filepath), "Secret filepath does not exist"
-        self.secret_filepath = secret_filepath
-        self._load_secret()
-        self.client = OpenAI(api_key=self.api_key)
-        self.models_supported = self.client.models.list().data
-        self.models_supported_name = [model.id for model in self.models_supported]
-        if model_name is not None:
-            assert model_name in self.models_supported_name, f"Model name {model_name} not supported"
-            self.model_name = model_name
-        self.is_open_ai_model = True
-        self.usage = {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0
-        }
-
     def complete_chat(self,
             messages: typing.List[typing.Dict[str, str]],
             model: typing.Optional[str] = None,
@@ -180,7 +161,7 @@ class GptAccess:
                         merged_messages[-1]["content"] += message["content"]
                 messages = merged_messages
                 for message in messages:
-                    for key in message:
+                    for key in list(message.keys()):
                         if key not in ["role", "content"]:
                             message.pop(key)
                 if self.model_name == "o1-mini":
@@ -199,7 +180,12 @@ class GptAccess:
                         return_responses[i]["finish_reason"] = "stop"
                     if len(response.choices) > 0:
                         return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-                    stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"                    
+                    stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+                    usage = {
+                        "prompt_tokens": usage.prompt_tokens,
+                        "completion_tokens": usage.completion_tokens,
+                        "total_tokens": usage.total_tokens
+                    }                    
                 else:
                     response = self.client.responses.create(
                         model=model,
@@ -214,6 +200,11 @@ class GptAccess:
                     return_responses = [{"role": "assistant", "content": response.output_text}]
                     return_responses[-1]["finish_reason"] = "stop" if response.status == "completed" else "length"
                     stopping_reasons = "stop" if response.status == "completed" else "length"
+                    usage = {
+                        "prompt_tokens": usage.input_tokens,
+                        "completion_tokens": usage.output_tokens,
+                        "total_tokens": usage.total_tokens
+                    }
             else:
                 response = self.client.chat.completions.create(
                     model=model,
@@ -236,6 +227,11 @@ class GptAccess:
                 if len(response.choices) > 0:
                     return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
                 stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+                usage = {
+                    "prompt_tokens": usage.prompt_tokens,
+                    "completion_tokens": usage.completion_tokens,
+                    "total_tokens": usage.total_tokens
+                }
         else:
             response = self.client.chat.completions.create(
                 model=model,
@@ -256,9 +252,9 @@ class GptAccess:
                 return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
             stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
         usage_dict = {
-            "prompt_tokens": self.usage["prompt_tokens"],
-            "completion_tokens": self.usage["completion_tokens"],
-            "total_tokens": self.usage["total_tokens"],
+            "prompt_tokens": usage["prompt_tokens"],
+            "completion_tokens": usage["completion_tokens"],
+            "total_tokens": usage["total_tokens"],
             "reason": stopping_reasons
         }
         return return_responses, usage_dict
@@ -322,6 +318,9 @@ class IntegrationTests(unittest.TestCase):
     
     def test_o1_mini_model(self):
         self._run_chat_test("o1-mini", token_count=300)
+    
+    def test_o1_model(self):
+        self._run_chat_test("o1", token_count=300)
 
 if __name__ == "__main__":
     unittest.main()
