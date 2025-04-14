@@ -144,7 +144,7 @@ rw [id_factored]
 
 `example_assistant`
 [RUN TACTIC]
-  apply [dvd_add id]
+apply [dvd_add id]
 [END]
 
 
@@ -248,7 +248,7 @@ have h_f0 : f 0 = 1 := by
 
 `example_assistant`
 [RUN TACTIC]
-$  rw [Nat.sub_eq_iff_eq_add'] at h0'
+  rw [Nat.sub_eq_iff_eq_add'] at h0'
   symm at h0'
 [END]
 
@@ -342,7 +342,7 @@ have h_f0 : f 0 = 1 := by
 
 `example_assistant`
 [RUN TACTIC]
-$  by_contra h_f0_gt_4
+  by_contra h_f0_gt_4
   simp at h_f0_gt_4
 [END]
 
@@ -389,8 +389,8 @@ have h_f0 : f 0 = 1 := by
 
 `example_assistant`
 [RUN TACTIC]
-$   -- Let us show that 4 - f 0 = 0 so that we can use it to show contradiction later 
-    have h_4_minus_f0 : 4 - f 0 = 0 := by
+  -- Let us show that 4 - f 0 = 0 so that we can use it to show contradiction later 
+  have h_4_minus_f0 : 4 - f 0 = 0 := by
 [END]
 
 `example_user`
@@ -447,7 +447,7 @@ have h_f0 : f 0 = 1 := by
 
 `example_assistant`
 [RUN TACTIC]
-$    rw [Nat.lt_iff_le_not_le] at h_f0_gt_4
+    rw [Nat.lt_iff_le_not_le] at h_f0_gt_4
     have h_4_le_f0 : 4 ≤ f 0 := by
       linarith [h_f0_gt_4]
 [END]

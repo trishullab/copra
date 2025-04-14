@@ -23,9 +23,9 @@ Prog:
 | GetDfnsThmsRequest
 | String Prog;
 GetDfnsThmsRequest:
-    GetDfnsThms End;
+  GetDfnsThms End;
 RunTacticRequest:
-    RunTactic StpRequests End;
+  RunTactic StpRequests End;
 StpRequests:
   String;
 
@@ -68,7 +68,7 @@ String:;
             context.args.reverse()
         elif nonTerminal == "StpRequests":
             assert len(nodes) >= 1
-            str_node = str(nodes[0]).strip()
+            str_node = str(nodes[0])
             if len(str_node) > 0:
                 context.args.append(str_node)
         else:
@@ -107,10 +107,24 @@ String:;
         else:
             return self.normal_parsing(message)
     
-    def normal_parsing(self, message):
+    def normal_parsing(self, message: str):
         if not message.endswith(CoqGPTRequestGrammar.end):
             message += CoqGPTRequestGrammar.end
-        result : CoqGptRequest = self.run(message, None)            
+        message = message.strip()
+        message = message.rstrip(CoqGPTRequestGrammar.end)
+        action = None
+        if message.startswith(CoqGptRequestActions.RUN_TACTIC):
+            message = message[len(CoqGptRequestActions.RUN_TACTIC):]
+            action = CoqGptRequestActions.RUN_TACTIC
+        elif message.startswith(CoqGptRequestActions.GET_DFNS_THMS):
+            message = message[len(CoqGptRequestActions.GET_DFNS_THMS):]
+            action = CoqGptRequestActions.GET_DFNS_THMS
+        else:
+            raise Exception(f"Invalid message {message}")
+        # Remove any newlines at the beginning or end
+        message = message.strip('\n')
+        result = CoqGptRequest(action=action, args=[message])
+        # result : CoqGptRequest = self.run(message, None)            
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
 
@@ -204,6 +218,14 @@ rewrite <- plus_n_O.[END]"""
     result = grammar.compile(code)
     print(result)
     run_result = grammar.run(code, None)
+    print(run_result)
+    code = """
+[RUN TACTIC]
+    ring_nf
+[END]"""
+    result = grammar.compile(code)
+    print(result)
+    run_result = grammar.normal_parsing(code)
     print(run_result)
     result = grammar.compile(
 """
