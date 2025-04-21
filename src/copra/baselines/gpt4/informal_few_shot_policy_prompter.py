@@ -3,7 +3,6 @@
 import typing
 import os
 import time
-from openai.error import InvalidRequestError
 import logging
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.agent.rate_limiter import RateLimiter, InvalidActionException
@@ -14,6 +13,7 @@ from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.baselines.gpt4.informal_few_shot_grammar import InformalFewShotGptRequestGrammar, InformalFewShotGptResponse, InformalFewShotGptResponseGrammar
+from copra.tools.misc import is_open_ai_model
 
 
 class InformalFewShotGptPolicyPrompter(PolicyPrompter):
@@ -38,13 +38,13 @@ class InformalFewShotGptPolicyPrompter(PolicyPrompter):
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.language = language
         self.model_name = gpt_model_name
-        use_defensive_parsing = not gpt_model_name.startswith("gpt")
+        use_defensive_parsing = not is_open_ai_model(gpt_model_name)
         self.gpt_request_grammar = InformalFewShotGptRequestGrammar(language, use_defensive_parsing)
         self.gpt_response_grammar = InformalFewShotGptResponseGrammar(language)
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not gpt_model_name.startswith("gpt"):
+        if not is_open_ai_model(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
@@ -262,7 +262,7 @@ class InformalFewShotGptPolicyPrompter(PolicyPrompter):
         max_temp = 0.4
         temperature = self.temperature
         tokens_to_generate = self._max_tokens_per_action
-        upper_bound = 3 * self._max_tokens_per_action
+        upper_bound = 5 * self._max_tokens_per_action
         responses = None
         while not success and retries > 0:
             try:
@@ -304,10 +304,6 @@ class InformalFewShotGptPolicyPrompter(PolicyPrompter):
                         self.logger.debug(f"Got a valid response. Reason: \n{reason}")
                         self.logger.debug(f"Response messages: \n{responses}")
                 self._num_api_calls += 1
-            except InvalidRequestError as e:
-                self.logger.info("Got an invalid request error. Not retrying.")
-                self.logger.exception(e)
-                raise
             except Exception as e:
                 self.logger.info("Got an unknown exception. Retrying.")
                 self.logger.exception(e)

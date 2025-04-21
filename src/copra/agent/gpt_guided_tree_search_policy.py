@@ -127,6 +127,13 @@ class TreeSearchAlgorithm(ABC):
         pass
 
     @abstractmethod
+    def add_delayed(self, action: ProofAction):
+        """
+        Adds a delayed action to the tree search algorithm.
+        """
+        pass
+
+    @abstractmethod
     def __call__(self, tree: ProofQTree, state: ProofState) -> TreeSearchAction:
         pass
 
@@ -173,6 +180,20 @@ class GptGuidedTreeSearchPolicy(Policy):
             self.checkpoint()
         self._policy_prompter.__exit__(exc_type, exc_value, traceback)
     
+    def add_delayed(self, action: ProofAction):
+        """
+        Adds a delayed action to the policy.
+        """
+        self._policy_prompter.add_delayed(action)
+        return self._tree_search_algorithm.add_delayed(action)
+    
+    def reset_last_action(self, action: ProofAction):
+        """
+        Resets the last action taken by the policy.
+        """
+        self._policy_prompter.reset_last_action(action)
+        pass
+
     def load_from_checkpoint_if_exists(self):
         checkpoint_path = os.path.join(self.checkpoint_dir, self.checkpoint_filename)
         if os.path.exists(checkpoint_path) and self._proof_q_tree is None:
@@ -208,6 +229,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         if not done:
             # No need to update if the proof is done
             self._tree_search_algorithm.update_new_node(self._proof_q_tree, state, action, next_state, reward, done, info)
+            self._policy_prompter.fix_action(action)
 
     def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
         return {

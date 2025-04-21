@@ -34,6 +34,7 @@ from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as 
 from itp_interface.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
 from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from itp_interface.tools.misc_defns import HammerMode
+from copra.tools.misc import is_open_ai_model
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -91,7 +92,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
 
 def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
-    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not is_open_ai_model(eval_settings.gpt_model_name):
         llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         # This is a llama model
         LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
@@ -266,22 +267,41 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                             policy_prompter_class = HammerDfsIsabelleGptPolicyPrompter
                         else:
                             policy_prompter_class = DfsCoqGptPolicyPrompter
-                        policy_prompter = policy_prompter_class(
-                            main_sys_prompt_path=prompt_settings.main_prompt,
-                            example_conv_prompt_path=prompt_settings.conv_prompt,
-                            max_tokens_per_action=eval_settings.max_tokens_per_action,
-                            gpt_model_name=eval_settings.gpt_model_name,
-                            temperature=eval_settings.temperature,
-                            max_history_messages=eval_settings.max_history_messages,
-                            k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
-                            retrieve_prompt_examples=eval_settings.use_example_retrieval,
-                            num_goal_per_prompt=eval_settings.num_goal_per_prompt,
-                            training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
-                            metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
-                            language=eval_benchmark.language,
-                            logger=logger,
-                            informal_proof_repo=informal_proof_repo,
-                            lemma_name=lemma_name)
+                        if len(eval_settings.model_params) > 0:
+                            policy_prompter = policy_prompter_class(
+                                main_sys_prompt_path=prompt_settings.main_prompt,
+                                example_conv_prompt_path=prompt_settings.conv_prompt,
+                                max_tokens_per_action=eval_settings.max_tokens_per_action,
+                                gpt_model_name=eval_settings.gpt_model_name,
+                                temperature=eval_settings.temperature,
+                                max_history_messages=eval_settings.max_history_messages,
+                                k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                                retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                                num_goal_per_prompt=eval_settings.num_goal_per_prompt,
+                                training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                                metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                                language=eval_benchmark.language,
+                                logger=logger,
+                                informal_proof_repo=informal_proof_repo,
+                                lemma_name=lemma_name,
+                                model_params=eval_settings.model_params)
+                        else:
+                            policy_prompter = policy_prompter_class(
+                                main_sys_prompt_path=prompt_settings.main_prompt,
+                                example_conv_prompt_path=prompt_settings.conv_prompt,
+                                max_tokens_per_action=eval_settings.max_tokens_per_action,
+                                gpt_model_name=eval_settings.gpt_model_name,
+                                temperature=eval_settings.temperature,
+                                max_history_messages=eval_settings.max_history_messages,
+                                k=eval_settings.max_theorems_in_prompt,  # k is the number of theorems to consider at each step
+                                retrieve_prompt_examples=eval_settings.use_example_retrieval,
+                                num_goal_per_prompt=eval_settings.num_goal_per_prompt,
+                                training_data_path=eval_benchmark.dfs_data_path_for_retrieval,
+                                metadata_filename=eval_benchmark.dfs_metadata_filename_for_retrieval,
+                                language=eval_benchmark.language,
+                                logger=logger,
+                                informal_proof_repo=informal_proof_repo,
+                                lemma_name=lemma_name)
                         dfs_tree_search = DFSTreeSearch(language=eval_benchmark.language)
                         search_guidance_policy = GptGuidedTreeSearchPolicy(
                             eval_settings.checkpoint_dir, 
@@ -455,7 +475,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 if not return_dict["service_down"] or \
                                     (eval_settings.gpt_model_name is not None and \
                                     len(eval_settings.gpt_model_name) != 0 and \
-                                    eval_settings.gpt_model_name.startswith("gpt")) or \
+                                    is_open_ai_model(eval_settings.gpt_model_name)) or \
                                     max_retry <= 1:
                                     logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
                                     proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
@@ -510,7 +530,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
         proof_attempts_done = not any_proof_attempted
 
-    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not eval_settings.gpt_model_name.startswith("gpt"):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not is_open_ai_model(eval_settings.gpt_model_name):
         # This is a llama model
         LlamaAccess.class_kill()
     if eval_benchmark.language == ProofAction.Language.ISABELLE:

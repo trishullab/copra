@@ -6,3 +6,7 @@
 	path = data/benchmarks/miniF2F
 	url = https://github.com/facebookresearch/miniF2F.git
 	ignore = dirty
+[submodule "data/test/miniF2F-lean4"]
+	path = data/test/miniF2F-lean4
+	url = https://github.com/yangky11/miniF2F-lean4.git
+	ignore = dirty

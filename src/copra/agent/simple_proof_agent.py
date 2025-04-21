@@ -2,9 +2,11 @@
 
 import logging
 import typing
+import copy
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.rl.abstraction import Agent, Policy
-from itp_interface.rl.simple_proof_env import ProofEnv
+from itp_interface.rl.simple_proof_env import ProofEnv, ProgressState
+from copra.agent.handle_have_tactic import HandleHaveTactic
 
 
 class ProofAgent(Agent):
@@ -59,22 +61,33 @@ class ProofAgent(Agent):
             policy_info_message: typing.Callable[[int, typing.Dict[str, typing.Any]], str],
             render: bool):
         env.reset()
+        lean_hack = HandleHaveTactic()
         done = False
         steps = 0
         total_reward = 0
         next_state = env.state
         additional_info = self._policy.get_efficiency_info()
+        action_fixed = True
         while not done and not stop_policy(steps, additional_info):
             self.logger.info(policy_info_message(steps, additional_info))
             self.logger.info("Asking policy for next action")
             action = self._policy(next_state)
             assert isinstance(action, ProofAction)
             self.logger.info(f"Got Action: {action}")
+            lean_hack.parse_have_tactic_action(action)
             if action.action_type != ProofAction.ActionType.EXIT:
-                state, action, next_state, reward, done, info = env.step(action)
+                action_fixed, alternate_action = lean_hack.fix_action(action, self.logger)
+                assert action_fixed, f"Action {action} is not fixed"
+                new_action = copy.deepcopy(action)
+                if new_action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                    new_action.kwargs['tactics'] = [alternate_action.kwargs['tactics'][0]]
+                    if len(alternate_action.kwargs.get('tactics', [])) > 1:
+                        self._policy.reset_last_action(new_action)
+                state, action, next_state, reward, done, info = env.step(new_action)
                 # **IMPORTANT NOTE**: Here we update the action because sometimes the proof env can optimize the action
                 # and return a different action which kind of aligns with the action taken by the
                 # policy but only more efficient. This is slightly different traditional RL setting
+                lean_hack.scope_state(state, action, next_state, info, self.logger)
                 if render:
                     self.logger.info("**"*20)
                     env.render()
@@ -85,15 +98,23 @@ class ProofAgent(Agent):
                     self.logger.info("Updating policy")
                     self._policy.update(state, action, next_state, reward, done, info)
                     self.logger.info("Policy updated")
+                if action.action_type == ProofAction.ActionType.RUN_TACTIC and \
+                    info.progress != ProgressState.FAILED and \
+                    len(alternate_action.kwargs.get('tactics', [])) > 1:
+                    remaining_tactics = alternate_action.kwargs.get('tactics', [])[1:]
+                    remaining_tactics.reverse()
+                    for tactic in remaining_tactics:
+                        new_action : ProofAction = copy.deepcopy(action)
+                        new_action.kwargs['tactics'] = [tactic]
+                        new_action.original_message = f"[RUN TACTIC]\n{tactic}\n[END]"
+                        self._policy.add_delayed(new_action)
                 steps += 1
                 total_reward += reward
+                additional_info = self._policy.get_efficiency_info()
             else:
                 self.logger.warning("Got EXIT action, exiting")
                 break
-            additional_info = self._policy.get_efficiency_info()
         env.dump_proof(self._proof_dump_file_name, additional_info)
         if self._should_checkpoint:
             self.logger.info("Checkpointing policy")
             self._policy.checkpoint()
-
-

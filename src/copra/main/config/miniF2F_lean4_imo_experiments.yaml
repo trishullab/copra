@@ -1,0 +1,15 @@
+defaults:
+  - env_settings: bm25_retrieval
+  - benchmark: miniF2F_lean4_test_imo
+  - eval_settings: n_60_dfs_gpt4_o3_mini_no_retrieve_no_ex # n_60_dfs_gpt4_o3_mini_no_retrieve_no_ex # n_60_dfs_gpt4_o_no_retrieve_no_ex # n_60_dfs_gpt4_o3_mini_no_retrieve_no_ex
+  - prompt_settings: lean4_dfs
+  - override hydra/job_logging: 'disabled'
+
+benchmark:
+  timeout_per_theorem_in_secs: 2400
+eval_settings:
+ timeout_in_secs: 2400
+ proof_retries: 5
+ temperature: 0.75
+ max_steps_per_episode: 100
+#  gpt_model_name: gpt4-o
