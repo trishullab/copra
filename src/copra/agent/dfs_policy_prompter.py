@@ -122,6 +122,13 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         self._message_history.append(message)
         self._message_history_token_count.append(message_token_count)
         self._history_token_count += message_token_count
+    
+    def reset_last_message(self, message: typing.Any):
+        if len(self._message_history) > 0:
+            self._history_token_count -= self._message_history_token_count[-1]
+            self._message_history.pop()
+            self._message_history_token_count.pop()
+        self.add_to_history(message)
 
     def _constrain_tokens_in_history(self, prompt_message, custom_example_system_messages : typing.List[dict[str, str]], custom_system_message_count: int, prompt_token_count: int, max_tokens_per_action: int) -> list:
         if len(self._message_history) >= self._max_history_messages:
@@ -425,6 +432,12 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             actions.append((action, probability))
         return actions
     
+    def reset_last_action(self, last_action: ProofAction):
+        # Reset the messages in the history
+        original_message = last_action.original_message
+        if original_message is not None:
+            self.reset_last_message(original_message)
+
     def __call__(self, tree_search_action: TreeSearchAction) -> ProofAction:
         state = tree_search_action.state
         assert state is not None

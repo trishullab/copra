@@ -210,7 +210,7 @@ ErrorString:;
             if coq_gpt_response.training_data_format.goal_description is not None:
                 new_line = f"{CoqGPTResponseDfsGrammar.Keywords.DESCRIPTION}\n{coq_gpt_response.training_data_format.goal_description}\n"
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.GOALS].append(new_line)
-            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
+            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals[:1]):
                 new_line = f"{CoqGPTResponseDfsGrammar.Keywords.GOAL} {i+1}"
                 lines_map[CoqGPTResponseDfsGrammar.Keywords.GOALS].append(new_line)
                 new_line = str(goal.goal)
