@@ -123,17 +123,6 @@ class ProofQTree(QGraph):
 
 class TreeSearchAlgorithm(ABC):
     @abstractmethod
-    def reset(self):
-        pass
-
-    @abstractmethod
-    def add_delayed(self, action: ProofAction):
-        """
-        Adds a delayed action to the tree search algorithm.
-        """
-        pass
-
-    @abstractmethod
     def __call__(self, tree: ProofQTree, state: ProofState) -> TreeSearchAction:
         pass
 
@@ -166,6 +155,7 @@ class GptGuidedTreeSearchPolicy(Policy):
         self._policy_prompter = policy_prompter
         self._loaded = False
         self.language = language
+        self._action_queue: typing.List[ProofAction] = []
     
     def __enter__(self):
         if not self.load_from_checkpoint_if_exists():
@@ -184,8 +174,9 @@ class GptGuidedTreeSearchPolicy(Policy):
         """
         Adds a delayed action to the policy.
         """
+        assert action.action_type in [ProofAction.ActionType.RUN_TACTIC], "The action type should be either RUN_TACTIC"
         self._policy_prompter.add_delayed(action)
-        return self._tree_search_algorithm.add_delayed(action)
+        self._action_queue.append(action)
     
     def reset_last_action(self, action: ProofAction):
         """
@@ -209,6 +200,9 @@ class GptGuidedTreeSearchPolicy(Policy):
     def __call__(self, state: ProofState) -> ProofAction:
         if state.was_reset:
             self._tree_search_algorithm.reset()
+        if len(self._action_queue) > 0:
+            action = self._action_queue.pop(0)
+            return action
         tree_search_action : TreeSearchAction = self._tree_search_algorithm(self._proof_q_tree, state)
         if tree_search_action.action_type == TreeSearchActionType.NEXT_ACTION_SUMMARY_PROMPT \
         or tree_search_action.action_type == TreeSearchActionType.FAILED_ACTION_SUMMARY_PROMPT \

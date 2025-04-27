@@ -74,6 +74,23 @@ class HandleHaveTactic:
                 self._indent_tactics(new_action)
         return True, new_action
     
+    def is_within_have_tactic(self) -> bool:
+        """
+        Returns True if the current action is within a `have` tactic.
+        """
+        return self.nested_level > 0
+    
+    def get_last_have_tactic(self) -> typing.Optional[str]:
+        """
+        Returns the last `have` tactic.
+        """
+        if len(self._have_tactics) > 0:
+            action, _ = self._have_tactics[-1]
+            tactic : str = action.kwargs.get('tactics', [None])[0]
+            if tactic is not None:
+                return Lean4Utils.remove_comments(tactic)
+        return None
+
     def parse_have_tactic_action(self, action: ProofAction):
         """
         Fixes the given action if it is a `have` tactic.
@@ -120,6 +137,7 @@ class HandleHaveTactic:
                             # Indent the tactic based on the nested level
                             tactic_parts[-1] = tactic_parts[-1].strip() + f" {modified_tactic}"
                 action.kwargs['tactics'] = tactic_parts
+                action.original_message["content"] = f"[RUN TACTIC]\n{tactic_parts[0]}\n[END]"
         return action
 
     @staticmethod
