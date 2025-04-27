@@ -100,13 +100,6 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         self._action_queue.clear()
         self._search_stack.clear()
 
-    def add_delayed(self, action: ProofAction):
-        """
-        Adds a delayed action to the policy.
-        """
-        assert action.action_type in [ProofAction.ActionType.RUN_TACTIC, ProofAction.ActionType.GET_DFNS_THMS], "The action type should be either RUN_TACTIC, GET_DFNS or GET_THMS"
-        self._action_queue.append(TreeSearchAction(TreeSearchActionType.RUN_ACTION, None, action))
-
     def update_new_node(self, tree: ProofQTree, state: ProofState, action: ProofAction, next_state: ProofState, reward: float, done: bool, info: ProofEnvInfo):
         assert action.action_type in [ProofAction.ActionType.RUN_TACTIC, ProofAction.ActionType.GET_DFNS_THMS], "The action type should be either RUN_TACTIC, GET_DFNS or GET_THMS"
         if self.has_qed:

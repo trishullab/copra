@@ -5,7 +5,7 @@ import typing
 import copy
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.rl.abstraction import Agent, Policy
-from itp_interface.rl.simple_proof_env import ProofEnv, ProgressState
+from itp_interface.rl.simple_proof_env import ProofEnv, ProgressState, ProofState
 from copra.agent.handle_have_tactic import HandleHaveTactic
 
 
@@ -88,6 +88,14 @@ class ProofAgent(Agent):
                 # and return a different action which kind of aligns with the action taken by the
                 # policy but only more efficient. This is slightly different traditional RL setting
                 lean_hack.scope_state(state, action, next_state, info, self.logger)
+                if lean_hack.is_within_have_tactic():
+                    assert isinstance(next_state, ProofState)
+                    if next_state.training_data_format.goal_description is None:
+                        next_state.training_data_format.goal_description = ""
+                    last_have_tactic = lean_hack.get_last_have_tactic()
+                    assert last_have_tactic is not None, f"Last have tactic is None, {lean_hack._have_tactics}"
+                    next_state.training_data_format.goal_description += \
+                    f"IMPORTANT NOTE: Working on the sub-goal with have tactic: \n{last_have_tactic}."
                 if render:
                     self.logger.info("**"*20)
                     env.render()
@@ -106,7 +114,7 @@ class ProofAgent(Agent):
                     for tactic in remaining_tactics:
                         new_action : ProofAction = copy.deepcopy(action)
                         new_action.kwargs['tactics'] = [tactic]
-                        new_action.original_message = f"[RUN TACTIC]\n{tactic}\n[END]"
+                        new_action.original_message["content"] = f"[RUN TACTIC]\n{tactic}\n[END]"
                         self._policy.add_delayed(new_action)
                 steps += 1
                 total_reward += reward
