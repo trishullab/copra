@@ -95,49 +95,54 @@ class HandleHaveTactic:
         """
         Fixes the given action if it is a `have` tactic.
         """
-        if action.language == ProofAction.Language.LEAN4 and action.action_type == ProofAction.ActionType.RUN_TACTIC:
-            tactic : str = action.kwargs.get('tactics', [None])[0]
-            if tactic is not None:
-                tactic = Lean4Utils.remove_comments(tactic)
-                have_no_def = self.have_regex2.match(tactic)
-                if have_no_def is not None:
-                    have_name = str(have_no_def.group(1).strip())
-                    have_action_type = 2
-                else:
-                    have_colon = self.have_regex1.match(tactic)
-                    if have_colon is not None:
-                        have_name = str(have_colon.group(1).strip())
-                        have_action_type = 1
+        original_action = copy.deepcopy(action)
+        try:
+            if action.language == ProofAction.Language.LEAN4 and action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                tactic : str = action.kwargs.get('tactics', [None])[0]
+                if tactic is not None:
+                    tactic = Lean4Utils.remove_comments(tactic)
+                    have_no_def = self.have_regex2.match(tactic)
+                    if have_no_def is not None:
+                        have_name = str(have_no_def.group(1).strip())
+                        have_action_type = 2
                     else:
-                        have_name = None
-                if have_name is None:
-                    return action
-                idx = tactic.rfind(':=')
-                tactic_parts : typing.List[str] = []
-                if idx != -1:
-                    # Remove everything after the last `:=`
-                    tactic_parts.append(tactic[:idx + 2])
-                    # Add the rest of the tactic
-                    # After removing the `:=` and `by`, the rest of the tactic is the same
-                    # as the original tactic
-                    modified_tactic = tactic[idx + 2:]
-                    modified_tactic = modified_tactic.strip()
-                    if modified_tactic.startswith('by') and have_action_type != 2:
-                        # Remove the `by` from the tactic
-                        modified_tactic = modified_tactic[2:].strip()
-                        tactic_parts[-1] = tactic_parts[-1].strip() + ' by'
-                        if modified_tactic != '':
-                            # Add the rest of the tactic
-                            # Indent the tactic based on the nested level
-                            tactic_parts.append(modified_tactic)
-                    else:
+                        have_colon = self.have_regex1.match(tactic)
+                        if have_colon is not None:
+                            have_name = str(have_colon.group(1).strip())
+                            have_action_type = 1
+                        else:
+                            have_name = None
+                    if have_name is None:
+                        return action
+                    idx = tactic.rfind(':=')
+                    tactic_parts : typing.List[str] = []
+                    if idx != -1:
+                        # Remove everything after the last `:=`
+                        tactic_parts.append(tactic[:idx + 2])
+                        # Add the rest of the tactic
+                        # After removing the `:=` and `by`, the rest of the tactic is the same
+                        # as the original tactic
+                        modified_tactic = tactic[idx + 2:]
                         modified_tactic = modified_tactic.strip()
-                        if modified_tactic != '':
-                            # Add the rest of the tactic
-                            # Indent the tactic based on the nested level
-                            tactic_parts[-1] = tactic_parts[-1].strip() + f" {modified_tactic}"
-                action.kwargs['tactics'] = tactic_parts
-                action.original_message["content"] = f"[RUN TACTIC]\n{tactic_parts[0]}\n[END]"
+                        if modified_tactic.startswith('by') and have_action_type != 2:
+                            # Remove the `by` from the tactic
+                            modified_tactic = modified_tactic[2:].strip()
+                            tactic_parts[-1] = tactic_parts[-1].strip() + ' by'
+                            if modified_tactic != '':
+                                # Add the rest of the tactic
+                                # Indent the tactic based on the nested level
+                                tactic_parts.append(modified_tactic)
+                        else:
+                            modified_tactic = modified_tactic.strip()
+                            if modified_tactic != '':
+                                # Add the rest of the tactic
+                                # Indent the tactic based on the nested level
+                                tactic_parts[-1] = tactic_parts[-1].strip() + f" {modified_tactic}"
+                    action.kwargs['tactics'] = tactic_parts
+                    action.original_message["content"] = f"[RUN TACTIC]\n{tactic_parts[0]}\n[END]"
+        except Exception as e:
+            # If there is an error, return the original action
+            action = original_action
         return action
 
     @staticmethod
