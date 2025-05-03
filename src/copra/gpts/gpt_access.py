@@ -67,8 +67,8 @@ class GptAccess:
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "claude-3-7-sonnet-20250219": {
-            "token_limit_per_min": 8000000,
-            "request_limit_per_min": 8000,
+            "token_limit_per_min": 40000,
+            "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         }
     }
