@@ -1,11 +1,14 @@
+[![Build Status](https://github.com/trishullab/copra/actions/workflows/ci.yaml/badge.svg)](https://github.com/trishullab/copra/actions/workflows/ci.yaml)
+[![PyPI version](https://img.shields.io/pypi/v/copra-theorem-prover.svg)](https://pypi.org/project/copra-theorem-prover/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/copra-theorem-prover.svg)](https://pypi.org/project/copra-theorem-prover/)
 # copra
 COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in formal languages.
 
 # Setup Steps:
 ## Quick Setup for Lean 4:
-1. Install itp-interface using the following command:
+1. Install itp-interface using the following command: (Our package is available on PyPI: https://pypi.org/project/copra-theorem-prover/)
 ```bash
-pip install -e .
+pip install copra-theorem-prover
 ```
 
 2. Run the following command to prepare the REPL for Lean 4. (The default version is 4.7.0-rc2. You can change the version by setting the `LEAN_VERSION` environment variable. If no version is set, then 4.7.0-rc2 is used.)
