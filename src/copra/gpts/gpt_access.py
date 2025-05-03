@@ -6,6 +6,7 @@ import unittest
 import tiktoken
 import copy
 from openai import OpenAI
+from copra.tools.misc import is_open_ai_model, is_anthropic_model
 
 class GptAccess:
     # Static dictionary of model information.
@@ -64,17 +65,51 @@ class GptAccess:
             "token_limit_per_min": 8000000,
             "request_limit_per_min": 8000,
             "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "claude-3-7-sonnet-20250219": {
+            "token_limit_per_min": 8000000,
+            "request_limit_per_min": 8000,
+            "max_token_per_prompt": int(1.2 * 10**5)
         }
     }
 
+    secret_filepath_map = {
+        "gpt-3.5-turbo": ".secrets/openai_key.json",
+        "gpt-4": ".secrets/openai_key.json",
+        "gpt-4-0314": ".secrets/openai_key.json",
+        "gpt-4-0613": ".secrets/openai_key.json",
+        "gpt-4-1106-preview": ".secrets/openai_key.json",
+        "gpt-4o": ".secrets/openai_key.json",
+        "gpt-4o-mini": ".secrets/openai_key.json",
+        "o1-mini": ".secrets/openai_key.json",
+        "o1": ".secrets/openai_key.json",
+        "o3": ".secrets/openai_key.json",
+        "o3-mini": ".secrets/openai_key.json",
+        "claude-3-7-sonnet-20250219": ".secrets/anthropic_key.json"
+    }
+
+    base_url_map = {
+        "claude-3-7-sonnet-20250219": "https://api.anthropic.com/v1"
+    }
+
     def __init__(self,
-                 secret_filepath: str = ".secrets/openai_key.json",
+                 secret_filepath: str = None,
                  model_name: typing.Optional[str] = None) -> None:
-        assert secret_filepath.endswith(".json"), "Secret filepath must be a .json file"
-        assert os.path.exists(secret_filepath), "Secret filepath does not exist"
-        self.secret_filepath = secret_filepath
+        assert secret_filepath is None or secret_filepath.endswith(".json"), "Secret filepath must be a .json file"
+        if secret_filepath is None:
+            # Use the default secret filepath based on the model name.
+            assert model_name in self.secret_filepath_map, (
+                f"Model {model_name} not supported. Supported models: {list(self.secret_filepath_map.keys())}"
+            )
+            self.secret_filepath = self.secret_filepath_map[model_name]
+        else:
+            self.secret_filepath = secret_filepath
+        assert os.path.exists(self.secret_filepath), "Secret filepath does not exist"
         self._load_secret()
-        self.is_open_ai_model = True
+        self.is_open_ai_model = is_open_ai_model(model_name)
+        self.is_anthropic_model = is_anthropic_model(model_name)
+        assert sum([self.is_open_ai_model, self.is_anthropic_model]) == 1, \
+            "Model must be either OpenAI or Anthropic, not both."
         # Use our static dictionary keys as the supported model list.
         self.models_supported_name = list(self.gpt_model_info.keys())
         if model_name is not None:
@@ -90,7 +125,7 @@ class GptAccess:
             "total_tokens": 0
         }
         # Create the OpenAI client instance.
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url_map.get(model_name, None))
 
     def complete_prompt(self,
                         prompt: str,
@@ -141,116 +176,20 @@ class GptAccess:
         assert reasoning_effort in ["low", "medium", "high"], "Reasoning effort must be one of: low, medium, high"
         model = self.model_name if model is None else model
         stopping_reasons = "stop"
-        if self.is_open_ai_model:
+        if self.is_open_ai_model or self.is_anthropic_model:
             if self.model_name.startswith("o1") or \
-            self.model_name.startswith("o3"): 
-                messages = copy.deepcopy(messages)
-                for message in messages:
-                    if message["role"] == "system" and self.model_name.startswith("o1"):
-                        message["role"] = "user" # No system role in o1
-                    name = message.get("name")
-                    if name is not None:
-                        message["content"] = f"```\n{name}:\n{message['content']}```\n"
-                        message.pop("name")
-                # Now merge all same role messages occurring together into one message
-                merged_messages = []
-                for message in messages:
-                    if len(merged_messages) == 0 or merged_messages[-1]["role"] != message["role"]:
-                        merged_messages.append(message)
-                    else:
-                        merged_messages[-1]["content"] += message["content"]
-                messages = merged_messages
-                for message in messages:
-                    for key in list(message.keys()):
-                        if key not in ["role", "content"]:
-                            message.pop(key)
-                if self.model_name == "o1-mini":
-                    response = self.client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        max_completion_tokens=max_tokens + reasoning_token_count,
-                        stop=stop
-                    )
-                    usage = response.usage
-                    self.usage["prompt_tokens"] += usage.prompt_tokens
-                    self.usage["completion_tokens"] += usage.completion_tokens
-                    self.usage["total_tokens"] += usage.total_tokens
-                    return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
-                    for i in range(len(return_responses) - 1):
-                        return_responses[i]["finish_reason"] = "stop"
-                    if len(response.choices) > 0:
-                        return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-                    stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
-                    usage = {
-                        "prompt_tokens": usage.prompt_tokens,
-                        "completion_tokens": usage.completion_tokens,
-                        "total_tokens": usage.total_tokens
-                    }                    
-                else:
-                    response = self.client.responses.create(
-                        model=model,
-                        reasoning={"effort": reasoning_effort},
-                        input=messages,
-                        max_output_tokens=max_tokens + reasoning_token_count
-                    )
-                    usage = response.usage
-                    self.usage["prompt_tokens"] += usage.input_tokens
-                    self.usage["completion_tokens"] += usage.output_tokens
-                    self.usage["total_tokens"] += usage.total_tokens
-                    return_responses = [{"role": "assistant", "content": response.output_text}]
-                    return_responses[-1]["finish_reason"] = "stop" if response.status == "completed" else "length"
-                    stopping_reasons = "stop" if response.status == "completed" else "length"
-                    usage = {
-                        "prompt_tokens": usage.input_tokens,
-                        "completion_tokens": usage.output_tokens,
-                        "total_tokens": usage.total_tokens
-                    }
+            self.model_name.startswith("o3") or \
+            self.is_anthropic_model:
+                messages = self.handle_thinking_messages(messages)
+                return_responses, usage, stopping_reasons = \
+                self.get_thinking_response(model, messages, max_tokens, stop, reasoning_token_count, reasoning_effort)
             else:
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    frequency_penalty=frequency_penalty,
-                    presence_penalty=presence_penalty,
-                    stop=stop,
-                    n=n
-                )
-                usage = response.usage
-                self.usage["prompt_tokens"] += usage.prompt_tokens
-                self.usage["completion_tokens"] += usage.completion_tokens
-                self.usage["total_tokens"] += usage.total_tokens
-                return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
-                for i in range(len(return_responses) - 1):
-                    return_responses[i]["finish_reason"] = "stop"
-                if len(response.choices) > 0:
-                    return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-                stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
-                usage = {
-                    "prompt_tokens": usage.prompt_tokens,
-                    "completion_tokens": usage.completion_tokens,
-                    "total_tokens": usage.total_tokens
-                }
+                # GPT-4o
+                return_responses, usage, stopping_reasons = \
+                self.get_gpt_4_o_response(model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n)
         else:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stop=stop,
-                n=n
-            )
-            usage = response.usage
-            self.usage["prompt_tokens"] += usage.prompt_tokens
-            self.usage["completion_tokens"] += usage.completion_tokens
-            self.usage["total_tokens"] += usage.total_tokens
-            return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
-            for i in range(len(return_responses) - 1):
-                return_responses[i]["finish_reason"] = "stop"
-            if len(response.choices) > 0:
-                return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
-            stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+            return_responses, usage, stopping_reasons = \
+            self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
         usage_dict = {
             "prompt_tokens": usage["prompt_tokens"],
             "completion_tokens": usage["completion_tokens"],
@@ -258,6 +197,115 @@ class GptAccess:
             "reason": stopping_reasons
         }
         return return_responses, usage_dict
+    
+    def handle_thinking_messages(self, messages: typing.List[typing.Dict[str, str]]) -> typing.List[typing.Dict[str, str]]:
+        messages = copy.deepcopy(messages)
+        for message in messages:
+            if message["role"] == "system" and self.model_name.startswith("o1"):
+                message["role"] = "user" # No system role in o1
+            name = message.get("name")
+            if name is not None:
+                message["content"] = f"```\n{name}:\n{message['content']}```\n"
+                message.pop("name")
+        # Now merge all same role messages occurring together into one message
+        merged_messages = []
+        for message in messages:
+            if len(merged_messages) == 0 or merged_messages[-1]["role"] != message["role"]:
+                merged_messages.append(message)
+            else:
+                merged_messages[-1]["content"] += message["content"]
+        messages = merged_messages
+        for message in messages:
+            for key in list(message.keys()):
+                if key not in ["role", "content"]:
+                    message.pop(key)
+        return messages
+
+    def get_thinking_response(self, model, messages, max_tokens, stop : typing.List[str], reasoning_token_count, reasoning_effort) -> typing.Tuple[list, dict, str]:
+        response = None
+        if self.is_open_ai_model and model == "o1-mini":
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_completion_tokens=max_tokens + reasoning_token_count
+            )
+        elif self.is_open_ai_model or self.is_anthropic_model:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_completion_tokens=max_tokens + reasoning_token_count,
+                reasoning_effort=reasoning_effort,
+                stop=stop
+            )
+        else:
+            raise Exception("Something went wrong with model name initialization")
+        assert response is not None, "No model found for the given model name"
+        usage = response.usage
+        self.usage["prompt_tokens"] += usage.prompt_tokens
+        self.usage["completion_tokens"] += usage.completion_tokens
+        self.usage["total_tokens"] += usage.total_tokens
+        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+        for i in range(len(return_responses) - 1):
+            return_responses[i]["finish_reason"] = "stop"
+        if len(response.choices) > 0:
+            return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
+        stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        usage = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens
+        }
+        return return_responses, usage, stopping_reasons
+
+    def get_gpt_4_o_response(self, model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n) -> typing.Tuple[list, dict, str]:
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            stop=stop,
+            n=n
+        )
+        usage = response.usage
+        self.usage["prompt_tokens"] += usage.prompt_tokens
+        self.usage["completion_tokens"] += usage.completion_tokens
+        self.usage["total_tokens"] += usage.total_tokens
+        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+        for i in range(len(return_responses) - 1):
+            return_responses[i]["finish_reason"] = "stop"
+        if len(response.choices) > 0:
+            return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
+        stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        usage = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens
+        }
+        return return_responses, usage, stopping_reasons
+
+    def get_response_generic(self, model, messages, max_tokens, stop, temperature, n) -> typing.Tuple[list, dict, str]:
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stop=stop,
+            n=n
+        )
+        usage = response.usage
+        self.usage["prompt_tokens"] += usage.prompt_tokens
+        self.usage["completion_tokens"] += usage.completion_tokens
+        self.usage["total_tokens"] += usage.total_tokens
+        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+        for i in range(len(return_responses) - 1):
+            return_responses[i]["finish_reason"] = "stop"
+        if len(response.choices) > 0:
+            return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
+        stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        return return_responses, usage, stopping_reasons
 
     def num_tokens_from_messages(self, messages, model=None):
         model = model if model is not None else self.model_name
@@ -285,9 +333,7 @@ class GptAccess:
 # Integration Test Suite
 class IntegrationTests(unittest.TestCase):
     def setUp(self):
-        self.secret_filepath = ".secrets/openai_key.json"
-        if not os.path.exists(self.secret_filepath):
-            self.skipTest("Secret file not found. Skipping integration tests.")
+        self.secret_filepath = None
 
     def _run_chat_test(self, model_name: str, token_count: int):
         try:
@@ -321,6 +367,9 @@ class IntegrationTests(unittest.TestCase):
     
     def test_o1_model(self):
         self._run_chat_test("o1", token_count=300)
+    
+    def test_claude_model(self):
+        self._run_chat_test("claude-3-7-sonnet-20250219", token_count=300)
 
 if __name__ == "__main__":
     unittest.main()

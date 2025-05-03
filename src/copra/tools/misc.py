@@ -11,3 +11,14 @@ def is_open_ai_model(model_name: str) -> bool:
     model_name.startswith("o3-") or \
     model_name.startswith("o") or \
     model_name.startswith("o-")
+
+def is_anthropic_model(model_name: str) -> bool:
+    """
+    Check if the model name is an Anthropic model.
+    """
+    return model_name.startswith("claude") or \
+    model_name.startswith("claude-") or \
+    model_name.startswith("claude-1") or \
+    model_name.startswith("claude-2") or \
+    model_name.startswith("claude-3") or \
+    model_name.startswith("claude-4")
