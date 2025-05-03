@@ -13,7 +13,7 @@ from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.baselines.gpt4.few_shot_grammar import FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
-from copra.tools.misc import is_open_ai_model
+from copra.tools.misc import model_supports_openai_api
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
@@ -25,7 +25,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             max_tokens_per_action: int = 250,
             max_history_messages: int = 0, # This means keep no history of messages
             gpt_model_name: str = "gpt-3.5-turbo",
-            secret_filepath: str = ".secrets/openai_key.json",
+            secret_filepath: str = None,
             k : typing.Optional[int] = None,
             retrieve_prompt_examples: bool = True,
             training_data_path: typing.Optional[str] = None,
@@ -43,7 +43,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not is_open_ai_model(gpt_model_name):
+        if not model_supports_openai_api(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)

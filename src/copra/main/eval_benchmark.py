@@ -34,7 +34,7 @@ from itp_interface.tools.dynamic_lean_proof_exec import DynamicProofExecutor as 
 from itp_interface.tools.lean4_sync_executor import get_all_theorems_in_file as get_all_theorems_lean4, get_fully_qualified_theorem_name as get_fully_qualified_theorem_name_lean4
 from itp_interface.tools.dynamic_isabelle_proof_exec import DynamicProofExecutor as DynamicIsabelleProofExecutor
 from itp_interface.tools.misc_defns import HammerMode
-from copra.tools.misc import is_open_ai_model
+from copra.tools.misc import model_supports_openai_api
 
 def check_query_limit_reached(max_query_limit: int) -> typing.Callable[[int, typing.Dict[str, typing.Any]], bool]:
     def _check_query_limit_reached(steps: int, info: typing.Dict[str, typing.Any]):
@@ -92,7 +92,7 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
 
 def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
     logger = logger or logging.getLogger(__name__)
-    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not is_open_ai_model(eval_settings.gpt_model_name):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not model_supports_openai_api(eval_settings.gpt_model_name):
         llama_logger = setup_logger(__name__ + "_llama", os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"), logging.INFO, '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         # This is a llama model
         LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature, debug=False, logger=llama_logger)
@@ -475,7 +475,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                                 if not return_dict["service_down"] or \
                                     (eval_settings.gpt_model_name is not None and \
                                     len(eval_settings.gpt_model_name) != 0 and \
-                                    is_open_ai_model(eval_settings.gpt_model_name)) or \
+                                    model_supports_openai_api(eval_settings.gpt_model_name)) or \
                                     max_retry <= 1:
                                     logger.info(f"Failed to prove lemma: {lemma_name} in file {path}")
                                     proof_res_queries = proof_res_chkpt.additional_info["queries"] if proof_res_chkpt is not None and "queries" in proof_res_chkpt.additional_info else 0
@@ -530,7 +530,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                     eval_checkpoint_info.add_theorem_to_maps(path, lemma_name, False)
         proof_attempts_done = not any_proof_attempted
 
-    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not is_open_ai_model(eval_settings.gpt_model_name):
+    if eval_settings.gpt_model_name is not None and len(eval_settings.gpt_model_name) !=0 and not model_supports_openai_api(eval_settings.gpt_model_name):
         # This is a llama model
         LlamaAccess.class_kill()
     if eval_benchmark.language == ProofAction.Language.ISABELLE:
