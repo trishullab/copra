@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import typing
+import re
 from copra.prompt_generator.interpreter import Grammar
 from itp_interface.tools.training_data_format import TrainingDataFormat
 from dataclasses import dataclass, field
@@ -39,6 +40,9 @@ String:;
     keywords = ["[STEP]", "[END]", "[RUN TACTIC]", "[GET DEFINITIONS]"]
 
     end = "[END]"
+
+    run_tactic_regex = r"\[RUN TACTIC\]([\s|\S]*?)\[END\]"
+    run_tactic_match = re.compile(run_tactic_regex)
 
     def before_keyword(text, pos):
         last = pos
@@ -108,8 +112,14 @@ String:;
             return self.normal_parsing(message)
     
     def normal_parsing(self, message: str):
+        # Check if the message has the regex for run tactic
         if not message.endswith(CoqGPTRequestGrammar.end):
             message += CoqGPTRequestGrammar.end
+        match = CoqGPTRequestGrammar.run_tactic_match.search(message)
+        if match:
+            message = match.group(0)
+        else:
+            raise Exception(f"Invalid message {message}, cannot find run tactic")
         message = message.strip()
         message = message.rstrip(CoqGPTRequestGrammar.end)
         action = None
@@ -117,8 +127,7 @@ String:;
             message = message[len(CoqGptRequestActions.RUN_TACTIC):]
             action = CoqGptRequestActions.RUN_TACTIC
         elif message.startswith(CoqGptRequestActions.GET_DFNS_THMS):
-            message = message[len(CoqGptRequestActions.GET_DFNS_THMS):]
-            action = CoqGptRequestActions.GET_DFNS_THMS
+            raise Exception("GET_DFNS_THMS is not supported in normal parsing")
         else:
             raise Exception(f"Invalid message {message}")
         # Remove any newlines at the beginning or end

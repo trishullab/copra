@@ -17,7 +17,7 @@ from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, Coq
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
 from copra.tools.informal_proof_repo import InformalProofRepo
-from copra.tools.misc import is_open_ai_model
+from copra.tools.misc import model_supports_openai_api
 
 class DfsCoqGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
@@ -29,7 +29,7 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             max_tokens_per_action: int = 50,
             max_history_messages: int = 0, # This means keep no history of messages
             gpt_model_name: str = "gpt-3.5-turbo",
-            secret_filepath: str = ".secrets/openai_key.json",
+            secret_filepath: str = None,
             k : typing.Optional[int] = None,
             retrieve_prompt_examples: bool = True,
             num_goal_per_prompt: typing.Optional[int] = None,
@@ -44,13 +44,13 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         self.model_name = gpt_model_name
-        use_defensive_parsing = not is_open_ai_model(gpt_model_name)
+        use_defensive_parsing = not model_supports_openai_api(gpt_model_name)
         self.coq_gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
         self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not is_open_ai_model(gpt_model_name):
+        if not model_supports_openai_api(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
