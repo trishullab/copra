@@ -74,20 +74,22 @@ class ProofAgent(Agent):
             action = self._policy(next_state)
             assert isinstance(action, ProofAction)
             self.logger.info(f"Got Action: {action}")
-            lean_hack.parse_have_tactic_action(action)
+            action = lean_hack.parse_have_tactic_action(action)
+            self.logger.info(f"Parsed Action: {action}")
             if action.action_type != ProofAction.ActionType.EXIT:
-                action_fixed, alternate_action = lean_hack.fix_action(action, self.logger)
+                action_fixed, indented_action = lean_hack.fix_action(action, self.logger)
                 assert action_fixed, f"Action {action} is not fixed"
-                new_action = copy.deepcopy(action)
-                if new_action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                    new_action.kwargs['tactics'] = [alternate_action.kwargs['tactics'][0]]
-                    if len(alternate_action.kwargs.get('tactics', [])) > 1:
-                        self._policy.reset_last_action(new_action)
-                state, action, next_state, reward, done, info = env.step(new_action)
+                modified_action = copy.deepcopy(action)
+                if modified_action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                    modified_action.kwargs['tactics'] = [indented_action.kwargs['tactics'][0]]
+                    if len(action.kwargs.get('tactics', [])) > 1:
+                        self._policy.reset_last_action(modified_action)
+                self.logger.info(f"Action to run: {modified_action}")
+                state, modified_action, next_state, reward, done, info = env.step(modified_action)
                 # **IMPORTANT NOTE**: Here we update the action because sometimes the proof env can optimize the action
                 # and return a different action which kind of aligns with the action taken by the
                 # policy but only more efficient. This is slightly different traditional RL setting
-                lean_hack.scope_state(state, action, next_state, info, self.logger)
+                lean_hack.scope_state(state, modified_action, next_state, info, self.logger)
                 if lean_hack.is_within_have_tactic():
                     assert isinstance(next_state, ProofState)
                     if next_state.training_data_format.goal_description is None:
@@ -108,14 +110,15 @@ class ProofAgent(Agent):
                     self.logger.info("Policy updated")
                 if action.action_type == ProofAction.ActionType.RUN_TACTIC and \
                     info.progress != ProgressState.FAILED and \
-                    len(alternate_action.kwargs.get('tactics', [])) > 1:
-                    remaining_tactics = alternate_action.kwargs.get('tactics', [])[1:]
+                    len(action.kwargs.get('tactics', [])) > 1:
+                    remaining_tactics = action.kwargs.get('tactics', [])[1:]
                     remaining_tactics.reverse()
                     for tactic in remaining_tactics:
-                        new_action : ProofAction = copy.deepcopy(action)
-                        new_action.kwargs['tactics'] = [tactic]
-                        new_action.original_message["content"] = f"[RUN TACTIC]\n{tactic}\n[END]"
-                        self._policy.add_delayed(new_action)
+                        modified_action : ProofAction = copy.deepcopy(action)
+                        modified_action.kwargs['tactics'] = [tactic]
+                        modified_action.original_message["content"] = f"[RUN TACTIC]\n{tactic}\n[END]"
+                        self.logger.info(f"Adding delayed action: {modified_action}")
+                        self._policy.add_delayed(modified_action)
                 steps += 1
                 total_reward += reward
                 additional_info = self._policy.get_efficiency_info()
