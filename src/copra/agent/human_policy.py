@@ -45,6 +45,10 @@ class HumanPolicy(Policy):
                 language=state.language,
                 tactics= [tactic]
             )
+            action.original_message = {
+                "role": "assistant",
+                "content": f"[RUN TACTIC]\n{tactic}\n[END]",
+            }
         else:
             action = ProofAction(
                 action_type=action_type,

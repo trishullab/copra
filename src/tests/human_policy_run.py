@@ -38,7 +38,7 @@ with ProofEnv(f"basic_proof_env_{lemma_name}", proof_exec_callback, lemma_name) 
     agent = ProofAgent(f"proof_agent_{lemma_name}", search_guidance_policy, False, proof_dump_file_name, logger=logger)
     agent.run_episodes_till_stop(
         env,
-        episodes=100,
+        episodes=1,
         render=False,
         stop_policy=check_query_limit_reached(100),
         policy_info_message=query_limit_info_message(100))

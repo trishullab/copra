@@ -210,7 +210,7 @@ class HandleHaveTactic:
                 if not tactic.strip().startswith('have'):
                     return False
                 # Check if the # goals have increased
-                if len(next_state.training_data_format.start_goals) > len(state.training_data_format.start_goals):
-                    return True
+                return True
+                # if len(next_state.training_data_format.start_goals) > len(state.training_data_format.start_goals):
+                #     return True
         return False
-
