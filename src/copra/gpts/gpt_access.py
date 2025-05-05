@@ -185,6 +185,7 @@ class GptAccess:
                 self.get_thinking_response(model, messages, max_tokens, stop, reasoning_token_count, reasoning_effort)
             else:
                 # GPT-4o
+                messages = self.handle_thinking_messages(messages)
                 return_responses, usage, stopping_reasons = \
                 self.get_gpt_4_o_response(model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n)
         else:
@@ -205,7 +206,7 @@ class GptAccess:
                 message["role"] = "user" # No system role in o1
             name = message.get("name")
             if name is not None:
-                message["content"] = f"```\n{name}:\n{message['content']}```\n"
+                message["content"] = f"\n{name}:```\n{message['content']}```\n"
                 message.pop("name")
         # Now merge all same role messages occurring together into one message
         merged_messages = []
@@ -363,7 +364,7 @@ class IntegrationTests(unittest.TestCase):
         self._run_chat_test("gpt-4o", token_count=100)
     
     def test_o1_mini_model(self):
-        self._run_chat_test("o1-mini", token_count=300)
+        self._run_chat_test("o1-mini", token_count=600)
     
     def test_o1_model(self):
         self._run_chat_test("o1", token_count=300)
