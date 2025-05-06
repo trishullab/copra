@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface==1.1.10",
+    "itp-interface==1.1.11",
     "openai==1.69.0",
     "tiktoken==0.4.0",
     "gradio==3.48.0",
