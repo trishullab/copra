@@ -31,7 +31,7 @@ class HandleHaveTactic:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def scope_state(self, state: ProofState, action: ProofAction, next_state: ProofState, info: ProofEnvInfo, logger: logging.Logger):
+    def scope_state(self, state: ProofState, action: ProofAction, next_state: ProofState, info: ProofEnvInfo, logger: logging.Logger, ignore: bool = False):
         """
         Returns the current scope state.
         """
@@ -40,7 +40,8 @@ class HandleHaveTactic:
                 if info.progress == ProgressState.STATE_CHANGED:
                     logger.info(f"Current goal count: {len(state.training_data_format.start_goals)}")
                     logger.info(f"Next goal count: {len(next_state.training_data_format.start_goals)}")
-                    if self._have_tactic_introduced_goal(state, action, next_state):
+                    if self._have_tactic_introduced_goal(state, action, next_state) and \
+                    not ignore:
                         self._have_tactics.append((action, self._step_number))
                         logger.info(f"1: Got a have tactic that introduced a goal, nested level is now {self.nested_level}")
                     else:
@@ -62,6 +63,17 @@ class HandleHaveTactic:
                         logger.info(f"3: Backtracked to the last have tactic, nested level is now {self.nested_level}")
             else:
                 self._step_number += 1
+    def is_have_tactic(self, action: ProofAction) -> bool:
+        """
+        Returns True if the action is a `have` tactic.
+        """
+        if action.language == ProofAction.Language.LEAN4 and action.action_type == ProofAction.ActionType.RUN_TACTIC:
+            tactic : str = action.kwargs.get('tactics', [None])[0]
+            if tactic is not None:
+                tactic = Lean4Utils.remove_comments(tactic)
+                if tactic.strip().startswith('have'):
+                    return True
+        return False
 
     def fix_action(self, action: ProofAction, logger: logging.Logger) -> typing.Tuple[bool, typing.Optional[ProofAction]]:
         """
