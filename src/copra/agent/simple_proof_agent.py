@@ -80,6 +80,8 @@ class ProofAgent(Agent):
                 action_fixed, indented_action = lean_hack.fix_action(action, self.logger)
                 assert action_fixed, f"Action {action} is not fixed"
                 modified_action = copy.deepcopy(action)
+                has_more_than_one_tactic = len(action.kwargs.get('tactics', [])) > 1
+                is_have_tactic = lean_hack.is_have_tactic(action)
                 if modified_action.action_type == ProofAction.ActionType.RUN_TACTIC:
                     modified_action.kwargs['tactics'] = [indented_action.kwargs['tactics'][0]]
                     if len(action.kwargs.get('tactics', [])) > 1:
@@ -89,7 +91,8 @@ class ProofAgent(Agent):
                 # **IMPORTANT NOTE**: Here we update the action because sometimes the proof env can optimize the action
                 # and return a different action which kind of aligns with the action taken by the
                 # policy but only more efficient. This is slightly different traditional RL setting
-                lean_hack.scope_state(state, modified_action, next_state, info, self.logger)
+                ignore_single_line_have = (not has_more_than_one_tactic) and is_have_tactic
+                lean_hack.scope_state(state, modified_action, next_state, info, self.logger, ignore_single_line_have)
                 if lean_hack.is_within_have_tactic():
                     assert isinstance(next_state, ProofState)
                     if next_state.training_data_format.goal_description is None:
