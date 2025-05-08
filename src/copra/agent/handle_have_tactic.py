@@ -13,6 +13,7 @@ class HandleHaveTactic:
     """
     have_regex1 = re.compile(r'^\s*have\s+([\S]*?)\s*:')
     have_regex2 = re.compile(r'^\s*have\s+([\S]*?)\s*:=\s*')
+    simple_have_regex = re.compile(r'^\s*have\s+([\S|\s]*?)\s*:=\s*by')
     def __init__(self):
         self._last_actions = []
         self._last_proof_state = None
@@ -63,7 +64,7 @@ class HandleHaveTactic:
                         logger.info(f"3: Backtracked to the last have tactic, nested level is now {self.nested_level}")
             else:
                 self._step_number += 1
-    def is_have_tactic(self, action: ProofAction) -> bool:
+    def is_single_line_have_tactic(self, action: ProofAction) -> bool:
         """
         Returns True if the action is a `have` tactic.
         """
@@ -71,7 +72,11 @@ class HandleHaveTactic:
             tactic : str = action.kwargs.get('tactics', [None])[0]
             if tactic is not None:
                 tactic = Lean4Utils.remove_comments(tactic)
-                if tactic.strip().startswith('have'):
+                tactic = tactic.strip()
+                # Check if the tactic is a `have` tactic ending with `by`
+                if self.simple_have_regex.match(tactic) is not None:
+                    return False
+                else:
                     return True
         return False
 

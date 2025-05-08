@@ -81,7 +81,7 @@ class ProofAgent(Agent):
                 assert action_fixed, f"Action {action} is not fixed"
                 modified_action = copy.deepcopy(action)
                 has_more_than_one_tactic = len(action.kwargs.get('tactics', [])) > 1
-                is_have_tactic = lean_hack.is_have_tactic(action)
+                is_have_tactic = lean_hack.is_single_line_have_tactic(action)
                 if modified_action.action_type == ProofAction.ActionType.RUN_TACTIC:
                     modified_action.kwargs['tactics'] = [indented_action.kwargs['tactics'][0]]
                     if len(action.kwargs.get('tactics', [])) > 1:
