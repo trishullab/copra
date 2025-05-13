@@ -1,0 +1,29 @@
+name: n_60_dfs_bedrock_claude_3_7_no_retrieve_no_ex
+setting_type: Agent
+use_hammer: ALLOW
+max_proof_depth: 100
+timeout_in_secs: 60 # coq tactic execution timeout
+proof_retries: 1
+# main_prompt: data/prompts/system/coq-proof-agent-with-dfs-always-retrieve.md
+# conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs-always-retrieve.md
+max_tokens_per_action: 250
+max_theorems_in_prompt: 7
+gpt_model_name: anthropic.claude-3-7-sonnet-20250219-v1:0
+max_number_of_episodes: 1
+max_steps_per_episode: 100
+render: False
+checkpoint_dir: .log/checkpoints
+should_checkpoint: False
+temperature: 0.0
+max_history_messages: 0
+policy_name: Dfs
+proof_dump_dir: .log/proofs/eval_driver/dfs
+use_human_readable_proof_context: True
+sample: 1.0
+sample_seed: 0xf00
+use_example_retrieval: False
+always_use_useful_theorem_retrieval: False
+model_params:
+  reasoning_effort: high
+  reasoning_token_count: 11524
+num_goal_per_prompt:

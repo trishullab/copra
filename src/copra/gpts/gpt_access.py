@@ -5,8 +5,9 @@ import typing
 import unittest
 import tiktoken
 import copy
+import boto3
 from openai import OpenAI
-from copra.tools.misc import is_open_ai_model, is_anthropic_model
+from copra.tools.misc import is_open_ai_model, is_anthropic_model, is_bedrock_model
 
 class GptAccess:
     # Static dictionary of model information.
@@ -72,7 +73,47 @@ class GptAccess:
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "claude-3-7-sonnet-20250219": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-7-sonnet-20250219-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-5-haiku-20241022-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-5-sonnet-20240620-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-opus-20240229-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-haiku-20240307-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "anthropic.claude-3-sonnet-20240229-v1:0": {
+            "token_limit_per_min": 200000,
+            "request_limit_per_min": 1000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        "deepseek.r1-v1:0": {
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         }
@@ -91,7 +132,15 @@ class GptAccess:
         "o3": ".secrets/openai_key.json",
         "o3-mini": ".secrets/openai_key.json",
         "o4-mini": ".secrets/openai_key.json",
-        "claude-3-7-sonnet-20250219": ".secrets/anthropic_key.json"
+        "claude-3-7-sonnet-20250219": ".secrets/anthropic_key.json",
+        "anthropic.claude-3-7-sonnet-20250219-v1:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-5-haiku-20241022-v1:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-5-sonnet-20240620-v1:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-opus-20240229-v1:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-haiku-20240307-v1:0": ".secrets/bedrock_key.json",
+        "anthropic.claude-3-sonnet-20240229-v1:0": ".secrets/bedrock_key.json",
+        "deepseek.r1-v1:0": ".secrets/bedrock_key.json",
     }
 
     base_url_map = {
@@ -111,10 +160,11 @@ class GptAccess:
         else:
             self.secret_filepath = secret_filepath
         assert os.path.exists(self.secret_filepath), "Secret filepath does not exist"
-        self._load_secret()
         self.is_open_ai_model = is_open_ai_model(model_name)
         self.is_anthropic_model = is_anthropic_model(model_name)
-        assert sum([self.is_open_ai_model, self.is_anthropic_model]) == 1, \
+        self.is_bedrock_model = is_bedrock_model(model_name)
+        self._load_secret()
+        assert sum([self.is_open_ai_model, self.is_anthropic_model, self.is_bedrock_model]) == 1, \
             "Model must be either OpenAI or Anthropic, not both."
         # Use our static dictionary keys as the supported model list.
         self.models_supported_name = list(self.gpt_model_info.keys())
@@ -131,7 +181,17 @@ class GptAccess:
             "total_tokens": 0
         }
         # Create the OpenAI client instance.
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url_map.get(model_name, None))
+        if self.is_open_ai_model or self.is_anthropic_model:
+            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url_map.get(model_name, None))
+        elif self.is_bedrock_model:
+            self.bedrock_client = boto3.client(
+                "bedrock-runtime",
+                region_name=self.region_name,
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key
+            )
+        else:
+            raise Exception("Something went wrong with model name initialization")
 
     def complete_prompt(self,
                         prompt: str,
@@ -181,6 +241,19 @@ class GptAccess:
         assert len(messages) > 0, "Messages list cannot be empty"
         assert reasoning_effort in ["low", "medium", "high"], "Reasoning effort must be one of: low, medium, high"
         model = self.model_name if model is None else model
+        if self.is_bedrock_model:
+            return self.complete_chat_bedrock(
+                messages, 
+                model,
+                n, 
+                max_tokens, 
+                temperature, 
+                top_p, 
+                frequency_penalty, 
+                presence_penalty, 
+                stop, 
+                reasoning_effort, 
+                reasoning_token_count)
         stopping_reasons = "stop"
         if self.is_open_ai_model or self.is_anthropic_model:
             if self.model_name.startswith("o1") or \
@@ -209,7 +282,8 @@ class GptAccess:
     def handle_thinking_messages(self, messages: typing.List[typing.Dict[str, str]]) -> typing.List[typing.Dict[str, str]]:
         messages = copy.deepcopy(messages)
         for message in messages:
-            if message["role"] == "system" and self.model_name.startswith("o1"):
+            if message["role"] == "system" and \
+                self.model_name.startswith("o1"):
                 message["role"] = "user" # No system role in o1
             name = message.get("name")
             if name is not None:
@@ -293,6 +367,117 @@ class GptAccess:
             "total_tokens": usage.total_tokens
         }
         return return_responses, usage, stopping_reasons
+    
+    def complete_chat_bedrock(self,
+            messages: typing.List[typing.Dict[str, str]],
+            model: typing.Optional[str] = None,
+            n: int = 1,
+            max_tokens: int = 5,
+            temperature: float = 0.25,
+            top_p: float = 1.0,
+            frequency_penalty: float = 0.0,
+            presence_penalty: float = 0.0,
+            stop: list = [],
+            reasoning_effort: str = "low", # low, medium, high
+            reasoning_token_count: int = 350) -> typing.Tuple[list, dict]:
+        assert isinstance(messages, list), "Messages must be a list"
+        assert len(messages) > 0, "Messages list cannot be empty"
+        assert reasoning_effort in ["low", "medium", "high"], "Reasoning effort must be one of: low, medium, high"
+        model = self.model_name if model is None else model
+        stopping_reasons = "stop"
+        assert self.is_bedrock_model, "Model must be a Bedrock model"
+        model = self.model_name if model is None else model
+        model_id = f"us.{model}"
+        if model.startswith("anthropic"):
+            body_kwargs = {
+                "max_tokens": max_tokens + reasoning_token_count,
+                "temperature": temperature,
+                "top_p": top_p,
+                "stop_sequences": stop,
+                "anthropic_version": "bedrock-2023-05-31"
+            }
+        else:
+            # DeepSeek
+            body_kwargs = {
+                "max_tokens": max_tokens + reasoning_token_count,
+                "temperature": temperature,
+                "top_p": top_p,
+                # "stop": stop # This can kill it in the reasoning phase
+            }
+        messages = self.handle_thinking_messages_bedrock(messages)
+        if messages[0]["role"] == "system" and model.startswith("anthropic"):
+            system_message = messages.pop(0)["content"]
+            body_kwargs["system"] = system_message
+        else:
+            system_message = None
+        body_kwargs["messages"] = messages
+        response = self.bedrock_client.invoke_model(
+            body=json.dumps(body_kwargs).encode('utf-8'),
+            modelId=model_id,
+            contentType="application/json",
+            accept="application/json",
+        )
+        result = json.loads(response['body'].read())
+        if model.startswith("anthropic"):
+            usage_response = result['usage']
+            usage = {
+                "prompt_tokens": usage_response['input_tokens'],
+                "completion_tokens": usage_response['output_tokens'],
+                "total_tokens": usage_response['input_tokens'] + usage_response['output_tokens']
+            }
+            contents = [content["text"] for content in result["content"] if content["type"] == "text"]
+            stopping_reasons = result["stop_reason"]
+            if stopping_reasons == "end_turn" or stopping_reasons == "stop_sequence":
+                stopping_reasons = "stop"
+        else:
+            http_headers = response['ResponseMetadata']['HTTPHeaders']
+            usage = {
+                "prompt_tokens": int(http_headers['x-amzn-bedrock-input-token-count']),
+                "completion_tokens": int(http_headers['x-amzn-bedrock-output-token-count']),
+                "total_tokens": int(http_headers['x-amzn-bedrock-input-token-count']) + \
+                int(http_headers['x-amzn-bedrock-output-token-count'])
+            }
+            contents = [content["message"]["content"] for content in result["choices"]]
+            stopping_reasons = result["choices"][-1]["stop_reason"]
+            if stopping_reasons != "length":
+                stopping_reasons = "stop"
+        return_responses = [{"role": "assistant", "content": content} for content in contents]
+        for i in range(len(return_responses) - 1):
+            return_responses[i]["finish_reason"] = "stop"
+        if len(return_responses) > 0:
+            return_responses[-1]["finish_reason"] = stopping_reasons
+        usage = {
+            "prompt_tokens": usage["prompt_tokens"],
+            "completion_tokens": usage["completion_tokens"],
+            "total_tokens": usage["total_tokens"],
+            "reason": stopping_reasons
+        }
+        return return_responses, usage
+
+    def handle_thinking_messages_bedrock(self, messages: typing.List[typing.Dict[str, str]]) -> typing.List[typing.Dict[str, str]]:
+        messages = copy.deepcopy(messages)
+        for message in messages:
+            # if message["role"] == "system": #and \
+            #     # self.model_name.startswith("deepseek"):
+            #     message["role"] = "user"
+            name = message.get("name")
+            if name is not None:
+                message["content"] = f"\n{name}:```\n{message['content']}```\n"
+                message.pop("name")
+        # Now merge all same role messages occurring together into one message
+        merged_messages = []
+        for message in messages:
+            if len(merged_messages) == 0 or merged_messages[-1]["role"] != message["role"]:
+                merged_messages.append(message)
+            else:
+                merged_messages[-1]["content"] += message["content"]
+        messages = merged_messages
+        for message in messages:
+            for key in list(message.keys()):
+                if key not in ["role", "content"]:
+                    message.pop(key)
+        return messages
+
 
     def get_response_generic(self, model, messages, max_tokens, stop, temperature, n) -> typing.Tuple[list, dict, str]:
         response = self.client.chat.completions.create(
@@ -331,9 +516,18 @@ class GptAccess:
         return num_tokens
 
     def _load_secret(self) -> None:
-        with open(self.secret_filepath, "r") as f:
-            secret = json.load(f)
-            self.api_key = secret["api_key"]
+        if self.is_open_ai_model or self.is_anthropic_model:
+            with open(self.secret_filepath, "r") as f:
+                secret = json.load(f)
+                self.api_key = secret["api_key"]
+        elif self.is_bedrock_model:
+            with open(self.secret_filepath, "r") as f:
+                secret = json.load(f)
+                self.region_name = secret["region_name"]
+                self.aws_access_key_id = secret["aws_access_key_id"]
+                self.aws_secret_access_key = secret["aws_secret_access_key"]
+        else:
+            raise Exception("Something went wrong with model name initialization")
 
     def get_usage(self) -> dict:
         return self.usage
@@ -381,6 +575,12 @@ class IntegrationTests(unittest.TestCase):
     
     def test_claude_model(self):
         self._run_chat_test("claude-3-7-sonnet-20250219", token_count=300)
+
+    def test_bedrock_claude_model(self):
+        self._run_chat_test("anthropic.claude-3-7-sonnet-20250219-v1:0", token_count=300)
+    
+    def test_bedrock_deepseek_model(self):
+        self._run_chat_test("deepseek.r1-v1:0", token_count=300)
 
 if __name__ == "__main__":
     unittest.main()
