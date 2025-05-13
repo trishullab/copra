@@ -73,47 +73,47 @@ class GptAccess:
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "claude-3-7-sonnet-20250219": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-7-sonnet-20250219-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-5-haiku-20241022-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-5-sonnet-20241022-v2:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-5-sonnet-20240620-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-opus-20240229-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-haiku-20240307-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "anthropic.claude-3-sonnet-20240229-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
         "deepseek.r1-v1:0": {
-            "token_limit_per_min": 40000,
+            "token_limit_per_min": 200000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
         }
