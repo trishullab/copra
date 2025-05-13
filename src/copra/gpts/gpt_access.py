@@ -66,6 +66,11 @@ class GptAccess:
             "request_limit_per_min": 8000,
             "max_token_per_prompt": int(1.2 * 10**5)
         },
+        "o4-mini": {
+            "token_limit_per_min": 8000000,
+            "request_limit_per_min": 8000,
+            "max_token_per_prompt": int(1.2 * 10**5)
+        },
         "claude-3-7-sonnet-20250219": {
             "token_limit_per_min": 40000,
             "request_limit_per_min": 1000,
@@ -85,6 +90,7 @@ class GptAccess:
         "o1": ".secrets/openai_key.json",
         "o3": ".secrets/openai_key.json",
         "o3-mini": ".secrets/openai_key.json",
+        "o4-mini": ".secrets/openai_key.json",
         "claude-3-7-sonnet-20250219": ".secrets/anthropic_key.json"
     }
 
@@ -179,6 +185,7 @@ class GptAccess:
         if self.is_open_ai_model or self.is_anthropic_model:
             if self.model_name.startswith("o1") or \
             self.model_name.startswith("o3") or \
+            self.model_name.startswith("o4") or \
             self.is_anthropic_model:
                 messages = self.handle_thinking_messages(messages)
                 return_responses, usage, stopping_reasons = \
@@ -224,7 +231,7 @@ class GptAccess:
 
     def get_thinking_response(self, model, messages, max_tokens, stop : typing.List[str], reasoning_token_count, reasoning_effort) -> typing.Tuple[list, dict, str]:
         response = None
-        if self.is_open_ai_model and model == "o1-mini":
+        if self.is_open_ai_model and model == "o1-mini" or model == "o4-mini":
             response = self.client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -359,6 +366,9 @@ class IntegrationTests(unittest.TestCase):
 
     def test_o3_mini_model(self):
         self._run_chat_test("o3-mini", token_count=100)
+    
+    def test_o4_mini_model(self):
+        self._run_chat_test("o4-mini", token_count=100)
 
     def test_gpt4o_model(self):
         self._run_chat_test("gpt-4o", token_count=100)
