@@ -52,6 +52,10 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
         theorem_details = get_all_theorems_lean4(coq_proof_exec_callback.file_path)
         lemmas_to_prove = [get_fully_qualified_theorem_name_lean4(theorem) for theorem in theorem_details]
         logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
+        if len(lemmas_to_prove) > 20:
+            logger.info(f"Lemma names: {lemmas_to_prove[:10]} ... {lemmas_to_prove[-10:]}")
+        else:
+            logger.info(f"Lemma names: {lemmas_to_prove}")
         return lemmas_to_prove
     with coq_proof_exec_callback.get_proof_executor() as main_executor:
         if isinstance(main_executor, DynamicLeanProofExecutor):
@@ -88,6 +92,10 @@ def get_all_lemmas(coq_proof_exec_callback: ProofExecutorCallback, logger: loggi
                     lemmas_to_prove.append(lemma_name)
                     main_executor.run_to_finish_lemma()
     logger.info(f"Discovered {len(lemmas_to_prove)} lemmas")
+    if len(lemmas_to_prove) > 20:
+        logger.info(f"Lemma names: {lemmas_to_prove[:10]} ... {lemmas_to_prove[-10:]}")
+    else:
+        logger.info(f"Lemma names: {lemmas_to_prove}")
     return lemmas_to_prove
 
 def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, prompt_settings: PromptSettings, dataset: EvalDataset, eval_settings: EvalSettings, eval_checkpoint_info: EvalRunCheckpointInfo, eval_proof_results: EvalProofResults, logger: logging.Logger = None):
@@ -202,7 +210,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                 IsabelleExecutor.start_server(logger) # Restart the server
                 logger.warning("Restarted the PISA service.")
             server_use_count += 1
-            file_time_out = min(720, eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50)
+            file_time_out = min(3000, eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 50)
             logger.info(f"Getting all lemmas in file: {path} with timeout: {file_time_out} seconds")
             p = multiprocessing.Process(target=_get_all_lemmas, args=(return_dict, logger))
             p.start()
@@ -424,7 +432,7 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         logger.info(f"Attempt {attempt_idx + 1} for proving lemma: {lemma_name} in file {path}")
                         while should_retry and max_retry > 0:
                             # Run the prover with a timeout
-                            timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
+                            timeout = eval_benchmark.timeout_per_theorem_in_secs
                             if track_time and time_budget_tracker[path][lemma_name] < timeout:
                                 timeout = time_budget_tracker[path][lemma_name]
                             logger.info(f"Running the prover agent for lemma: {lemma_name} with timeout: {timeout} seconds")

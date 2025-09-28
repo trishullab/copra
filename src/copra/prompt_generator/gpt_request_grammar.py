@@ -132,8 +132,13 @@ String:;
             raise Exception(f"Invalid message {message}")
         # Remove any newlines at the beginning or end
         message = message.strip('\n')
+
+        # VALIDATION: Reject tactics containing ✝ symbol
+        if '✝' in message:
+            raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {message}")
+
         result = CoqGptRequest(action=action, args=[message])
-        # result : CoqGptRequest = self.run(message, None)            
+        # result : CoqGptRequest = self.run(message, None)
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
 
@@ -153,7 +158,14 @@ String:;
                     # Just in case the LLM doesn't remove the stop token
                     message_temp = message_temp.strip(CoqGPTRequestGrammar.end)
                 message_temp += f"\n{CoqGPTRequestGrammar.end}"
-                result : CoqGptRequest = self.run(message_temp, None)            
+                result : CoqGptRequest = self.run(message_temp, None)
+
+                # VALIDATION: Reject tactics containing ✝ symbol
+                if result.action == CoqGptRequestActions.RUN_TACTIC:
+                    for arg in result.args:
+                        if '✝' in arg:
+                            raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {arg}")
+
                 message_temp = self.generate_message_from_gpt_request(result)
                 message_parsed = True
             except:
@@ -163,7 +175,14 @@ String:;
         if not message_parsed:
             message_temp = message[start_idx:end_idx]
             message_temp += f"\n{CoqGPTRequestGrammar.end}"
-            result : CoqGptRequest = self.run(message_temp, None)            
+            result : CoqGptRequest = self.run(message_temp, None)
+
+            # VALIDATION: Reject tactics containing ✝ symbol
+            if result.action == CoqGptRequestActions.RUN_TACTIC:
+                for arg in result.args:
+                    if '✝' in arg:
+                        raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {arg}")
+
             message_temp = self.generate_message_from_gpt_request(result)
         return (result, message_temp)
 
@@ -203,9 +222,22 @@ String:;
             result : CoqGptRequest = self.run(message, None)
             if result.action == CoqGptRequestActions.RUN_TACTIC and len(result.args) > 1:
                 result.args = result.args[:-1] # remove the last tactic as it can be incomplete
+
+            # VALIDATION: Reject tactics containing ✝ symbol
+            if result.action == CoqGptRequestActions.RUN_TACTIC:
+                for arg in result.args:
+                    if '✝' in arg:
+                        raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {arg}")
         else:
             message += CoqGPTRequestGrammar.end
             result : CoqGptRequest = self.run(message, None)
+
+            # VALIDATION: Reject tactics containing ✝ symbol
+            if result.action == CoqGptRequestActions.RUN_TACTIC:
+                for arg in result.args:
+                    if '✝' in arg:
+                        raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {arg}")
+
         message = self.generate_message_from_gpt_request(result)
         return (result, message)
 
