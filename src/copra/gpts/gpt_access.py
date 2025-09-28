@@ -312,7 +312,7 @@ class GptAccess:
 
     def get_thinking_response(self, model, messages, max_tokens, stop : typing.List[str], reasoning_token_count, reasoning_effort) -> typing.Tuple[list, dict, str]:
         response = None
-        if self.is_open_ai_model and (model == "o1-mini" or model == "o4-mini" or model == "gpt-5-mini"):
+        if self.is_open_ai_model and model in {"o1-mini", "o4-mini", "gpt-5-mini"}:
             response = self.client.chat.completions.create(
                 model=model,
                 messages=messages,
