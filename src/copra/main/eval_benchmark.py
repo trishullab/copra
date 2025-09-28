@@ -432,7 +432,6 @@ def eval_dataset(env_settings: EnvSettings, eval_benchmark: EvalBenchmark, promp
                         logger.info(f"Attempt {attempt_idx + 1} for proving lemma: {lemma_name} in file {path}")
                         while should_retry and max_retry > 0:
                             # Run the prover with a timeout
-                            #timeout = min(eval_settings.timeout_in_secs * eval_settings.max_proof_depth * 1.25, eval_benchmark.timeout_per_theorem_in_secs)
                             timeout = eval_benchmark.timeout_per_theorem_in_secs
                             if track_time and time_budget_tracker[path][lemma_name] < timeout:
                                 timeout = time_budget_tracker[path][lemma_name]
