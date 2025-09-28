@@ -1,0 +1,4 @@
+name: lean4_dfs_stack_machine
+main_prompt: data/prompts/system/lean4-proof-agent-with-dfs-stack-machine.md
+conv_prompt: data/prompts/conversation/lean4-proof-agent-example-long-conv-dfs-stack-machine.md
+informal_proof_repo: data/test/stack_machine_lean/StackMachine/stack_machine_informal_proofs

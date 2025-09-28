@@ -68,7 +68,7 @@ inductive Instr where
 | load : Var → Instr
 
 -- Define a simple Program as a list of instructions
-def Program := List Instr
+abbrev Program := List Instr
 
 instance : Repr Instr where
   reprPrec

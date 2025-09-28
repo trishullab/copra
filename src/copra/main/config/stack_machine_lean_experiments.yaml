@@ -1,0 +1,17 @@
+defaults:
+  - env_settings: no_re_rank
+  - benchmark: stack_machine_lean_hard
+  - eval_settings: n_60_dfs_gpt5_mini_no_retrieve_no_ex
+  - prompt_settings: lean4_dfs_stack_machine
+  - override hydra/job_logging: 'disabled'
+
+eval_settings:
+ timeout_in_secs: 720
+ proof_retries: 5
+ temperature: 0.7
+ max_steps_per_episode: 100
+
+# To run this experiment, execute the following command:
+
+# Stack Machine Lean4 DFS Agent
+# nohup python src/copra/main/eval_benchmark.py prompt_settings=lean4_dfs_stack_machine env_settings=no_re_rank eval_settings=n_60_dfs_gpt5_mini_no_retrieve_no_ex benchmark=stack_machine_lean_hard &

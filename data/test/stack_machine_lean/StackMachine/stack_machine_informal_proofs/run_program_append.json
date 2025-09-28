@@ -1,0 +1,5 @@
+{
+    "problem_name": "run_program_append",
+    "informal_statement": "Running the concatenation of two programs p ++ q starting from an initial stack s is the same as first running p from s and then running q from the resulting stack. Formally: for all map, s, p, q, run_program map s (p ++ q) = run_program map (run_program map s p) q.",
+    "informal_proof": "Proceed by induction on p. Base case p = []: use run_program map s [] = s and [] ++ q = q to see both sides equal run_program map s q. Inductive step p = i :: p': unfold run_program, reduce both sides to applications of run_program with the tail and run_instr for i, then apply the inductive hypothesis to p'. In Lean use `induction p` (or `induction p generalizing s`), then `simp`/`rw` to unfold `run_program` and finish with the inductive hypothesis. (No other helper lemmas required.)\n\nSignature to prove:\n  theorem run_program_append (map : Var → Nat) (s : List ProgResult) (p q : Program) :\n    run_program map s (p ++ q) = run_program map (run_program map s p) q"
+  }

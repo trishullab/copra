@@ -1,0 +1,5 @@
+{
+    "problem_name": "compile_correct",
+    "informal_statement": "Compiling an expression e and running it (from the empty stack) yields ProgResult.ok of the expression's value: run map (compile e) = ProgResult.ok (eval map e).",
+    "informal_proof": "This follows directly from compile_preserves_stack by instantiating the initial stack s := []. From compile_preserves_stack we have run_program map [] (compile e) = ProgResult.ok (eval map e) :: []. The definition of run inspects run_program map [] p and returns ProgResult.ok n when the list is a singleton [ProgResult.ok n]. Thus run map (compile e) reduces to ProgResult.ok (eval map e).\n\nHelper lemma used (spell-out):\n  theorem compile_preserves_stack (map : Var → Nat) (e : Expr) (s : List ProgResult) :\n    run_program map s (compile e) = ProgResult.ok (eval map e) :: s\n\nTactics sketch: `have h := compile_preserves_stack map e []; simp [run] at h; exact h` (or `rw [compile_preserves_stack map e []]; simp [run]`)."
+  }

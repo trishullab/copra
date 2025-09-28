@@ -3,3 +3,4 @@
 import «StackMachine».Basic
 import «StackMachine».Train
 import «StackMachine».Test
+import «StackMachine».Theorems

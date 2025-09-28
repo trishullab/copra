@@ -57,12 +57,12 @@ export PATH="/home/$USER/.elan/bin:$PATH"
 }
 ```
 
-2. The experiments are not necessarily thread safe. So, it is recommended to run them sequentially. The commands to run the desired experiments can be found in the file `./src/main/config/experiments.yaml`.
+2. The experiments are not necessarily thread safe. So, it is recommended to run them sequentially. The commands to run the desired experiments can be found in the file `./src/copra/main/config/experiments.yaml`.
 
 3. Run the following command to run the experiments:
 ```bash
 python src/copra/main/eval_benchmark.py
-#^ This will run the experiments mentioned in the file `./src/main/config/experiments.yaml`.
+#^ This will run the experiments mentioned in the file `./src/copra/main/config/experiments.yaml`.
 # Change the file path in the command above to run other experiments.
 ```
 
