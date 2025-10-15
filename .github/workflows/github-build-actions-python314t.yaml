@@ -1,0 +1,116 @@
+name: Build, Package, and Test (Python 3.14 Free-Threading)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test-python314t:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up olean cache
+        uses: actions/cache@v3
+        with:
+            path: ~/.cache
+            key: oleans
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz wget
+
+      - name: Install Miniconda
+        shell: bash
+        run: |
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+          bash /tmp/miniconda.sh -b -p $HOME/miniconda
+          rm /tmp/miniconda.sh
+          export PATH="$HOME/miniconda/bin:$PATH"
+          conda init bash
+
+      - name: Create Python 3.14 free-threading conda environment
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          conda create -n py314-ft python=3.14 python-freethreading -c conda-forge -y
+
+      - name: Check Python version and GIL status
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          python --version
+          python -c "import sys; print('GIL disabled:', not sys._is_gil_enabled())"
+
+      - name: Upgrade pip and install build tools
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build the package using Hatch
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          python -m build
+
+      - name: Install the built package
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          pip install dist/*.whl
+
+      - name: Install Lean (elan)
+        shell: bash
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          source $HOME/.elan/env
+
+      - name: Configure
+        working-directory: data/test/lean4_proj
+        run: |
+            source $HOME/.elan/env
+            lake exe cache get
+
+      - name: Install Lean and ITP Interface
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          source $HOME/.elan/env
+          export LEAN_VERSION="4.17.0"
+          install-lean-repl
+          install-itp-interface
+
+      - name: Build the lean project
+        run: |
+            source $HOME/.elan/env
+            pushd data/test/lean4_proj && lake build && popd
+
+      - name: Create secrets
+        run: |
+          mkdir -p .secrets
+          echo ${{ secrets.OPENAI }} | base64 -d > .secrets/openai_key.json
+
+      - name: Run CI setup tests
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          source $HOME/.elan/env
+          python src/tests/simple_copra_run.py
+
+      - name: Remove secrets
+        run: |
+          rm -rf .secrets
+          ls -la
