@@ -41,7 +41,7 @@ def query_limit_info_message(max_query_limit: int) -> typing.Callable[[int, typi
 
 # Module-level wrapper for running prover - must be at module level for Python 3.14t pickling
 def _run_prover_wrapper(
-    ret_dict: multiprocessing.managers.DictProxy,
+    ret_dict: Dict[str, Any],
     lemma_name: str,
     proof_exec_callback: ProofExecutorCallback,
     env_settings: EnvSettings,
