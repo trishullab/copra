@@ -58,7 +58,18 @@ python -m copra.main.run --config-name lean4_simple_experiment
 python src/copra/main/run.py --config-name lean4_simple_experiment
 ```
 
-> **Note:** Python 3.14t is experimental. Some packages may show compatibility warnings (especially Pydantic and OpenAI), but COPRA has been refactored to work with Python 3.14t's forkserver multiprocessing mode.
+> **Note:** Python 3.14t is experimental. Some packages may show compatibility warnings (especially Pydantic and OpenAI), but COPRA has been refactored to work with Python 3.14t.
+
+**🚀 Automatic Parallel Execution Selection:**
+COPRA automatically detects your Python version and chooses the best parallel execution strategy:
+- **Python 3.14t+ with GIL disabled:** Uses native free-threading for true parallel execution
+- **Python 3.14t+ with GIL enabled:** Uses threading (still benefits from improved performance)
+- **Python < 3.14:** Uses multiprocessing (traditional approach)
+
+Check your execution mode:
+```bash
+python demo_parallel_execution.py
+```
 
 ## Full Setup for Coq and Lean:
 1. Install OCaml first. Use the instructions here: https://opam.ocaml.org/doc/Install.html. Note that OCaml officially only supports Linux installations. One can use WSL on Windows machines.
