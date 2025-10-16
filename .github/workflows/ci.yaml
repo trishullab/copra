@@ -66,6 +66,7 @@ jobs:
         run: |
             source $HOME/.elan/env
             pushd data/test/lean4_proj && lake build && popd
+            pushd data/test/stack_machine_lean && lake build && popd
 
       - name: Create secrets
         run: |
