@@ -77,6 +77,11 @@ jobs:
           source $HOME/.elan/env
           python src/tests/simple_copra_run.py
 
+      - name: Clean up logs before parallel test
+        run: |
+          rm -rf .log
+          echo "Cleaned .log directory for fresh parallel execution test"
+
       - name: Run CI setup tests (parallel execution)
         run: |
           source $HOME/.elan/env

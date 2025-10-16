@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from enum import Enum
+from filelock import FileLock
 from copra.tools.informal_proof_repo import InformalProofRepo
 from itp_interface.rl.proof_tree import ProofSearchResult
 from itp_interface.rl.proof_action import ProofAction
@@ -147,8 +148,15 @@ class EvalRunCheckpointInfo(object):
 
     def add_theorem_to_maps(self, path: str, theorem: str, success: bool):
         self.theorem_maps[path][theorem] = success
-        with open(self.checkpoint_file, "w") as f:
-            f.write(self.to_json(indent=4))
+        # Use file lock to ensure thread/process-safe writes
+        # Store lock files in .lock directory
+        lock_dir = ".lock"
+        os.makedirs(lock_dir, exist_ok=True)
+        lock_filename = os.path.basename(self.checkpoint_file) + ".lock"
+        lock_file = os.path.join(lock_dir, lock_filename)
+        with FileLock(lock_file, timeout=30):
+            with open(self.checkpoint_file, "w") as f:
+                f.write(self.to_json(indent=4))
     
 @dataclass_json
 @dataclass
@@ -162,8 +170,15 @@ class EvalProofResults(object):
     
     def add_theorem_to_maps(self, path: str, theorem: str, proof_result: ProofSearchResult):
         self.theorem_map[path][theorem] = proof_result
-        with open(self.path, "w") as f:
-            f.write(self.to_json(indent=4))
+        # Use file lock to ensure thread/process-safe writes
+        # Store lock files in .lock directory
+        lock_dir = ".lock"
+        os.makedirs(lock_dir, exist_ok=True)
+        lock_filename = os.path.basename(self.path) + ".lock"
+        lock_file = os.path.join(lock_dir, lock_filename)
+        with FileLock(lock_file, timeout=30):
+            with open(self.path, "w") as f:
+                f.write(self.to_json(indent=4))
 
 
 def parse_config(cfg):
