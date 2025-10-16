@@ -8,9 +8,9 @@ including multiprocessing support for handling timeouts.
 """
 
 import logging
-import multiprocessing
 from typing import List, Optional, Dict, Any
 
+from copra.main.parallel_execution import get_executor
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
 from itp_interface.tools.dynamic_coq_proof_exec import DynamicProofExecutor as DynamicCoqProofExecutor
@@ -150,7 +150,7 @@ def discover_lemmas_with_timeout(
     logger: logging.Logger
 ) -> Optional[List[str]]:
     """
-    Discover lemmas in a file with a timeout using multiprocessing.
+    Discover lemmas in a file with a timeout using parallel execution.
 
     Args:
         path: Path to the proof file
@@ -163,22 +163,17 @@ def discover_lemmas_with_timeout(
     """
     logger.info(f"Getting all lemmas in file: {path} with timeout: {timeout} seconds")
 
-    manager = multiprocessing.Manager()
-    return_dict = manager.dict()
+    # Get the appropriate executor (free-threading for 3.14t+, multiprocessing for older)
+    executor = get_executor()
 
-    p = multiprocessing.Process(
+    # Execute with timeout
+    return_dict, _ = executor.execute_with_timeout(
         target=_get_all_lemmas_wrapper,
-        args=(return_dict, proof_exec_callback, logger, path)
+        args=(proof_exec_callback, logger, path),
+        timeout=timeout
     )
-    p.start()
-    p.join(timeout)
 
-    if p.is_alive():
-        p.kill()
-        p.join()
-    p.close()
-
-    if "lemmas" not in return_dict:
+    if return_dict is None or "lemmas" not in return_dict:
         logger.info(f"Failed to get all lemmas in file: {path}, moving on to the next file.")
         return None
 

@@ -8,11 +8,11 @@ timeout management, and retry logic for service failures.
 """
 
 import logging
-import multiprocessing
 import time
 import typing
 from typing import Dict, Any
 
+from copra.main.parallel_execution import get_executor
 from copra.gpts.llama_access import ServiceDownError
 from copra.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from copra.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
@@ -230,15 +230,15 @@ class ProofExecutionManager:
         Returns:
             Dictionary containing proof results and status
         """
-        manager = multiprocessing.Manager()
-        return_dict = manager.dict()
-
         self.logger.info(f"Running the prover agent for lemma: {lemma_name} (theorem_idx={theorem_idx}) with timeout: {timeout} seconds")
 
-        p = multiprocessing.Process(
+        # Get the appropriate executor (free-threading for 3.14t+, multiprocessing for older)
+        executor = get_executor()
+
+        # Execute with timeout
+        return_dict, elapsed_time = executor.execute_with_timeout(
             target=_run_prover_wrapper,
             args=(
-                return_dict,
                 lemma_name,
                 proof_exec_callback,
                 env_settings,
@@ -248,24 +248,13 @@ class ProofExecutionManager:
                 log_dir,
                 theorem_idx,
                 path
-            )
+            ),
+            timeout=timeout
         )
 
-        tic_start = time.time()
-        p.start()
-        p.join(timeout)
-
-        if p.is_alive():
-            p.kill()
-            p.join()
-        p.close()
-
-        toc_end = time.time()
-
         result = {
-            'return_dict': dict(return_dict),
-            'elapsed_time': toc_end - tic_start
+            'return_dict': return_dict if return_dict is not None else {},
+            'elapsed_time': elapsed_time
         }
 
-        return_dict.clear()
         return result

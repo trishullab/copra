@@ -102,13 +102,36 @@ jobs:
           mkdir -p .secrets
           echo ${{ secrets.OPENAI }} | base64 -d > .secrets/openai_key.json
 
-      - name: Run CI setup tests
+      - name: Run CI setup tests (sequential)
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
           python src/tests/simple_copra_run.py
+
+      - name: Clean up logs before parallel test
+        run: |
+          rm -rf .log
+          echo "Cleaned .log directory for fresh parallel execution test"
+
+      - name: Run CI setup tests (parallel execution with threading)
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          source $HOME/.elan/env
+          export ENABLE_PARALLEL_THEOREMS=True
+          export MAX_PARALLEL_WORKERS=2
+          python src/tests/simple_copra_run.py
+
+      - name: Verify threading was used
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source $HOME/miniconda/bin/activate py314-ft
+          echo "Python 3.14t parallel execution uses threading (not multiprocessing)"
+          python -c "import sys; print(f'Python: {sys.version_info.major}.{sys.version_info.minor}'); print(f'GIL enabled: {sys._is_gil_enabled()}'); print(f'Free-threading: {not sys._is_gil_enabled()}')"
 
       - name: Remove secrets
         run: |

@@ -26,6 +26,7 @@ from copra.main.policy_factory import PolicyFactory
 from copra.main.lemma_discovery import discover_lemmas_with_timeout
 from copra.main.proof_execution import ProofExecutionManager
 from copra.main.checkpoint_manager import CheckpointManager
+from copra.main.parallel_theorem_execution import ParallelTheoremExecutor
 from copra.tools.misc import model_supports_openai_api
 from itp_interface.tools.log_utils import setup_logger
 from itp_interface.rl.proof_tree import ProofSearchResult
@@ -472,7 +473,8 @@ def _process_file(
     server_use_count: int,
     max_server_use_count: int,
     log_dir: str,
-    logger: logging.Logger
+    logger: logging.Logger,
+    parallel_executor: typing.Optional[ParallelTheoremExecutor] = None
 ) -> typing.Tuple[bool, int]:
     """
     Process a single file from the dataset.
@@ -492,7 +494,9 @@ def _process_file(
         skip_files_in_checkpoint: Whether to skip checkpointed files
         server_use_count: Current server use count
         max_server_use_count: Maximum server use count
+        log_dir: Directory for log files
         logger: Logger instance
+        parallel_executor: Optional parallel theorem executor for running theorems in parallel
 
     Returns:
         Tuple of (any_proof_attempted, updated_server_use_count)
@@ -560,19 +564,30 @@ def _process_file(
     # Filter and sample lemmas
     lemmas = _filter_lemmas(file, lemmas_to_prove, eval_settings, path, logger)
 
-    # Process each lemma
-    for theorem_idx, lemma_name in enumerate(lemmas):
-        try:
-            attempted = _process_lemma(
-                lemma_name, path, file, env_settings, eval_settings,
-                eval_benchmark, prompt_settings, proof_exec_callback,
-                proof_dump_file_name, checkpoint_manager, proof_executor,
-                attempt_idx, track_time, time_budget_tracker, log_dir,
-                theorem_idx, logger
-            )
-            any_proof_attempted = any_proof_attempted or attempted
-        except Exception:
-            logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
+    # Process each lemma - either in parallel or sequentially
+    if parallel_executor is not None:
+        # Execute theorems in parallel
+        any_proof_attempted = parallel_executor.execute_theorems_in_parallel(
+            lemmas, path, file, env_settings, eval_settings,
+            eval_benchmark, prompt_settings, proof_exec_callback,
+            proof_dump_file_name, checkpoint_manager, proof_executor,
+            attempt_idx, track_time, time_budget_tracker, log_dir,
+            _process_lemma, logger
+        )
+    else:
+        # Execute theorems sequentially (original behavior)
+        for theorem_idx, lemma_name in enumerate(lemmas):
+            try:
+                attempted = _process_lemma(
+                    lemma_name, path, file, env_settings, eval_settings,
+                    eval_benchmark, prompt_settings, proof_exec_callback,
+                    proof_dump_file_name, checkpoint_manager, proof_executor,
+                    attempt_idx, track_time, time_budget_tracker, log_dir,
+                    theorem_idx, logger
+                )
+                any_proof_attempted = any_proof_attempted or attempted
+            except Exception:
+                logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
 
     return any_proof_attempted, server_use_count
 
@@ -621,6 +636,15 @@ def eval_dataset(
                 f"beyond {eval_benchmark.timeout_per_theorem_in_secs} seconds."
             )
 
+        # Check if parallel theorem execution is enabled
+        enable_parallel_theorems = os.environ.get("ENABLE_PARALLEL_THEOREMS", "False").lower() == "true"
+        max_parallel_workers = None
+        if os.environ.get("MAX_PARALLEL_WORKERS"):
+            try:
+                max_parallel_workers = int(os.environ.get("MAX_PARALLEL_WORKERS"))
+            except ValueError:
+                logger.warning(f"Invalid MAX_PARALLEL_WORKERS value, using default")
+
         time_budget_tracker = {}
         server_use_count = 0
         max_server_use_count = 5
@@ -628,6 +652,14 @@ def eval_dataset(
         # Create managers
         checkpoint_manager = CheckpointManager(eval_checkpoint_info, eval_proof_results, logger)
         proof_executor = ProofExecutionManager(logger)
+
+        # Create parallel theorem executor if enabled
+        parallel_executor = None
+        if enable_parallel_theorems:
+            parallel_executor = ParallelTheoremExecutor(logger, max_workers=max_parallel_workers)
+            logger.info("Parallel theorem execution is ENABLED")
+        else:
+            logger.info("Parallel theorem execution is DISABLED (sequential execution)")
 
         # Main evaluation loop
         proof_attempts_done = False
@@ -645,7 +677,7 @@ def eval_dataset(
                     prompt_settings, checkpoint_manager, proof_executor,
                     attempt_idx, track_time, time_budget_tracker,
                     skip_files_in_checkpoint, server_use_count,
-                    max_server_use_count, log_dir, logger
+                    max_server_use_count, log_dir, logger, parallel_executor
                 )
                 any_proof_attempted = any_proof_attempted or attempted
 

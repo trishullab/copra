@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
+import threading
 import parglare as Parglare
+
+# Global lock for thread-safe parser creation
+# The parglare library is not thread-safe, so we need to serialize parser creation
+# to prevent race conditions when multiple threads initialize parsers concurrently
+_parser_creation_lock = threading.Lock()
 
 class Grammar:
     def __init__(self, grammar, keywords, recognizers=None, debug=False):
@@ -18,12 +24,14 @@ class Grammar:
         return result
 
     def _get_parser(self, actions={}):
-        if self.recognizers is not None:
-            g = Parglare.Grammar.from_string(self.grammar, recognizers=self.recognizers, debug=self.debug)
-        else:
-            g = Parglare.Grammar.from_string(self.grammar)
-        parser = Parglare.Parser(g, debug=self.debug, actions=actions)
-        return parser
+        # Use lock to ensure thread-safe parser creation
+        with _parser_creation_lock:
+            if self.recognizers is not None:
+                g = Parglare.Grammar.from_string(self.grammar, recognizers=self.recognizers, debug=self.debug)
+            else:
+                g = Parglare.Grammar.from_string(self.grammar)
+            parser = Parglare.Parser(g, debug=self.debug, actions=actions)
+            return parser
 
     def compile(self, code):
         parser = self._get_parser()
@@ -37,8 +45,10 @@ class Grammar:
         return self.interpret_result(result)
     
     def get_syntax_tree(self, code):
-        g = Parglare.Grammar.from_string(self.grammar)
-        parser = Parglare.Parser(g, debug=False, build_tree=True)
+        # Use lock to ensure thread-safe parser creation
+        with _parser_creation_lock:
+            g = Parglare.Grammar.from_string(self.grammar)
+            parser = Parglare.Parser(g, debug=False, build_tree=True)
         tree = parser.parse(code)
         return tree
 
