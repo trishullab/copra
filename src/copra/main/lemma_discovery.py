@@ -9,7 +9,7 @@ including multiprocessing support for handling timeouts.
 
 import logging
 import multiprocessing
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
@@ -123,7 +123,7 @@ def _log_lemma_names(lemmas: List[str], logger: logging.Logger) -> None:
 
 # Module-level wrapper for multiprocessing compatibility with Python 3.14t (forkserver)
 def _get_all_lemmas_wrapper(
-    ret_dict: multiprocessing.managers.DictProxy,
+    ret_dict: Dict[str, Any],
     proof_exec_callback: ProofExecutorCallback,
     logger: logging.Logger,
     path: str
