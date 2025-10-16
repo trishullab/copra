@@ -2,6 +2,8 @@
 
 import os
 from copra.prompt_generator.interpreter import Grammar
+from copra.prompt_generator.grammar_utils import StringParser
+
 
 class DfsAgentGrammar(Grammar):
     grammar = """
@@ -29,18 +31,10 @@ ConvEnd: "`conv end`";
 String:;
 """
 
+    @staticmethod
     def get_string_parser(keywords):
-        def string_parser(keywords, text, pos):
-            last = pos
-            while last < len(text):
-                while last < len(text) and text[last] != '`':
-                    last += 1
-                if last < len(text):
-                    for keyword in keywords:
-                        if text[last:].startswith(keyword):
-                            return text[pos:last]
-                    last += 1
-        return lambda text, pos: string_parser(keywords, text, pos)
+        """Create a picklable string parser for the given keywords."""
+        return StringParser(keywords)
 
     def __init__(self, user_name: str = 'example_user', agent_name: str = 'example_assistant'):
         self.keywords = [f"`{user_name}`", f"`{agent_name}`", "`conv start`", "`conv end`"]

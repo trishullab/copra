@@ -25,6 +25,41 @@ install-itp-interface
 
 >NOTE: These steps are only tested on Linux. For Windows, you can use WSL. These steps will not setup the Coq interface.
 
+## Python 3.14t Setup (Free-threaded Python - Optional):
+🆕 **NEW:** COPRA now supports Python 3.14+ with free-threaded (GIL-free) support for improved performance!
+
+1. **Create a Conda environment with Python 3.14t (free-threaded):**
+```bash
+# Create environment with free-threaded Python 3.14
+conda create -n py314-ft python=3.14 python-freethreading -c conda-forge
+
+# Activate the environment
+conda activate py314-ft
+
+# Verify Python version and free-threading support
+python --version  # Should show Python 3.14.x
+```
+
+2. **Install COPRA theorem prover:**
+```bash
+# Install from PyPI
+pip install copra-theorem-prover
+
+# OR for development, install from source
+pip install -e .
+```
+
+3. **Run experiments with Python 3.14t:**
+```bash
+# Use run.py which automatically detects Python 3.14+ and uses Hydra-free mode
+python -m copra.main.run --config-name lean4_simple_experiment
+
+# Or if installed from source
+python src/copra/main/run.py --config-name lean4_simple_experiment
+```
+
+> **Note:** Python 3.14t is experimental. Some packages may show compatibility warnings (especially Pydantic and OpenAI), but COPRA has been refactored to work with Python 3.14t's forkserver multiprocessing mode.
+
 ## Full Setup for Coq and Lean:
 1. Install OCaml first. Use the instructions here: https://opam.ocaml.org/doc/Install.html. Note that OCaml officially only supports Linux installations. One can use WSL on Windows machines.
 
@@ -60,11 +95,28 @@ export PATH="/home/$USER/.elan/bin:$PATH"
 2. The experiments are not necessarily thread safe. So, it is recommended to run them sequentially. The commands to run the desired experiments can be found in the file `./src/copra/main/config/experiments.yaml`.
 
 3. Run the following command to run the experiments:
+
+**For Python 3.14+ (with free-threaded support):**
+```bash
+python src/copra/main/run.py --config-name lean4_simple_experiment
+# This uses a Hydra-free implementation compatible with Python 3.14+
+# You can change the config name to run different experiments
+```
+
+**For Python < 3.14:**
 ```bash
 python src/copra/main/eval_benchmark.py
-#^ This will run the experiments mentioned in the file `./src/copra/main/config/experiments.yaml`.
+# This will run the experiments mentioned in the file `./src/copra/main/config/experiments.yaml`.
 # Change the file path in the command above to run other experiments.
 ```
+
+**Universal command (auto-detects Python version):**
+```bash
+python src/copra/main/run.py --config-name lean4_simple_experiment
+# This automatically uses Hydra-free mode for Python 3.14+ and Hydra mode for older versions
+```
+
+> **Note:** `run.py` is the recommended entry point for all Python versions. It automatically detects your Python version and uses the appropriate implementation (Hydra-free for 3.14+, standard Hydra for older versions).
 
 ## Important Note:
 The ITP projects must be built before running COPRA. Make sure that the switch is set correctly while running it for Coq projects because the Coq projects can be using different versions of Coq. 

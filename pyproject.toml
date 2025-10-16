@@ -10,13 +10,13 @@ packages = ["src/copra"]
 
 [project]
 name = "copra-theorem-prover"
-version = "1.1.11"
+version = "1.1.12"
 authors = [
   { name="Amitayush Thakur", email="amitayush@utexas.edu" },
 ]
 description = "Python library for running proof search using CoPra"
 readme = "README.md"
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -24,14 +24,20 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface>=1.1.12",
+    "itp-interface>=1.1.13",
     "openai==1.69.0",
-    "tiktoken==0.4.0",
-    "gradio==3.48.0",
-    "sentencepiece==0.1.99",
-    "spaces==0.16.1",
-    "transformers==4.48.0",
-    "boto3==1.38.14"
+    "tiktoken>=0.12.0",  # Updated: 0.4.0 incompatible with Python 3.14t, needs PyO3 0.23+ for free-threading
+    "sentencepiece>=0.2.0",  # Updated: 0.1.99 lacks Python 3.14t wheels, 0.2.1 has cp314t support
+    "transformers>=4.48.0",  # Relaxed: Allow updates for better numpy 2.0 compatibility
+    "boto3==1.38.14",
+    "numpy>=2.1.0",  # Added: Required for Python 3.14t free-threading support (PEP 703)
+    "pydantic>=2.12.0",  # Added: Constrain to version with Python 3.14t support
+    "huggingface-hub>=0.19.0,<0.32.0",  # Constrained: Versions >=0.32.0 require hf-xet which lacks Python 3.14t support
+]
+
+[project.optional-dependencies]
+ui = [
+    "gradio>=4.0.0,<5.50",  # Optional: UI features, requires huggingface-hub which pulls hf-xet (no Python 3.14t support yet)
 ]
 
 [project.urls]
