@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import typing
+import re
 from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.interpreter import Grammar
 from dataclasses import dataclass, field
@@ -296,6 +297,7 @@ Prog:
 
     def __init__(self, language: ProofAction.Language = ProofAction.Language.COQ, enable_defensive_parsing: bool = False):
         self.language = language
+        self.enable_defensive_parsing = enable_defensive_parsing
         if language == ProofAction.Language.COQ:
             self.keywords = [FewShotGptCoqKeywords.PROOF, FewShotGptCoqKeywords.QED]
         elif language == ProofAction.Language.LEAN:
@@ -327,7 +329,7 @@ String:;
             terminals = f"""
 terminals
 Proof: "{FewShotGptLeanKeywords.PROOF}";
-Qed: "{FewShotGptLeanKeywords.QED}";
+Qed: "{FewShotGptLeanKeywords.END}";
 String:;
 """
         elif self.language == ProofAction.Language.ISABELLE:
@@ -354,7 +356,11 @@ String:;
         else:
             raise NotImplementedError(f"language {language} not supported")
         grammar = FewShotGptRequestGrammar.grammar + terminals
-        self.enable_defensive_parsing = enable_defensive_parsing
+
+        # Set up regex patterns for optimized parsing
+        self.proof_regex = rf"{re.escape(self.PROOF)}([\s|\S]*?){re.escape(self.QED)}"
+        self.proof_match = re.compile(self.proof_regex)
+
         super(FewShotGptRequestGrammar, self).__init__(grammar, self.keywords, recognizers=recognizers)
 
     def _parse_expr(self, nonTerminal: str, nodes) -> FewShotGptRequest:
@@ -396,17 +402,60 @@ String:;
     def generate_message_from_gpt_request(self, coq_gpt_request: FewShotGptRequest) -> str:
         return f"{self.PROOF}\n{coq_gpt_request.proof_string}"
 
-    def get_openai_request(self, message_response: str) -> typing.Tuple[FewShotGptRequest, str]:
-        message, _ = message_response
-        if self.enable_defensive_parsing:
+    def get_openai_request(self, message_response: tuple[str, typing.Any]) -> typing.Tuple[FewShotGptRequest, str]:
+        message, finish_reason = message_response
+        defensive_parsing = finish_reason != "stop" or self.enable_defensive_parsing
+        if defensive_parsing:
             return self.defensive_parsing(message)
         else:
             return self.normal_parsing(message)
         
     def normal_parsing(self, message):
-        message_temp = message
-        message_temp += f"\n{self.QED}"
-        result : FewShotGptRequest = self.run(message_temp, None)            
+        # Check if the message has the regex for proof
+        if not message.endswith(self.QED):
+            message += self.QED
+        match = self.proof_match.search(message)
+        if match:
+            message = match.group(0)
+        else:
+            # Fallback to adding QED if no match found
+            pass
+
+        message_temp = message.strip()
+        message_temp = message_temp.rstrip(self.QED)
+
+        if not message_temp.startswith(self.PROOF):
+            raise Exception(f"Invalid message: must start with {self.PROOF}")
+
+        message_temp = message_temp[len(self.PROOF):]
+        message_temp = message_temp.strip('\n')
+
+        # VALIDATION: Reject proofs containing ✝ symbol
+        if '✝' in message_temp:
+            raise Exception(f"Invalid proof: proofs cannot contain the ✝ symbol. Found in: {message_temp}")
+
+        # Parse the proof content based on language
+        if self.language == ProofAction.Language.COQ:
+            actions = message_temp.strip() + f"\n{self.QED}"
+        elif self.language == ProofAction.Language.LEAN:
+            actions = message_temp.strip()
+            if actions.startswith("begin"):
+                actions = actions[len("begin"):]
+            if not actions.endswith("end"):
+                actions += "end"
+        elif self.language == ProofAction.Language.LEAN4:
+            actions = message_temp.strip()
+            if actions.startswith("by"):
+                actions = actions[len("by"):]
+        elif self.language == ProofAction.Language.ISABELLE:
+            actions = message_temp.strip().strip("proof -").strip()
+            if not actions.endswith("qed"):
+                actions += "qed"
+        else:
+            raise NotImplementedError(f"language {self.language} not supported")
+
+        proof_action = ProofAction(ProofAction.ActionType.RUN_TACTIC, self.language, tactics=[actions])
+        result = FewShotGptRequest(action=proof_action, proof_string=actions)
         message_temp = self.generate_message_from_gpt_request(result)
         return (result, message_temp)
 
@@ -417,6 +466,7 @@ String:;
         idxs = [(s_idx, e_idx) for s_idx in range(start_idx, end_idx) for e_idx in range(end_idx, s_idx, -1)]
         message_temp = message
         message_parsed = False
+        result = None
         for s_idx, e_idx in idxs:
             # This type of robust parsing can be needed in case of some LLMs which
             # don't follow the specified format
@@ -426,7 +476,12 @@ String:;
                     # Just in case the LLM doesn't remove the stop token
                     message_temp = message_temp.strip(self.QED)
                 message_temp += f"\n{self.QED}"
-                result : FewShotGptRequest = self.run(message_temp, None)            
+                result : FewShotGptRequest = self.run(message_temp, None)
+
+                # VALIDATION: Reject proofs containing ✝ symbol
+                if '✝' in result.proof_string:
+                    raise Exception(f"Invalid proof: proofs cannot contain the ✝ symbol. Found in: {result.proof_string}")
+
                 message_temp = self.generate_message_from_gpt_request(result)
                 message_parsed = True
             except:
@@ -436,10 +491,69 @@ String:;
         if not message_parsed:
             message_temp = message[start_idx:end_idx]
             message_temp += f"\n{self.QED}"
-            result : FewShotGptRequest = self.run(message_temp, None)            
+            result : FewShotGptRequest = self.run(message_temp, None)
+
+            # VALIDATION: Reject proofs containing ✝ symbol
+            if '✝' in result.proof_string:
+                raise Exception(f"Invalid proof: proofs cannot contain the ✝ symbol. Found in: {result.proof_string}")
+
             message_temp = self.generate_message_from_gpt_request(result)
         return (result, message_temp)
-    
+
+    def attempt_parsing(self, message):
+        """
+        Greedy correction to ensure that the message is parsable.
+        Attempts to fix incomplete or malformed messages by trimming from the end.
+        """
+        idx = len(message)
+        exceptions = []
+        message_seems_fixable = True
+        try:
+            # trim any unwanted keywords at the end
+            idx = message.rfind('[')
+            if idx < 0:
+                raise Exception("No opening bracket found, message is not parsable")
+            close_idx = message.rfind(']', idx, len(message))
+            if close_idx < 0:
+                message = message[:idx]
+            else:
+                idx = len(message)
+        except Exception:
+            message_seems_fixable = False
+            pass
+
+        result = None
+        if message_seems_fixable:
+            attempt = 0
+            while idx >= 0:
+                try:
+                    parsable_message = message[:idx] + f"\n{self.QED}"
+                    self.compile(parsable_message)
+                    break
+                except Exception as e:
+                    exceptions.append(e)
+                    idx = message.rfind('[', 0, idx)
+                attempt += 1
+            if idx >= 0:
+                message = parsable_message
+            else:
+                raise exceptions[0]
+            result : FewShotGptRequest = self.run(message, None)
+
+            # VALIDATION: Reject proofs containing ✝ symbol
+            if '✝' in result.proof_string:
+                raise Exception(f"Invalid proof: proofs cannot contain the ✝ symbol. Found in: {result.proof_string}")
+        else:
+            message += self.QED
+            result : FewShotGptRequest = self.run(message, None)
+
+            # VALIDATION: Reject proofs containing ✝ symbol
+            if '✝' in result.proof_string:
+                raise Exception(f"Invalid proof: proofs cannot contain the ✝ symbol. Found in: {result.proof_string}")
+
+        message = self.generate_message_from_gpt_request(result)
+        return (result, message)
+
     def parse_request_to_args(self, messages: typing.List[str]) -> typing.List[str]:
         results : typing.List[str] = []
         for message in messages:

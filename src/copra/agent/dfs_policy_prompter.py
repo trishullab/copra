@@ -7,22 +7,22 @@ import time
 import logging
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.rl.simple_proof_env import ProgressState
-from copra.agent.rate_limiter import RateLimiter, InvalidActionException
+from copra.agent.rate_limiter import InvalidActionException
+from copra.agent.simple_policy_prompter import SimplePolicyPrompter
 from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
 from copra.gpts.gpt_access import GptAccess
-from copra.gpts.llama_access import LlamaAccess, ServiceDownError
+from copra.gpts.llama_access import ServiceDownError
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
-from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
 from copra.tools.informal_proof_repo import InformalProofRepo
 from copra.tools.misc import model_supports_openai_api
 
-class DfsCoqGptPolicyPrompter(PolicyPrompter):
+class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
-    def __init__(self, 
-            main_sys_prompt_path: str, 
+    def __init__(self,
+            main_sys_prompt_path: str,
             example_conv_prompt_path: str,
             num_sequences: int = 1,
             temperature: float = 0.25,
@@ -42,45 +42,44 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             model_params: typing.Optional[typing.Dict[str, typing.Any]] = None):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
+
+        # Initialize base class with common LLM functionality
+        super().__init__(
+            gpt_model_name=gpt_model_name,
+            secret_filepath=secret_filepath,
+            temperature=temperature,
+            num_sequences=num_sequences,
+            max_tokens_per_action=max_tokens_per_action,
+            max_history_messages=max_history_messages,
+            logger=logger,
+            model_params=model_params
+        )
+
+        # Initialize domain-specific components
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
-        self.model_name = gpt_model_name
         use_defensive_parsing = not model_supports_openai_api(gpt_model_name)
         self.coq_gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
         self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
+
+        # Setup system messages
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not model_supports_openai_api(gpt_model_name):
-            self._gpt_access = LlamaAccess(gpt_model_name)
-        else:
-            self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
-        self._token_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["token_limit_per_min"]
-        self._request_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["request_limit_per_min"]
-        self._max_token_per_prompt = GptAccess.gpt_model_info[gpt_model_name]["max_token_per_prompt"]
-        self._rate_limiter = RateLimiter(self._token_limit_per_min, self._request_limit_per_min)
-        self.temperature = temperature
-        self.num_sequences = num_sequences
         self.system_token_count = self._gpt_access.num_tokens_from_messages(self.system_messages)
-        self._model_params = model_params if model_params is not None else {}
-        self._max_tokens_per_action = max_tokens_per_action
-        self._history_token_count = 0
-        self._message_history = []
-        self._message_history_token_count = []
+
+        # Domain-specific settings
         self._custom_system_messages = []
-        self._max_history_messages = max_history_messages
         self._k = k
         self._retrieve_prompt_examples = retrieve_prompt_examples
-        self.logger = logger if logger is not None else logging.getLogger(__name__)
-        self._num_api_calls = 0
         self._training_data_path = training_data_path
         self._metadata_filename = metadata_filename
         self._num_goal_per_prompt = num_goal_per_prompt
         self.language = language
         self.incorrect_repeat_count = 0 # 1 # Give only one warning
         self.incorrect_repeat_warning = "warning: You are trying to repeat the same incorrect step. Please try a different step, otherwise this will lead to backtracking or termination of proof search. Only repeat if you have run out of all other options, and want to backtrack to the previous state."
-        self.last_message_has_error = False
         self.informal_proof_repo = informal_proof_repo
         self.lemma_name = lemma_name
+
         if self.informal_proof_repo is not None:
             assert self.lemma_name is not None, "Lemma name must be provided if informal proof repo is provided"
         if self._retrieve_prompt_examples:
@@ -89,14 +88,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             assert os.path.exists(self._training_data_path), f"Training data path {self._training_data_path} doesn't exists"
             self._init_retriever()
         pass
-
-    def __enter__(self):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__enter__()
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__exit__(exc_type, exc_value, traceback)
 
     def _init_retriever(self):
         if DfsCoqGptPolicyPrompter._cache.get(self._training_data_path, None) is not None:
@@ -116,81 +107,6 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             self.retriever.load()
             self.logger.info("Loaded training data for BM25 retriever!")
         self._retrieval_count = 2
-
-    def add_to_history(self, message: typing.Any):
-        message_token_count = self._gpt_access.num_tokens_from_messages([message])
-        self._message_history.append(message)
-        self._message_history_token_count.append(message_token_count)
-        self._history_token_count += message_token_count
-    
-    def reset_last_message(self, message: typing.Any):
-        if len(self._message_history) > 0:
-            self._history_token_count -= self._message_history_token_count[-1]
-            self._message_history.pop()
-            self._message_history_token_count.pop()
-        self.add_to_history(message)
-
-    def _constrain_tokens_in_history(self, prompt_message, custom_example_system_messages : typing.List[dict[str, str]], custom_system_message_count: int, prompt_token_count: int, max_tokens_per_action: int) -> list:
-        if len(self._message_history) >= self._max_history_messages:
-            if not self.last_message_has_error:
-                history_idx = len(self._message_history) - self._max_history_messages
-            else:
-                history_idx = 0
-        else:
-            history_idx = 0
-        if history_idx < len(self._message_history):
-            # There is no point in checking the token count if there is no history to be maintained
-            total_token_count = self.system_token_count + self._history_token_count + prompt_token_count + custom_system_message_count
-            max_token_per_prompt = min(self._max_token_per_prompt, self._max_token_per_prompt - max_tokens_per_action)
-            assert max_token_per_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
-            tokens_shredded = False
-            remove_cnt  = 0
-            history_count = self._history_token_count
-            while total_token_count >= max_token_per_prompt and history_idx < len(self._message_history):
-                self.logger.warning(f"Tokens exceeded removing history at index {history_idx}: {total_token_count} >= {max_token_per_prompt}")
-                history_count -= self._message_history_token_count[history_idx]
-                total_token_count = self.system_token_count + history_count + prompt_token_count + custom_system_message_count
-                history_idx += 1
-                tokens_shredded = True
-                remove_cnt += 1
-            if remove_cnt % 2 == 1 and history_idx < len(self._message_history):
-                history_count -= self._message_history_token_count[history_idx]
-                total_token_count = self.system_token_count + history_count + prompt_token_count + custom_system_message_count
-                history_idx += 1
-            if tokens_shredded:
-                self.logger.warning(f"Shredded tokens from history. New total token count: {total_token_count}, max token per prompt: {max_token_per_prompt}, history token count: {self._history_token_count}, prompt token count: {prompt_token_count}")
-            if total_token_count >= max_token_per_prompt:
-                self.logger.warning(f"Total token count {total_token_count} is still greater than max token per prompt {max_token_per_prompt}.")
-        else:
-            total_token_count = self.system_token_count + prompt_token_count + custom_system_message_count
-        if history_idx > 0:
-            for idx in range(min(history_idx, len(self._message_history))):
-                self._history_token_count -= self._message_history_token_count[idx]
-        self._message_history = self._message_history[history_idx:]
-        self._message_history_token_count = self._message_history_token_count[history_idx:]
-        self._custom_system_messages = custom_example_system_messages
-        self._message_history.append(prompt_message)
-        self._message_history_token_count.append(prompt_token_count)
-        self._history_token_count += prompt_token_count + custom_system_message_count
-        messages = self.system_messages + self._custom_system_messages + self._message_history
-        assert total_token_count + max_tokens_per_action <= self._max_token_per_prompt, f"Total token count {total_token_count} + max tokens per action {max_tokens_per_action} is greater than max token per prompt {self._max_token_per_prompt}"
-        return messages, total_token_count
-    
-    def _throttle_if_needed(self, total_token_count: int):
-        has_hit_rate_limit = self._rate_limiter.check(total_token_count)
-        was_throttled = False
-        while not has_hit_rate_limit:
-            current_time = time.time()
-            time_to_sleep = max(1, 60 - (current_time - self._rate_limiter._last_request_time))
-            self.logger.info(f"Rate limit reached. Sleeping for {time_to_sleep} seconds. "
-            f"Rate limiter info: {self._rate_limiter}")
-            time.sleep(time_to_sleep)
-            has_hit_rate_limit = self._rate_limiter.check(total_token_count)
-            was_throttled = True
-        if was_throttled:
-            self.logger.info("Rate limit was hit. So the request was throttled.")
-            self._rate_limiter.reset()
-            self.logger.info("Rate limit reset now.")
 
     def _get_prompt_message(self, request: CoqGptResponse, max_tokens_in_prompt: int) -> str:
         assert max_tokens_in_prompt > 0, "Max token per prompt must be greater than 0, please decrease max_tokens_per_action"
@@ -541,8 +457,3 @@ class DfsCoqGptPolicyPrompter(PolicyPrompter):
             raise Exception(f"Failed to get valid action after {tries} tries. Exceptions:\n {exceptions}")
         action = actions_tuple[0][0]
         return action
-
-    def get_efficiency_info(self) -> typing.Dict[str, typing.Any]:
-        return {
-            "api_calls": self._num_api_calls
-        }

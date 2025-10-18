@@ -10,7 +10,7 @@ packages = ["src/copra"]
 
 [project]
 name = "copra-theorem-prover"
-version = "1.1.13"
+version = "1.1.14"
 authors = [
   { name="Amitayush Thakur", email="amitayush@utexas.edu" },
 ]
@@ -24,18 +24,25 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface>=1.1.13",
-    "openai==1.69.0",
+    "itp-interface>=1.1.14",
+    "openai>=1.99.1",
     "tiktoken>=0.12.0",  # Updated: 0.4.0 incompatible with Python 3.14t, needs PyO3 0.23+ for free-threading
     "sentencepiece>=0.2.0",  # Updated: 0.1.99 lacks Python 3.14t wheels, 0.2.1 has cp314t support
-    "transformers>=4.48.0",  # Relaxed: Allow updates for better numpy 2.0 compatibility
     "boto3==1.38.14",
     "numpy>=2.1.0",  # Added: Required for Python 3.14t free-threading support (PEP 703)
     "pydantic>=2.12.0",  # Added: Constrain to version with Python 3.14t support
-    "huggingface-hub>=0.19.0,<0.32.0",  # Constrained: Versions >=0.32.0 require hf-xet which lacks Python 3.14t support
+    "transformers>=4.48,<4.54; python_version >= '3.14'",  # stays compatible with older hub
+    "huggingface-hub>=0.30,<0.32; python_version >= '3.14'",  # stays compatible with older transformers
+    # on <=3.12 (or <3.13), allow new stack
+    "transformers>=4.56; python_version < '3.13'",
+    "huggingface-hub>=0.34,<1.0; python_version < '3.13'",
+    "requests>=2.32.0",
 ]
 
 [project.optional-dependencies]
+os_models = [
+    "vllm>=0.11.0; python_version < '3.13'",  # Optional: Open-source model support with vLLM (requires Python ≤ 3.12)
+]
 ui = [
     "gradio>=4.0.0,<5.50",  # Optional: UI features, requires huggingface-hub which pulls hf-xet (no Python 3.14t support yet)
 ]

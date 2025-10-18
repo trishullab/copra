@@ -30,10 +30,19 @@ def is_bedrock_model(model_name: str) -> bool:
     return model_name.startswith("anthropic.") or \
     model_name.startswith("deepseek.")
 
+def is_vllm_model(model_name: str) -> bool:
+    """
+    Check if the model name is a vLLM model.
+    vLLM models use the prefix "vllm:" followed by the HuggingFace model name.
+    Example: vllm:AI-MO/Kimina-Prover-Distill-1.7B
+    """
+    return model_name.startswith("vllm:")
+
 def model_supports_openai_api(model_name: str) -> bool:
     """
     Check if the model supports OpenAI API.
     """
     return is_open_ai_model(model_name) or \
     is_anthropic_model(model_name) or \
-    is_bedrock_model(model_name)
+    is_bedrock_model(model_name) or \
+    is_vllm_model(model_name)

@@ -7,7 +7,7 @@ import tiktoken
 import copy
 import boto3
 from openai import OpenAI
-from copra.tools.misc import is_open_ai_model, is_anthropic_model, is_bedrock_model
+from copra.tools.misc import is_open_ai_model, is_anthropic_model, is_bedrock_model, is_vllm_model
 
 class GptAccess:
     # Static dictionary of model information.
@@ -121,6 +121,12 @@ class GptAccess:
             "token_limit_per_min": 2000000,
             "request_limit_per_min": 1000,
             "max_token_per_prompt": int(1.2 * 10**5)
+        },
+        # Default entry for vLLM models (covers all vllm: prefixed models)
+        "vllm": {
+            "token_limit_per_min": 1000000,  # Generous default for local inference
+            "request_limit_per_min": 1000,   # High limit since it's local
+            "max_token_per_prompt": int(3.2 * 10**4)  # 32k context, adjust based on your models
         }
     }
 
@@ -157,7 +163,15 @@ class GptAccess:
                  secret_filepath: str = None,
                  model_name: typing.Optional[str] = None) -> None:
         assert secret_filepath is None or secret_filepath.endswith(".json"), "Secret filepath must be a .json file"
-        if secret_filepath is None:
+
+        # Check if this is a vLLM model
+        self.is_vllm_model = is_vllm_model(model_name) if model_name else False
+
+        if self.is_vllm_model:
+            # vLLM models don't need secrets, they use ENV variable for base_url
+            self.secret_filepath = None
+            self.api_key = "EMPTY"  # vLLM doesn't require a real API key
+        elif secret_filepath is None:
             # Use the default secret filepath based on the model name.
             assert model_name in self.secret_filepath_map, (
                 f"Model {model_name} not supported. Supported models: {list(self.secret_filepath_map.keys())}"
@@ -165,30 +179,48 @@ class GptAccess:
             self.secret_filepath = self.secret_filepath_map[model_name]
         else:
             self.secret_filepath = secret_filepath
-        assert os.path.exists(self.secret_filepath), "Secret filepath does not exist"
+
+        # Load secrets for non-vLLM models
+        if not self.is_vllm_model:
+            assert os.path.exists(self.secret_filepath), "Secret filepath does not exist"
+
         self.is_open_ai_model = is_open_ai_model(model_name)
         self.is_anthropic_model = is_anthropic_model(model_name)
         self.is_bedrock_model = is_bedrock_model(model_name)
-        self._load_secret()
-        assert sum([self.is_open_ai_model, self.is_anthropic_model, self.is_bedrock_model]) == 1, \
-            "Model must be either OpenAI or Anthropic, not both."
+
+        if not self.is_vllm_model:
+            self._load_secret()
+
+        assert sum([self.is_open_ai_model, self.is_anthropic_model, self.is_bedrock_model, self.is_vllm_model]) == 1, \
+            "Model must be exactly one of: OpenAI, Anthropic, Bedrock, or vLLM."
+
         # Use our static dictionary keys as the supported model list.
         self.models_supported_name = list(self.gpt_model_info.keys())
         if model_name is not None:
-            assert model_name in self.models_supported_name, (
-                f"Model {model_name} not supported. Supported models: {self.models_supported_name}"
-            )
+            # For vLLM models, we don't need exact match in models_supported_name
+            if not self.is_vllm_model:
+                assert model_name in self.models_supported_name, (
+                    f"Model {model_name} not supported. Supported models: {self.models_supported_name}"
+                )
             self.model_name = model_name
         else:
             self.model_name = self.models_supported_name[0]
+
         self.usage = {
             "prompt_tokens": 0,
             "completion_tokens": 0,
             "total_tokens": 0
         }
+
         # Create the OpenAI client instance.
         if self.is_open_ai_model or self.is_anthropic_model:
             self.client = OpenAI(api_key=self.api_key, base_url=self.base_url_map.get(model_name, None))
+        elif self.is_vllm_model:
+            # vLLM uses OpenAI-compatible API, read base_url from ENV
+            vllm_base_url = os.environ.get("VLLM_BASE_URL", "http://127.0.0.1:48000/v1")
+            self.client = OpenAI(api_key=self.api_key, base_url=vllm_base_url)
+            # Extract actual model name without vllm: prefix for API calls
+            self.vllm_model_name = model_name.replace("vllm:", "", 1)
         elif self.is_bedrock_model:
             self.bedrock_client = boto3.client(
                 "bedrock-runtime",
@@ -247,18 +279,23 @@ class GptAccess:
         assert len(messages) > 0, "Messages list cannot be empty"
         assert reasoning_effort in ["low", "medium", "high"], "Reasoning effort must be one of: low, medium, high"
         model = self.model_name if model is None else model
+
+        # For vLLM, use the actual model name without prefix
+        if self.is_vllm_model:
+            model = self.vllm_model_name
+
         if self.is_bedrock_model:
             return self.complete_chat_bedrock(
-                messages, 
+                messages,
                 model,
-                n, 
-                max_tokens, 
-                temperature, 
-                top_p, 
-                frequency_penalty, 
-                presence_penalty, 
-                stop, 
-                reasoning_effort, 
+                n,
+                max_tokens,
+                temperature,
+                top_p,
+                frequency_penalty,
+                presence_penalty,
+                stop,
+                reasoning_effort,
                 reasoning_token_count)
         stopping_reasons = "stop"
         if self.is_open_ai_model or self.is_anthropic_model:
@@ -275,6 +312,12 @@ class GptAccess:
                 messages = self.handle_thinking_messages(messages)
                 return_responses, usage, stopping_reasons = \
                 self.get_gpt_4_o_response(model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n)
+        elif self.is_vllm_model:
+            # vLLM models use generic response
+            # Handle message format for vLLM (convert system messages with names to user/assistant)
+            messages = self.handle_thinking_messages(messages)
+            return_responses, usage, stopping_reasons = \
+            self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
         else:
             return_responses, usage, stopping_reasons = \
             self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
@@ -495,10 +538,37 @@ class GptAccess:
             stop=stop,
             n=n
         )
-        usage = response.usage
-        self.usage["prompt_tokens"] += usage.prompt_tokens
-        self.usage["completion_tokens"] += usage.completion_tokens
-        self.usage["total_tokens"] += usage.total_tokens
+        usage_obj = response.usage
+
+        # Handle cases where usage might be None (e.g., vLLM, some GPT models)
+        if usage_obj is not None:
+            prompt_tokens = getattr(usage_obj, 'prompt_tokens', 0)
+            completion_tokens = getattr(usage_obj, 'completion_tokens', 0)
+            total_tokens = getattr(usage_obj, 'total_tokens', prompt_tokens + completion_tokens)
+            self.usage["prompt_tokens"] += prompt_tokens
+            self.usage["completion_tokens"] += completion_tokens
+            self.usage["total_tokens"] += total_tokens
+            usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens
+            }
+        else:
+            # Estimate token counts if usage is not provided
+            prompt_tokens = self.num_tokens_from_messages(messages, model)
+            # Rough estimate for completion tokens
+            completion_tokens = sum(len(choice.message.content.split()) * 1.3 for choice in response.choices)
+            completion_tokens = int(completion_tokens)
+            total_tokens = prompt_tokens + completion_tokens
+            self.usage["prompt_tokens"] += prompt_tokens
+            self.usage["completion_tokens"] += completion_tokens
+            self.usage["total_tokens"] += total_tokens
+            usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens
+            }
+
         return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"

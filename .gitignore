@@ -196,6 +196,7 @@ api_log.json
 temptodel*
 
 .conda
+.conda*
 
 # File locks for parallel execution
 .lock/

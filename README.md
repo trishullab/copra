@@ -11,6 +11,7 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
   - [Quick Setup for Lean 4](#quick-setup-for-lean-4)
   - [Python 3.14t Setup (Free-threaded Python)](#python-314t-setup-free-threaded-python---optional)
   - [Full Setup for Coq and Lean](#full-setup-for-coq-and-lean)
+  - [vLLM Setup for Open Source Models](#vllm-setup-for-open-source-models)
 - [Running Experiments](#running-experiments)
   - [Setting up OpenAI API](#setting-up-openai-api-and-running-experiments)
   - [Starting Required Services](#starting-required-services)
@@ -21,7 +22,19 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
 
 ## What's New
 
-### 🚀 Parallel Theorem Execution (NEW!)
+### 🤖 vLLM Support for Open Source Models (NEW!)
+COPRA now supports **vLLM** for running open-source LLMs locally! This enables you to use models like Llama, Mistral, DeepSeek, and more for theorem proving.
+
+**Features:**
+- ✅ **OpenAI-Compatible API**: Works with existing COPRA code via OpenAI-compatible interface
+- ✅ **GPU Acceleration**: Full CUDA support with multi-GPU tensor parallelism
+- ✅ **Automatic Server Management**: Start/stop vLLM servers programmatically
+- ✅ **Model Flexibility**: Support for any Hugging Face model compatible with vLLM
+- ⚠️ **Python Requirement**: vLLM requires Python ≤ 3.12 (not compatible with 3.14t)
+
+[Jump to vLLM Setup →](#vllm-setup-for-open-source-models)
+
+### 🚀 Parallel Theorem Execution
 COPRA now supports executing proof search for **multiple theorems in parallel**! This significantly speeds up evaluation on multi-core systems.
 
 **Features:**
@@ -132,6 +145,46 @@ export PATH="/home/$USER/.opam/default/bin:$PATH"
 ```
 export PATH="/home/$USER/.elan/bin:$PATH"
 ```
+
+### vLLM Setup for Open Source Models
+
+🆕 **NEW:** Run open-source LLMs locally with GPU acceleration via vLLM!
+
+**Quick Setup:**
+```bash
+# Install with vLLM support
+pip install copra-theorem-prover[os_models]
+
+# Or for development
+pip install -e .[os_models]
+```
+
+**Usage:**
+
+Create a config file with `vllm:` prefix:
+```yaml
+# config/eval_settings/my_vllm_config.yaml
+gpt_model_name: vllm:codellama/CodeLlama-7b-Instruct-hf
+temperature: 0.0
+max_tokens_per_action: 100
+# ... other settings
+```
+
+Run your experiment:
+```bash
+python -m copra.main.eval_benchmark eval_settings=my_vllm_config benchmark=miniF2F
+```
+
+The vLLM server starts automatically on port 48000. Override with `VLLM_PORT` environment variable if needed.
+
+**Supported Models:**
+- `vllm:codellama/CodeLlama-7b-Instruct-hf` (open-source code model)
+- `vllm:meta-llama/Llama-2-7b-chat-hf` (general LLM)
+- `vllm:EleutherAI/llemma_7b` (math-focused LLM)
+- `vllm:deepseek-ai/deepseek-math-7b-instruct` (math reasoning)
+- Any HuggingFace model compatible with vLLM
+
+> **Note:** vLLM requires Python ≤ 3.12 and CUDA-capable GPU
 
 ---
 
