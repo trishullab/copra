@@ -314,6 +314,8 @@ class GptAccess:
                 self.get_gpt_4_o_response(model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n)
         elif self.is_vllm_model:
             # vLLM models use generic response
+            # Handle message format for vLLM (convert system messages with names to user/assistant)
+            messages = self.handle_thinking_messages(messages)
             return_responses, usage, stopping_reasons = \
             self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
         else:

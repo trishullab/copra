@@ -8,7 +8,7 @@ proof_retries: 1
 # conv_prompt: data/prompts/conversation/coq-proof-agent-example-long-conv-dfs-always-retrieve.md
 max_tokens_per_action: 100
 max_theorems_in_prompt: 3
-gpt_model_name: codellama/CodeLlama-7b-Instruct-hf
+gpt_model_name: vllm:codellama/CodeLlama-7b-Instruct-hf
 max_number_of_episodes: 1
 max_steps_per_episode: 500
 render: False
@@ -24,3 +24,4 @@ sample_seed: 0xf00
 use_example_retrieval: False
 always_use_useful_theorem_retrieval: True
 num_goal_per_prompt:
+model_params: {}

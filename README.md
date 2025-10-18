@@ -148,47 +148,43 @@ export PATH="/home/$USER/.elan/bin:$PATH"
 
 ### vLLM Setup for Open Source Models
 
-🆕 **NEW:** COPRA now supports vLLM for running open-source LLMs locally with GPU acceleration!
+🆕 **NEW:** Run open-source LLMs locally with GPU acceleration via vLLM!
 
-**Requirements:**
-- Python ≤ 3.12 (vLLM is not compatible with Python 3.14t)
-- CUDA-capable GPU (recommended)
-- PyTorch with CUDA support
-
-**Setup:**
-
-1. **Install PyTorch with CUDA support:**
+**Quick Setup:**
 ```bash
-# Install PyTorch 2.8.0 with CUDA 12.8 support
-pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
-```
-
-> **Note:** Adjust the CUDA version (`cu128`) based on your system's CUDA installation. Check available versions at https://pytorch.org/get-started/locally/
-
-2. **Install COPRA with optional open-source model support:**
-```bash
-# Install with vLLM support (optional)
+# Install with vLLM support
 pip install copra-theorem-prover[os_models]
 
-# OR for development
+# Or for development
 pip install -e .[os_models]
-```
-
-> **Tip:** If you only need OpenAI models, install without `[os_models]` to avoid the large vLLM dependency:
-> ```bash
-> pip install copra-theorem-prover
-> ```
-
-3. **Verify vLLM is available:**
-```bash
-python -c "from copra.tools.vllm_tools import has_vllm; print('vLLM available:', has_vllm())"
 ```
 
 **Usage:**
 
-Use the vLLM tools in `src/copra/tools/vllm_tools.py` to start/stop vLLM servers programmatically with any Hugging Face model (Llama, Mistral, DeepSeek, Qwen, etc.).
+Create a config file with `vllm:` prefix:
+```yaml
+# config/eval_settings/my_vllm_config.yaml
+gpt_model_name: vllm:codellama/CodeLlama-7b-Instruct-hf
+temperature: 0.0
+max_tokens_per_action: 100
+# ... other settings
+```
 
-> **Important:** vLLM requires Python ≤ 3.12. If you're using Python 3.14t for free-threading, you'll need a separate Python 3.12 environment for vLLM-based experiments.
+Run your experiment:
+```bash
+python -m copra.main.eval_benchmark eval_settings=my_vllm_config benchmark=miniF2F
+```
+
+The vLLM server starts automatically on port 48000. Override with `VLLM_PORT` environment variable if needed.
+
+**Supported Models:**
+- `vllm:codellama/CodeLlama-7b-Instruct-hf` (open-source code model)
+- `vllm:meta-llama/Llama-2-7b-chat-hf` (general LLM)
+- `vllm:EleutherAI/llemma_7b` (math-focused LLM)
+- `vllm:deepseek-ai/deepseek-math-7b-instruct` (math reasoning)
+- Any HuggingFace model compatible with vLLM
+
+> **Note:** vLLM requires Python ≤ 3.12 and CUDA-capable GPU
 
 ---
 
