@@ -27,12 +27,16 @@ from copra.main.lemma_discovery import discover_lemmas_with_timeout
 from copra.main.proof_execution import ProofExecutionManager
 from copra.main.checkpoint_manager import CheckpointManager
 from copra.main.parallel_theorem_execution import ParallelTheoremExecutor
-from copra.tools.misc import model_supports_openai_api
+from copra.tools.misc import model_supports_openai_api, is_vllm_model
+from copra.tools.vllm_tools import start_server, stop_server
 from itp_interface.tools.log_utils import setup_logger
 from itp_interface.rl.proof_tree import ProofSearchResult
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.tools.isabelle_executor import IsabelleExecutor
 from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
+
+# Global variable to track vLLM server process
+_vllm_server_process = None
 
 
 def _initialize_services(
@@ -42,7 +46,7 @@ def _initialize_services(
     logger: logging.Logger
 ) -> None:
     """
-    Initialize required services (Llama, Isabelle) based on configuration.
+    Initialize required services (vLLM, Llama, Isabelle) based on configuration.
 
     Args:
         eval_settings: Evaluation settings
@@ -50,8 +54,43 @@ def _initialize_services(
         eval_checkpoint_info: Checkpoint information
         logger: Logger instance
     """
-    # Initialize Llama service if using non-OpenAI model
+    global _vllm_server_process
+
+    # Initialize vLLM service if using vLLM model
     if eval_settings.gpt_model_name is not None and \
+       len(eval_settings.gpt_model_name) != 0 and \
+       is_vllm_model(eval_settings.gpt_model_name):
+        logger.info(f"Starting vLLM server for model: {eval_settings.gpt_model_name}")
+
+        # Extract actual model name without vllm: prefix
+        actual_model_name = eval_settings.gpt_model_name.replace("vllm:", "", 1)
+
+        # Get vLLM configuration from environment variables or use defaults
+        vllm_port = int(os.environ.get("VLLM_PORT", "48000"))
+        vllm_host = os.environ.get("VLLM_HOST", "127.0.0.1")
+        vllm_api_key = os.environ.get("VLLM_API_KEY", "EMPTY")
+        vllm_max_model_len = eval_settings.model_params.get("max_model_len", None)
+        if vllm_max_model_len is None and "VLLM_MAX_MODEL_LEN" in os.environ:
+            vllm_max_model_len = int(os.environ.get("VLLM_MAX_MODEL_LEN"))
+
+        try:
+            base_url, proc = start_server(
+                model=actual_model_name,
+                host=vllm_host,
+                port=vllm_port,
+                api_key=vllm_api_key,
+                max_model_len=vllm_max_model_len,
+                wait_seconds=600  # Give it 10 minutes to start
+            )
+            _vllm_server_process = proc
+            os.environ["VLLM_BASE_URL"] = base_url
+            logger.info(f"vLLM server started successfully at {base_url}")
+        except Exception as e:
+            logger.error(f"Failed to start vLLM server: {e}")
+            raise
+
+    # Initialize Llama service if using non-OpenAI model (deprecated, prefer vLLM)
+    elif eval_settings.gpt_model_name is not None and \
        len(eval_settings.gpt_model_name) != 0 and \
        not model_supports_openai_api(eval_settings.gpt_model_name):
         llama_logger = setup_logger(
@@ -94,8 +133,20 @@ def _shutdown_services(
         eval_settings: Evaluation settings
         eval_benchmark: Benchmark configuration
     """
-    # Shutdown Llama service if it was initialized
+    global _vllm_server_process
+
+    # Shutdown vLLM service if it was initialized
     if eval_settings.gpt_model_name is not None and \
+       len(eval_settings.gpt_model_name) != 0 and \
+       is_vllm_model(eval_settings.gpt_model_name):
+        if _vllm_server_process is not None:
+            logging.getLogger(__name__).info("Stopping vLLM server...")
+            stop_server(_vllm_server_process)
+            _vllm_server_process = None
+            logging.getLogger(__name__).info("vLLM server stopped")
+
+    # Shutdown Llama service if it was initialized
+    elif eval_settings.gpt_model_name is not None and \
        len(eval_settings.gpt_model_name) != 0 and \
        not model_supports_openai_api(eval_settings.gpt_model_name):
         LlamaAccess.class_kill()
@@ -667,6 +718,23 @@ def eval_dataset(
             if proof_attempts_done:
                 break
 
+            # Reload checkpoint info from disk to pick up updates from other processes or previous attempts
+            if os.path.exists(eval_checkpoint_info.checkpoint_file):
+                with open(eval_checkpoint_info.checkpoint_file, "r") as f:
+                    eval_checkpoint_info = EvalRunCheckpointInfo.from_json(f.read())
+                    # Update checkpoint manager with latest checkpoint info
+                    checkpoint_manager.checkpoint_info = eval_checkpoint_info
+                logger.info(f"Reloaded checkpoint info for attempt {attempt_idx + 1}")
+
+            # Reload proof results from disk to pick up results saved by other processes or previous attempts
+            eval_proof_file = os.path.join(eval_settings.proof_dump_dir, "proof_results.json")
+            if os.path.exists(eval_proof_file):
+                with open(eval_proof_file, "r") as f:
+                    eval_proof_results = EvalProofResults.from_json(f.read())
+                    # Update checkpoint manager with latest proof results
+                    checkpoint_manager.proof_results = eval_proof_results
+                logger.info(f"Reloaded proof results for attempt {attempt_idx + 1}")
+
             any_proof_attempted = False
 
             for file in dataset.files:
@@ -795,6 +863,14 @@ def eval_benchmark(
                     env_settings, benchmark, prompt_settings, dataset,
                     eval_settings, checkpoint_info, eval_proof_results, logger=logger
                 )
+
+            # Reload proof results from disk before measuring success to ensure we have the latest results
+            eval_proof_file = os.path.join(eval_settings.proof_dump_dir, "proof_results.json")
+            if os.path.exists(eval_proof_file):
+                with open(eval_proof_file, "r") as f:
+                    eval_proof_results = EvalProofResults.from_json(f.read())
+                logger.info("Reloaded proof results for final success measurement")
+
             measure_success(benchmark, eval_settings, eval_proof_results, logger=logger)
             trial_cnt = 0
         except Exception:

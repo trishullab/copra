@@ -61,10 +61,19 @@ class SimplePolicyPrompter(PolicyPrompter):
         self.num_sequences = num_sequences
         self._max_tokens_per_action = max_tokens_per_action
         self._max_history_messages = max_history_messages
-        self._model_params = model_params if model_params is not None else {}
+
+        # Filter out server-only parameters from model_params
+        # These are used for vLLM/server initialization, not for API calls
+        server_only_params = {'max_model_len', 'gpu_memory_utilization', 'tensor_parallel_size'}
+        if model_params is not None:
+            self._model_params = {k: v for k, v in model_params.items() if k not in server_only_params}
+        else:
+            self._model_params = {}
+
         self.logger = logger if logger is not None else logging.getLogger(__name__)
 
         # Initialize LLM access (GptAccess or LlamaAccess)
+        # Note: vLLM models (with "vllm:" prefix) are handled by GptAccess
         use_defensive_parsing = not model_supports_openai_api(gpt_model_name)
         if not model_supports_openai_api(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
@@ -72,9 +81,12 @@ class SimplePolicyPrompter(PolicyPrompter):
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
 
         # Get model configuration
-        self._token_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["token_limit_per_min"]
-        self._request_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["request_limit_per_min"]
-        self._max_token_per_prompt = GptAccess.gpt_model_info[gpt_model_name]["max_token_per_prompt"]
+        # For vLLM models, use the generic "vllm" key in model_info
+        from copra.tools.misc import is_vllm_model
+        model_info_key = "vllm" if is_vllm_model(gpt_model_name) else gpt_model_name
+        self._token_limit_per_min = GptAccess.gpt_model_info[model_info_key]["token_limit_per_min"]
+        self._request_limit_per_min = GptAccess.gpt_model_info[model_info_key]["request_limit_per_min"]
+        self._max_token_per_prompt = GptAccess.gpt_model_info[model_info_key]["max_token_per_prompt"]
 
         # Initialize rate limiter
         self._rate_limiter = RateLimiter(self._token_limit_per_min, self._request_limit_per_min)

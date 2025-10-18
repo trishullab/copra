@@ -1,7 +1,7 @@
 defaults:
   - env_settings: bm25_retrieval
   - benchmark: simple_benchmark_lean4
-  - eval_settings: n_60_dfs_gpt5_mini_no_retrieve_no_ex
+  - eval_settings: n_60_dfs_vllm_kimina_no_retrieve_no_ex
   - prompt_settings: lean4_dfs
   - override hydra/job_logging: 'disabled'
 

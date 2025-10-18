@@ -147,7 +147,6 @@ class EvalRunCheckpointInfo(object):
             self.theorem_maps[path] = {}
 
     def add_theorem_to_maps(self, path: str, theorem: str, success: bool):
-        self.theorem_maps[path][theorem] = success
         # Use file lock to ensure thread/process-safe writes
         # Store lock files in .lock directory
         lock_dir = ".lock"
@@ -155,6 +154,18 @@ class EvalRunCheckpointInfo(object):
         lock_filename = os.path.basename(self.checkpoint_file) + ".lock"
         lock_file = os.path.join(lock_dir, lock_filename)
         with FileLock(lock_file, timeout=30):
+            # Read the latest state from file inside the lock to avoid lost updates
+            if os.path.exists(self.checkpoint_file):
+                with open(self.checkpoint_file, "r") as f:
+                    latest_state = EvalRunCheckpointInfo.from_json(f.read())
+                    self.theorem_maps = latest_state.theorem_maps
+
+            # Add the new theorem to the map
+            if path not in self.theorem_maps:
+                self.theorem_maps[path] = {}
+            self.theorem_maps[path][theorem] = success
+
+            # Write back the updated state
             with open(self.checkpoint_file, "w") as f:
                 f.write(self.to_json(indent=4))
     
@@ -169,7 +180,6 @@ class EvalProofResults(object):
             self.theorem_map[path] = {}
     
     def add_theorem_to_maps(self, path: str, theorem: str, proof_result: ProofSearchResult):
-        self.theorem_map[path][theorem] = proof_result
         # Use file lock to ensure thread/process-safe writes
         # Store lock files in .lock directory
         lock_dir = ".lock"
@@ -177,6 +187,18 @@ class EvalProofResults(object):
         lock_filename = os.path.basename(self.path) + ".lock"
         lock_file = os.path.join(lock_dir, lock_filename)
         with FileLock(lock_file, timeout=30):
+            # Read the latest state from file inside the lock to avoid lost updates
+            if os.path.exists(self.path):
+                with open(self.path, "r") as f:
+                    latest_state = EvalProofResults.from_json(f.read())
+                    self.theorem_map = latest_state.theorem_map
+
+            # Add the new theorem to the map
+            if path not in self.theorem_map:
+                self.theorem_map[path] = {}
+            self.theorem_map[path][theorem] = proof_result
+
+            # Write back the updated state
             with open(self.path, "w") as f:
                 f.write(self.to_json(indent=4))
 

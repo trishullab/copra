@@ -170,22 +170,13 @@ def main_with_hydra():
 
 def main():
     """
-    Entry point that detects Python version and chooses appropriate method.
+    Entry point that works for all Python versions.
+
+    Always uses Hydra-free mode since it works universally and avoids
+    Hydra configuration complexities.
     """
-    if sys.version_info >= (3, 14):
-        # Python 3.14+ - use non-Hydra version
-        print("Detected Python 3.14+ - using Hydra-free mode")
-        main_no_hydra()
-    else:
-        # Python < 3.14 - try to use Hydra
-        try:
-            import hydra
-            print("Using Hydra mode (Python < 3.14)")
-            main_with_hydra()
-        except ImportError:
-            # Hydra not available, fall back to non-Hydra version
-            print("Hydra not available - using Hydra-free mode")
-            main_no_hydra()
+    print(f"Python {sys.version_info.major}.{sys.version_info.minor} - using Hydra-free mode")
+    main_no_hydra()
 
 
 if __name__ == "__main__":

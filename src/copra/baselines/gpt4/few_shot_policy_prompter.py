@@ -47,9 +47,12 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
             self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
-        self._token_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["token_limit_per_min"]
-        self._request_limit_per_min = GptAccess.gpt_model_info[gpt_model_name]["request_limit_per_min"]
-        self._max_token_per_prompt = GptAccess.gpt_model_info[gpt_model_name]["max_token_per_prompt"]
+
+        # For vLLM models, use the generic "vllm" key for model info
+        model_info_key = "vllm" if gpt_model_name.startswith("vllm:") else gpt_model_name
+        self._token_limit_per_min = GptAccess.gpt_model_info[model_info_key]["token_limit_per_min"]
+        self._request_limit_per_min = GptAccess.gpt_model_info[model_info_key]["request_limit_per_min"]
+        self._max_token_per_prompt = GptAccess.gpt_model_info[model_info_key]["max_token_per_prompt"]
         self._rate_limiter = RateLimiter(self._token_limit_per_min, self._request_limit_per_min)
         self.temperature = temperature
         self.num_sequences = num_sequences
@@ -329,6 +332,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         total = len(message_contents)
         for idx, message in enumerate(message_contents):
             try:
+                self.logger.info(f"Parsing response {idx + 1}/{total}:\n{message[0]}")
                 gpt_request, parsed_message = self.gpt_request_grammar.get_openai_request(message)
                 open_ai_message = self.agent_grammar.get_openai_main_message_from_string(parsed_message, "assistant")
             except Exception as e:
