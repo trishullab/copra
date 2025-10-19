@@ -73,14 +73,29 @@ def _initialize_services(
         if vllm_max_model_len is None and "VLLM_MAX_MODEL_LEN" in os.environ:
             vllm_max_model_len = int(os.environ.get("VLLM_MAX_MODEL_LEN"))
 
+        # Get GPU configuration from model_params if available
+        vllm_gpu_ids = eval_settings.model_params.get("gpu_ids", None)
+        vllm_tensor_parallel = eval_settings.model_params.get("tensor_parallel", None)
+        vllm_gpu_mem_util = eval_settings.model_params.get("gpu_mem_util", None)
+        vllm_max_num_seqs = eval_settings.model_params.get("max_num_seqs", None)
+
+        # Determine vLLM log file path
+        vllm_log_file = os.path.join(eval_checkpoint_info.logging_dirs[-1], "vllm_server.log")
+
         try:
             base_url, proc = start_server(
                 model=actual_model_name,
                 host=vllm_host,
                 port=vllm_port,
                 api_key=vllm_api_key,
+                gpu_ids=vllm_gpu_ids,
+                tensor_parallel=vllm_tensor_parallel,
                 max_model_len=vllm_max_model_len,
-                wait_seconds=600  # Give it 10 minutes to start
+                gpu_mem_util=vllm_gpu_mem_util,
+                max_num_seqs=vllm_max_num_seqs,
+                wait_seconds=600,  # Give it 10 minutes to start
+                logger=logger,  # Pass logger for detailed progress tracking
+                log_file=vllm_log_file  # Save vLLM server logs to file
             )
             _vllm_server_process = proc
             os.environ["VLLM_BASE_URL"] = base_url
