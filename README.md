@@ -66,7 +66,7 @@ pip install copra-theorem-prover
 2. Run the following command to prepare the REPL for Lean 4. (The default version is 4.7.0-rc2. You can change the version by setting the `LEAN_VERSION` environment variable. If no version is set, then 4.7.0-rc2 is used.)
 >NOTE: The Lean 4 version must match the version of the Lean 4 project you are working with.
 ```bash
-export LEAN_VERSION="4.15.0"
+export LEAN_VERSION="4.21.0"
 install-lean-repl
 ```
 
@@ -161,11 +161,11 @@ pip install -e .[os_models]
 
 **Usage:**
 
-Create a config file with `vllm:` prefix:
+Create a config file (see `src/copra/main/config/miniF2F_lean4_easy_to_hard.yaml` for a complete example):
 ```yaml
-# config/eval_settings/my_vllm_config.yaml
-gpt_model_name: vllm:codellama/CodeLlama-7b-Instruct-hf
-temperature: 0.0
+# config/eval_settings/my_gpt_oss_config.yaml
+gpt_model_name: gpt-oss-20b
+temperature: 0.75
 max_tokens_per_action: 100
 # ... other settings
 ```
@@ -178,6 +178,7 @@ python -m copra.main.eval_benchmark eval_settings=my_vllm_config benchmark=miniF
 The vLLM server starts automatically on port 48000. Override with `VLLM_PORT` environment variable if needed.
 
 **Supported Models:**
+- `vllm:openai/gpt-oss-20b` (GPT OSS 20b - open-source model)
 - `vllm:codellama/CodeLlama-7b-Instruct-hf` (open-source code model)
 - `vllm:meta-llama/Llama-2-7b-chat-hf` (general LLM)
 - `vllm:EleutherAI/llemma_7b` (math-focused LLM)
@@ -224,6 +225,48 @@ python src/copra/main/run.py --config-name lean4_simple_experiment
 ```
 
 > **Note:** `run.py` is the recommended entry point for all Python versions. It automatically detects your Python version and uses the appropriate implementation (Hydra-free for 3.14+, standard Hydra for older versions).
+
+### Running the miniF2F_lean4 Benchmark
+
+The miniF2F benchmark is a suite of formal math problems from various math competitions (AMC, AIME, IMO) and educational resources (MATH dataset) formalized in Lean 4.
+
+**Prerequisites:**
+1. Install and setup Lean 4 (see [Quick Setup for Lean 4](#quick-setup-for-lean-4))
+2. Set the correct Lean version to match the benchmark (e.g., 4.21.0):
+   ```bash
+   export LEAN_VERSION="4.21.0"
+   install-lean-repl
+   install-itp-interface
+   ```
+
+**Running with GPT OSS 20b:**
+```bash
+# Using the pre-configured setup
+python -m copra.main.run --config-name miniF2F_lean4_easy_to_hard
+
+# Or using the benchmark directly
+python -m copra.main.eval_benchmark \
+  benchmark=miniF2F_lean4_test_easy_to_hard \
+  eval_settings=n_60_dfs_gpt_oss_20b_no_retrieve_no_ex
+```
+
+**Running with OpenAI models:**
+```bash
+# Make sure .secrets/openai_key.json is set up first
+python -m copra.main.eval_benchmark \
+  benchmark=miniF2F_lean4_test_easy_to_hard \
+  eval_settings=n_60_dfs_gpt4_o_no_retrieve_no_ex
+```
+
+**Configuration options:**
+- `benchmark=miniF2F_lean4_test_easy_to_hard`: Uses theorems ordered from easy to hard
+- `eval_settings`: Controls model, temperature, search strategy (see `src/copra/main/config/eval_settings/`)
+- `timeout_per_theorem_in_secs`: Time limit per theorem (default: 600 seconds)
+- `max_steps_per_episode`: Maximum proof search steps (default: 100)
+
+**Results and Logs:**
+- Proof results: `.log/proofs/eval_driver/dfs/miniF2F_lean4_test_easy_to_hard/<timestamp>/proof_results.json`
+- Evaluation logs (with prompts and LLM interactions): `.log/evals/benchmark/miniF2F_lean4_test_easy_to_hard/<timestamp>/eval.log`
 
 ### Starting Required Services
 

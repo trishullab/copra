@@ -291,6 +291,21 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                 reason = usage["reason"]
                 self._rate_limiter.update(usage["total_tokens"], request_start_time, request_end_time)
                 success = reason != "length" or tokens_to_generate >= upper_bound
+                if success:
+                    if tokens_to_generate >= upper_bound:
+                        self.logger.warning(f"Retried {retries} times but still got an incomplete response. Reason: {reason}.")
+                        self.logger.info(f"Maxed out response: \n{responses}")
+                    else:
+                        if len(responses) == 1 and isinstance(responses[0], dict):
+                            # [{'role': 'assistant', 'content': None, 'finish_reason': 'stop'}]
+                            if 'content' in responses[0] and (responses[0]['content'] is None or len(responses[0]['content'].strip()) == 0):
+                                self.logger.warning(f"Got invalid None or empty response. Retrying.")
+                                responses = None
+                                success = False
+                if success:
+                    self.logger.info(f"Got a valid response. Reason: \n{reason}")
+                    self.logger.info(f"Response messages: \n{responses}")
+
                 if not success:
                     tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.  Used {usage['completion_tokens']} completion tokens.")
@@ -300,13 +315,7 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                     messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, tokens_to_generate)
                     # temperature = max(max_temp, temperature + temp_factor)
                     # don't change temperature for now
-                else:
-                    if tokens_to_generate >= upper_bound:
-                        self.logger.warning(f"Retried {retries} times but still got an incomplete response. Reason: {reason}.")
-                        self.logger.info(f"Maxed out response: \n{responses}")
-                    else:
-                        self.logger.debug(f"Got a valid response. Reason: \n{reason}")
-                        self.logger.debug(f"Response messages: \n{responses}")
+
                 self._num_api_calls += 1
             except ServiceDownError as e:
                 self.logger.info("Got a service down error. Will giveup until the docker container is restarted.")
