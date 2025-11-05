@@ -170,7 +170,7 @@ class GptAccess:
         if self.is_vllm_model:
             # vLLM models don't need secrets, they use ENV variable for base_url
             self.secret_filepath = None
-            self.api_key = "EMPTY"  # vLLM doesn't require a real API key
+            self.api_key = os.environ.get("VLLM_API_KEY", "EMPTY")  # vLLM doesn't require a real API key
         elif secret_filepath is None:
             # Use the default secret filepath based on the model name.
             assert model_name in self.secret_filepath_map, (
