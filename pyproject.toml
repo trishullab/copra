@@ -10,7 +10,7 @@ packages = ["src/copra"]
 
 [project]
 name = "copra-theorem-prover"
-version = "1.1.16"
+version = "1.1.17"
 authors = [
   { name="Amitayush Thakur", email="amitayush@utexas.edu" },
 ]
@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface>=1.1.14",
+    "itp-interface==1.1.14",
     "openai>=1.99.1",
     "tiktoken>=0.12.0",  # Updated: 0.4.0 incompatible with Python 3.14t, needs PyO3 0.23+ for free-threading
     "sentencepiece>=0.2.0",  # Updated: 0.1.99 lacks Python 3.14t wheels, 0.2.1 has cp314t support
