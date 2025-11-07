@@ -75,6 +75,7 @@ jobs:
       - name: Run CI setup tests (sequential)
         run: |
           source $HOME/.elan/env
+          export LEAN_VERSION="4.17.0"
           python src/tests/simple_copra_run.py
 
       - name: Clean up logs before parallel test
@@ -86,6 +87,7 @@ jobs:
         run: |
           source $HOME/.elan/env
           export ENABLE_PARALLEL_THEOREMS=True
+          export LEAN_VERSION="4.17.0"
           export MAX_PARALLEL_WORKERS=2
           python src/tests/simple_copra_run.py
     
