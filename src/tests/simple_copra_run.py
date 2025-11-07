@@ -13,6 +13,7 @@ class TestSimpleCopraRun(TestCase):
     def test_simple_copra_run(self):
         # Parse hydra configs from src/copra/main/config
         # Initialize Hydra and compose the config
+        os.environ["LEAN_VERSION"] = "4.17.0"
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         root_dir = os.path.dirname(parent_dir)
         full_path = os.path.join(root_dir, "src/copra/main/config")
