@@ -106,6 +106,7 @@ jobs:
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.17.0"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
           python src/tests/simple_copra_run.py
@@ -119,6 +120,7 @@ jobs:
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.17.0"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
           export ENABLE_PARALLEL_THEOREMS=True
