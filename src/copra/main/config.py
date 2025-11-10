@@ -42,6 +42,7 @@ class PromptSettings(object):
     name: str
     main_prompt: str
     conv_prompt: str
+    uses_simplified_prompt: bool = False
     informal_proof_repo: str = None
 
     def get_informal_proof_repo(self) -> InformalProofRepo:
@@ -213,6 +214,7 @@ def parse_config(cfg):
         name=prompt_settings_cfg["name"],
         main_prompt=prompt_settings_cfg["main_prompt"],
         conv_prompt=prompt_settings_cfg["conv_prompt"],
+        uses_simplified_prompt=prompt_settings_cfg.get("uses_simplified_prompt", False),
         informal_proof_repo=prompt_settings_cfg["informal_proof_repo"])
     eval_settings_cfg = cfg["eval_settings"]
     eval_settings = EvalSettings(

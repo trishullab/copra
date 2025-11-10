@@ -94,6 +94,7 @@ class DFSTreeSearch(TreeSearchAlgorithm):
         else:
             raise NotImplementedError(f"language {self.language} not supported")
         self.has_qed = False
+        self._modified_action : ProofAction | None = None
         pass
 
     def reset(self):

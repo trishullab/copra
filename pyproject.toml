@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface>=1.1.16",
+    "itp-interface>=1.1.18",
     "openai>=1.99.1",
     "tiktoken>=0.12.0",  # Updated: 0.4.0 incompatible with Python 3.14t, needs PyO3 0.23+ for free-threading
     "sentencepiece>=0.2.0",  # Updated: 0.1.99 lacks Python 3.14t wheels, 0.2.1 has cp314t support
@@ -42,6 +42,9 @@ dependencies = [
 [project.optional-dependencies]
 os_models = [
     "vllm>=0.11.0; python_version < '3.13'",  # Optional: Open-source model support with vLLM (requires Python ≤ 3.12)
+]
+gpt_oss = [
+    "vllm==0.10.2"
 ]
 ui = [
     "gradio>=4.0.0,<5.50",  # Optional: UI features, requires huggingface-hub which pulls hf-xet (no Python 3.14t support yet)

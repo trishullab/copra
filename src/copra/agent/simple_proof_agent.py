@@ -71,9 +71,8 @@ class ProofAgent(Agent):
             self.logger.info("Asking policy for next action")
             action = self._policy(next_state)
             assert isinstance(action, ProofAction)
-            self.logger.info(f"Got Action: {action}")
+            self.logger.info(f"Got Action:\n{action}")
             if action.action_type != ProofAction.ActionType.EXIT:
-                self.logger.info(f"Action to run: {action}")
                 state, modified_action, next_state, reward, done, info = env.step(action)
                 if render:
                     self.logger.info("**"*20)
@@ -81,9 +80,24 @@ class ProofAgent(Agent):
                     self.logger.info("**"*20)
                 if action.action_type != ProofAction.ActionType.BACKTRACK:
                     # Don't update policy for backtracking actions, this will create a 
+                    action_was_modified = False
+                    if env.language == ProofAction.Language.LEAN4 and \
+                    action.action_type == ProofAction.ActionType.RUN_TACTIC and \
+                    isinstance(modified_action, ProofAction) and \
+                    modified_action.kwargs.get("modified", False):
+                        # Specially change the last action with modified action
+                        self.logger.info("Resetting last action in policy with modified action")
+                        modified_action.original_message = f"[RUN TACTIC]\n{'\n'.join(modified_action.kwargs['tactics'])}\n[END]"
+                        self.logger.info(f"Modified Action:\n{modified_action}")
+                        self._policy.reset_last_action(modified_action)
+                        action_was_modified = True
                     # a very nasty loop in the policy.
                     self.logger.info("Updating policy")
-                    self._policy.update(state, modified_action, next_state, reward, done, info)
+                    if action_was_modified:
+                        self._policy.update(state, modified_action, next_state, reward, done, info)
+                        self.logger.info("Policy updated with modified action")
+                    else:
+                        self._policy.update(state, action, next_state, reward, done, info)
                     self.logger.info("Policy updated")
                 steps += 1
                 total_reward += reward

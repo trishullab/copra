@@ -26,6 +26,10 @@ class CoqGptResponse(object):
     informal_proof: typing.Optional[str] = None
     informal_theorem: typing.Optional[str] = None
 
+class ResponseDfsGrammar(typing.Protocol):
+    def format_as_per_grammar(self, coq_gpt_response: CoqGptResponse, k: typing.Optional[int] = None, max_token_cnt: typing.Optional[int] = None, characters_per_token: float = 4.0) -> str:
+        pass
+
 class CoqGPTResponseDfsGrammar(Grammar):
     grammar = """
 Prog:

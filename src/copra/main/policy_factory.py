@@ -165,6 +165,7 @@ class PolicyFactory:
             'logger': logger,
             'informal_proof_repo': informal_proof_repo,
             'lemma_name': lemma_name,
+            'uses_simplified_prompt': prompt_settings.uses_simplified_prompt
         }
 
         # Add model_params if provided

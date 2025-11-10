@@ -6,7 +6,7 @@ import unittest
 import tiktoken
 import copy
 import boto3
-from openai import OpenAI
+from openai import OpenAI, omit, Omit
 from copra.tools.misc import is_open_ai_model, is_anthropic_model, is_bedrock_model, is_vllm_model
 
 class GptAccess:
@@ -126,7 +126,7 @@ class GptAccess:
         "vllm": {
             "token_limit_per_min": 1000000,  # Generous default for local inference
             "request_limit_per_min": 1000,   # High limit since it's local
-            "max_token_per_prompt": int(3.2 * 10**4)  # 32k context, adjust based on your models
+            "max_token_per_prompt": int(1.2 * 10**5)  # 32k context, adjust based on your models
         }
     }
 
@@ -317,7 +317,7 @@ class GptAccess:
             # Handle message format for vLLM (convert system messages with names to user/assistant)
             messages = self.handle_thinking_messages(messages)
             return_responses, usage, stopping_reasons = \
-            self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
+            self.get_response_generic(model, messages, max_tokens, stop, temperature, n, reasoning_token_count, reasoning_effort)
         else:
             return_responses, usage, stopping_reasons = \
             self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
@@ -528,15 +528,15 @@ class GptAccess:
                     message.pop(key)
         return messages
 
-
-    def get_response_generic(self, model, messages, max_tokens, stop, temperature, n) -> typing.Tuple[list, dict, str]:
+    def get_response_generic(self, model, messages, max_tokens, stop, temperature, n, reasoning_token: int = 0, reasoning_effort: str|Omit = omit) -> typing.Tuple[list, dict, str]:
         response = self.client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_tokens,
+            max_tokens=max_tokens + reasoning_token,
             temperature=temperature,
             stop=stop,
-            n=n
+            n=n,
+            reasoning_effort=reasoning_effort
         )
         usage_obj = response.usage
 

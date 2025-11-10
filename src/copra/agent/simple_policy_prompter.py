@@ -14,7 +14,7 @@ from copra.agent.rate_limiter import RateLimiter
 from copra.gpts.gpt_access import GptAccess
 from copra.gpts.llama_access import LlamaAccess, ServiceDownError
 from copra.prompt_generator.prompter import PolicyPrompter
-from copra.tools.misc import model_supports_openai_api
+from copra.tools.misc import model_supports_openai_api, is_vllm_model
 
 
 class SimplePolicyPrompter(PolicyPrompter):
@@ -74,7 +74,6 @@ class SimplePolicyPrompter(PolicyPrompter):
 
         # Initialize LLM access (GptAccess or LlamaAccess)
         # Note: vLLM models (with "vllm:" prefix) are handled by GptAccess
-        use_defensive_parsing = not model_supports_openai_api(gpt_model_name)
         if not model_supports_openai_api(gpt_model_name):
             self._gpt_access = LlamaAccess(gpt_model_name)
         else:
@@ -82,7 +81,6 @@ class SimplePolicyPrompter(PolicyPrompter):
 
         # Get model configuration
         # For vLLM models, use the generic "vllm" key in model_info
-        from copra.tools.misc import is_vllm_model
         model_info_key = "vllm" if is_vllm_model(gpt_model_name) else gpt_model_name
         self._token_limit_per_min = GptAccess.gpt_model_info[model_info_key]["token_limit_per_min"]
         self._request_limit_per_min = GptAccess.gpt_model_info[model_info_key]["request_limit_per_min"]
