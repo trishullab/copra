@@ -21,7 +21,7 @@ sample: 1.0
 sample_seed: 0xf00
 use_example_retrieval: False
 always_use_useful_theorem_retrieval: False
-model_params:
-  reasoning_effort: medium
-  reasoning_token_count: 1000
+# model_params:
+#   reasoning_effort: medium
+#   reasoning_token_count: 1000
 num_goal_per_prompt:

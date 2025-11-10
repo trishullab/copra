@@ -177,6 +177,22 @@ def _run_prover_wrapper(
             ret_dict["proof_res"] = proof_res
             ret_dict["attempted_success"] = True
             ret_dict["service_down"] = False
+            val_result = env.validate_proof_completion()
+            is_valid_proof = val_result.get("compilation_ok", False)
+            is_valid_proof = is_valid_proof and val_result.get("success", False)
+            has_sorries = val_result.get("has_sorries", True)
+            std_err = val_result.get("std_err", "")
+            if has_sorries or not is_valid_proof:
+                proof_res.proof_found = False
+                if isinstance(proof_res.additional_info, dict):
+                    proof_res.additional_info["validation_error"] = val_result.get("error_message", "Unknown validation error")
+                    proof_res.additional_info["std_err"] = std_err
+                    proof_res.additional_info["has_sorries"] = has_sorries
+                    proof_res.additional_info["compilation_ok"] = is_valid_proof
+                subprocess_logger.warning(
+                    f"Proof found but validation failed for lemma: {lemma_name} in file {path}. "
+                    f"Compilation OK: {is_valid_proof}, Has Sorries: {has_sorries}. StdErr: {std_err}"
+                )
     except ServiceDownError:
         subprocess_logger.exception(f"ServiceDownError occurred while proving lemma: {lemma_name} in file {path}")
         ret_dict["attempted_success"] = False

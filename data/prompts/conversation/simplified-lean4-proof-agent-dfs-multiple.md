@@ -140,4 +140,20 @@ rw h₀ at h₁
 norm_num at h1
 [END]
 
+`example_user`
+Goals to prove:
+a b : Nat
+h0 : a < 3
+h1 : b < a
+h3 : 1 < b
+⊢ b = 2
+
+[END]
+
+`example_assistant`
+[RUN TACTIC]
+-- Since there are finite many cases, we can just use grind
+grind
+[END]
+
 `conv end`

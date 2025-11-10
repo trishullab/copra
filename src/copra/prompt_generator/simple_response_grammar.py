@@ -141,7 +141,7 @@ ErrorString:;
                 SimpleResponseGrammar.Keywords.SUCCESS,
             ]
             assert coq_gpt_response.training_data_format is not None
-            lines_map[SimpleResponseGrammar.Keywords.GOALS_TO_PROVE] = []
+            lines_map[SimpleResponseGrammar.Keywords.GOALS_TO_PROVE] = [SimpleResponseGrammar.Keywords.GOALS_TO_PROVE.value]
             if coq_gpt_response.training_data_format.goal_description is not None:
                 new_line = f"{SimpleResponseGrammar.Keywords.DESCRIPTION}\n{coq_gpt_response.training_data_format.goal_description}\n"
                 lines_map[SimpleResponseGrammar.Keywords.GOALS_TO_PROVE].append(new_line)
@@ -170,11 +170,12 @@ ErrorString:;
             if len(coq_gpt_response.steps) > 0:
                 new_line = f"\n{SimpleResponseGrammar.Keywords.STEPS}"
                 lines_map[SimpleResponseGrammar.Keywords.STEPS] = [new_line]
-                lines_map[SimpleResponseGrammar.Keywords.STEPS].extend(coq_gpt_response.steps)
+                steps = [step.rstrip() for step in coq_gpt_response.steps]
+                lines_map[SimpleResponseGrammar.Keywords.STEPS].extend(steps)
             if len(coq_gpt_response.incorrect_steps) > 0:
                 new_line = f"\n{SimpleResponseGrammar.Keywords.INCORRECT_STEPS}"
                 lines_map[SimpleResponseGrammar.Keywords.INCORRECT_STEPS] = [new_line]
-                incorrect_steps = [f"[{SimpleResponseGrammar.Keywords.WRONG_SYMBOL}] {step}" for step in coq_gpt_response.incorrect_steps]
+                incorrect_steps = [f"{SimpleResponseGrammar.Keywords.WRONG_SYMBOL} {step.rstrip()}" for step in coq_gpt_response.incorrect_steps]
                 lines_map[SimpleResponseGrammar.Keywords.INCORRECT_STEPS].extend(incorrect_steps)
             if coq_gpt_response.last_step is not None:
                 new_line = f"\n{SimpleResponseGrammar.Keywords.LAST_STEP}"

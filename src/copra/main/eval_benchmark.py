@@ -33,8 +33,11 @@ from itp_interface.tools.log_utils import setup_logger
 from itp_interface.rl.proof_tree import ProofSearchResult
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.tools.isabelle_executor import IsabelleExecutor
+from itp_interface.tools.simple_lean4_sync_executor import SimpleLean4SyncExecutor
 from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
 
+
+SimpleLean4SyncExecutor.max_threshold_for_tactic_length = 575 # Increase the limit for Lean4 proofs
 # Global variable to track vLLM server process
 _vllm_server_process = None
 
@@ -78,7 +81,10 @@ def _initialize_services(
         vllm_port = int(os.environ.get("VLLM_PORT", "48000"))
         vllm_host = os.environ.get("VLLM_HOST", "127.0.0.1")
         vllm_api_key = os.environ.get("VLLM_API_KEY", "EMPTY")
-        vllm_max_model_len = eval_settings.model_params.get("max_model_len", None)
+        if eval_settings.model_params is not None:
+            vllm_max_model_len = eval_settings.model_params.get("max_model_len", None)
+        else:
+            vllm_max_model_len = None
         if vllm_max_model_len is None and "VLLM_MAX_MODEL_LEN" in os.environ:
             vllm_max_model_len = int(os.environ.get("VLLM_MAX_MODEL_LEN"))
 
