@@ -16,4 +16,3 @@ eval_settings:
   # model_params:
   #   reasoning_effort: low
   #   reasoning_token_count: 500
-#  gpt_model_name: gpt4-o

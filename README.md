@@ -63,7 +63,7 @@ COPRA now fully supports Python 3.14+ with free-threaded (GIL-free) execution fo
 pip install copra-theorem-prover
 ```
 
-2. Run the following command to prepare the REPL for Lean 4. (The default version is 4.7.0-rc2. You can change the version by setting the `LEAN_VERSION` environment variable. If no version is set, then 4.7.0-rc2 is used.)
+2. Run the following command to prepare the REPL for Lean 4. (The default version is 4.24.0. You can change the version by setting the `LEAN_VERSION` environment variable. If no version is set, then 4.24.0 is used.)
 >NOTE: The Lean 4 version must match the version of the Lean 4 project you are working with.
 ```bash
 export LEAN_VERSION="4.21.0"
@@ -158,6 +158,25 @@ pip install copra-theorem-prover[os_models]
 # Or for development
 pip install -e .[os_models]
 ```
+
+**GPT OSS Models Setup:**
+
+To use the GPT OSS 20b model with the custom vLLM wheel:
+```bash
+# Install from pypi
+pip install copra-theorem-prover[gpt_oss]
+
+# On local development setup
+pip install -e .[gpt_oss]
+
+pip install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cu128
+#Change the version of CUDA (cu118, cu121, cu128) based on your GPU setup.
+```
+
+> **Note:** The `gpt_oss` optional dependency installs a custom vLLM build (`vllm==0.10.2`) from the GPT OSS wheel repository.
+
+> **Note:** There are known issues with GPT OSS reasoning tokens being not processed correctly in vLLMs. (See: [vLLM GitHub Issue](https://github.com/vllm-project/vllm/issues/26480))
+
 
 **Usage:**
 
