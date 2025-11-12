@@ -180,14 +180,12 @@ class GptAccess:
         else:
             self.secret_filepath = secret_filepath
 
-        # Load secrets for non-vLLM models
-        if not self.is_vllm_model:
-            assert os.path.exists(self.secret_filepath), "Secret filepath does not exist"
-
+        # Determine model types before loading secrets
         self.is_open_ai_model = is_open_ai_model(model_name)
         self.is_anthropic_model = is_anthropic_model(model_name)
         self.is_bedrock_model = is_bedrock_model(model_name)
 
+        # Load secrets for non-vLLM models (checks env vars first, then files)
         if not self.is_vllm_model:
             self._load_secret()
 
@@ -593,16 +591,68 @@ class GptAccess:
         return num_tokens
 
     def _load_secret(self) -> None:
-        if self.is_open_ai_model or self.is_anthropic_model:
-            with open(self.secret_filepath, "r") as f:
-                secret = json.load(f)
-                self.api_key = secret["api_key"]
+        """
+        Load secrets from environment variables first, then fall back to files.
+
+        Environment variables checked:
+        - OpenAI/Anthropic: OPENAI_API_KEY or ANTHROPIC_API_KEY
+        - Bedrock: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+        """
+        if self.is_open_ai_model:
+            # Check environment variable first
+            self.api_key = os.environ.get("OPENAI_API_KEY")
+            if self.api_key is None:
+                # Fall back to file
+                assert self.secret_filepath is not None, "Secret filepath should not be None for OpenAI models"
+                if os.path.exists(self.secret_filepath):
+                    with open(self.secret_filepath, "r") as f:
+                        secret = json.load(f)
+                        self.api_key = secret["api_key"]
+                else:
+                    raise Exception(
+                        f"OpenAI API key not found. Set OPENAI_API_KEY environment variable "
+                        f"or create {self.secret_filepath} with {{'api_key': 'your-key'}}"
+                    )
+        elif self.is_anthropic_model:
+            # Check environment variable first
+            self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if self.api_key is None:
+                # Fall back to file
+                assert self.secret_filepath is not None, "Secret filepath should not be None for Anthropic models"
+                if os.path.exists(self.secret_filepath):
+                    with open(self.secret_filepath, "r") as f:
+                        secret = json.load(f)
+                        self.api_key = secret["api_key"]
+                else:
+                    raise Exception(
+                        f"Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable "
+                        f"or create {self.secret_filepath} with {{'api_key': 'your-key'}}"
+                    )
         elif self.is_bedrock_model:
-            with open(self.secret_filepath, "r") as f:
-                secret = json.load(f)
-                self.region_name = secret["region_name"]
-                self.aws_access_key_id = secret["aws_access_key_id"]
-                self.aws_secret_access_key = secret["aws_secret_access_key"]
+            # Check environment variables first
+            aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
+            aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+            aws_region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION"))
+
+            if aws_access_key and aws_secret_key and aws_region:
+                # Use environment variables
+                self.aws_access_key_id = aws_access_key
+                self.aws_secret_access_key = aws_secret_key
+                self.region_name = aws_region
+            else:
+                # Fall back to file
+                assert self.secret_filepath is not None, "Secret filepath should not be None for Bedrock models"
+                if os.path.exists(self.secret_filepath):
+                    with open(self.secret_filepath, "r") as f:
+                        secret = json.load(f)
+                        self.region_name = secret["region_name"]
+                        self.aws_access_key_id = secret["aws_access_key_id"]
+                        self.aws_secret_access_key = secret["aws_secret_access_key"]
+                else:
+                    raise Exception(
+                        f"AWS credentials not found. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, "
+                        f"and AWS_REGION environment variables or create {self.secret_filepath}"
+                    )
         else:
             raise Exception("Something went wrong with model name initialization")
 
