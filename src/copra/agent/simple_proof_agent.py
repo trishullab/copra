@@ -72,7 +72,7 @@ class ProofAgent(Agent):
             next_state = env.state
             additional_info = self._policy.get_efficiency_info()
             while not done and not stop_policy(steps, additional_info):
-                _, _, next_state, opt_done, steps = self._run_single_proof_step(
+                _, _, next_state, opt_done, steps, additional_info = self._run_single_proof_step(
                     policy_info_message,
                     env, 
                     next_state, 
@@ -120,7 +120,7 @@ class ProofAgent(Agent):
         total_reward: float,
         additional_info: typing.Dict[str, typing.Any],
         render: bool
-        ) -> tuple[ProofState| None, ProofAction | None, ProofState | None, bool|None, int]:
+        ) -> tuple[ProofState| None, ProofAction | None, ProofState | None, bool|None, int, typing.Dict[str, typing.Any]]:
         self.logger.info(policy_info_message(steps, additional_info))
         self.logger.info("Asking policy for next action")
         action = self._policy(next_state)
@@ -164,7 +164,7 @@ class ProofAgent(Agent):
             steps += 1
             total_reward += reward
             additional_info = self._policy.get_efficiency_info()
-            return state, modified_action, next_state, done, steps
+            return state, modified_action, next_state, done, steps, additional_info
         else:
             self.logger.warning("Got EXIT action, exiting")
-            return None, None, None, None, steps
+            return None, None, None, None, steps, additional_info
