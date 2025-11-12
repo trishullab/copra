@@ -60,6 +60,7 @@ jobs:
           source $HOME/.elan/env
           export LEAN_VERSION="4.21.0"
           install-lean-repl
+          export LEAN_VERSION="4.21.0"
           install-itp-interface
           
       - name: Build the lean project
