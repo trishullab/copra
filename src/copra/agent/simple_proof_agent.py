@@ -65,7 +65,7 @@ class ProofAgent(Agent):
         while max_retry_count > 0 and validation_failed:
             env.reset()
             if env.language == ProofAction.Language.LEAN4:
-                env.set_max_proof_step_length(2000)
+                env.set_max_proof_step_length(3000)
             done = False
             steps = 0
             total_reward = 0
@@ -146,13 +146,20 @@ class ProofAgent(Agent):
                         self.logger.info(f"Modified Action:\n{modified_action}")
                         self._policy.reset_last_action(modified_action)
                         action_was_modified = True
+                    reduction_percentage = 0.05
                     # If the last action failed then reduce the proof step length limit
                     if info.progress == ProgressState.FAILED:
                         max_proof_len = env.max_proof_step_length()
                         if max_proof_len is not None:
-                            max_proof_len = int(max_proof_len*0.75)
+                            max_proof_len = int(max_proof_len*(1 - reduction_percentage))
                             env.set_max_proof_step_length(max(775, max_proof_len))
-                            self.logger.info(f"New proof step length limit: {env.max_proof_step_length()}")
+                    else:
+                        # If the last action succeeded then increase the proof step length limit
+                        max_proof_len = env.max_proof_step_length()
+                        if max_proof_len is not None:
+                            max_proof_len = int(max_proof_len*(1 + reduction_percentage))
+                            env.set_max_proof_step_length(min(3000, max_proof_len))
+                    self.logger.info(f"New proof step length limit: {env.max_proof_step_length()}")
                     
                 self.logger.info("Updating policy")
                 if action_was_modified:
