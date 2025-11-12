@@ -142,8 +142,9 @@ class ProofAgent(Agent):
                     modified_action.kwargs.get("modified", False):
                         # Specially change the last action with modified action
                         self.logger.info("Resetting last action in policy with modified action")
-                        modified_action.original_message = f"[RUN TACTIC]\n{'\n'.join(modified_action.kwargs['tactics'])}\n[END]"
-                        self.logger.info(f"Modified Action:\n{modified_action}")
+                        actions_joined = "\n".join(modified_action.kwargs['tactics'])
+                        modified_action.original_message = f"[RUN TACTIC]{actions_joined}[END]"
+                        self.logger.info("Modified Action:\n" + f"{modified_action}")
                         self._policy.reset_last_action(modified_action)
                         action_was_modified = True
                     reduction_percentage = 0.05
