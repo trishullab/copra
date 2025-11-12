@@ -12,6 +12,7 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
   - [Python 3.14t Setup (Free-threaded Python)](#python-314t-setup-free-threaded-python---optional)
   - [Full Setup for Coq and Lean](#full-setup-for-coq-and-lean)
   - [vLLM Setup for Open Source Models](#vllm-setup-for-open-source-models)
+- [Simple CLI for Lean 4](#simple-cli-for-lean-4)
 - [Running Experiments](#running-experiments)
   - [Setting up OpenAI API](#setting-up-openai-api-and-running-experiments)
   - [Starting Required Services](#starting-required-services)
@@ -21,6 +22,18 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
 ---
 
 ## What's New
+
+### 🎯 Simple CLI for Lean 4 (NEW!)
+COPRA now has a **streamlined command-line interface** for quick theorem proving without complex YAML configuration!
+
+**Features:**
+- ✅ **Simple Commands**: Prove theorems with a single command
+- ✅ **Environment Variables**: Use standard env vars for API keys (12-factor pattern)
+- ✅ **No Configuration Files**: Override only the settings you need via command-line
+- ✅ **Real-Time Progress**: See proof steps as they execute
+- ✅ **Modular Design**: Clean architecture ready for REST API integration
+
+[Jump to Simple CLI Guide →](#simple-cli-for-lean-4)
 
 ### 🤖 vLLM Support for Open Source Models (NEW!)
 COPRA now supports **vLLM** for running open-source LLMs locally! This enables you to use models like Llama, Mistral, DeepSeek, and more for theorem proving.
@@ -205,6 +218,67 @@ The vLLM server starts automatically on port 48000. Override with `VLLM_PORT` en
 - Any HuggingFace model compatible with vLLM
 
 > **Note:** vLLM requires Python ≤ 3.12 and CUDA-capable GPU
+
+---
+
+## Simple CLI for Lean 4
+
+🎯 **NEW:** A streamlined command-line interface for quick theorem proving without complex configuration!
+
+The simple CLI provides an easy way to prove theorems with minimal setup - perfect for quick experiments, testing, or integration into other tools.
+
+**Quick Example:**
+```bash
+# Set your API key
+export OPENAI_API_KEY="sk-..."
+
+# Prove a theorem (using installed script)
+copra-lean-prover \
+  --project data/test/lean4_proj \
+  --file Lean4Proj/Temp.lean \
+  --theorem test
+
+# Or use as a Python module
+python -m copra.simple \
+  --project data/test/lean4_proj \
+  --file Lean4Proj/Temp.lean \
+  --theorem test
+```
+
+**Key Features:**
+- ✅ No complex YAML configuration needed
+- ✅ Environment variable support for API keys (12-factor app pattern)
+- ✅ Simple command-line arguments for common settings
+- ✅ Real-time progress output
+- ✅ Modular architecture ready for REST API integration
+
+**Common Usage:**
+```bash
+# Prove all theorems in a file
+copra-lean-prover --project <path> --file <file> --theorem "*"
+
+# Override timeout and temperature
+copra-lean-prover \
+  --project <path> --file <file> --theorem <name> \
+  --timeout 300 --temperature 0.8
+
+# Save proof to file
+copra-lean-prover \
+  --project <path> --file <file> --theorem <name> \
+  --output proof.txt
+```
+
+**Available Options:**
+- `--timeout` - Timeout in seconds (default: 200)
+- `--temperature` - LLM sampling temperature (default: 0.7)
+- `--proof-retries` - Number of retry attempts (default: 4)
+- `--main-prompt` - Custom system prompt
+- `--conv-prompt` - Custom conversation prompt
+- `--model` - LLM model to use (default: gpt-5-mini)
+- `--output` - Save proof to file
+- `--verbose` - Detailed logging
+
+📖 **[Full Documentation →](src/copra/simple/README.md)**
 
 ---
 

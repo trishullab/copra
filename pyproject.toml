@@ -54,7 +54,8 @@ ui = [
 Homepage = "https://github.com/trishullab/copra"
 Issues = "https://github.com/trishullab/copra/issues"
 
-# [project.scripts]
+[project.scripts]
+copra-lean-prover = "copra.simple.cli:main"
 # copra-install-prereqs = "copra.main.install:install_prereqs"
 # copra-build-compcert = "copra.main.install:build_compcert"
 # copra-build-minif2f-lean3 = "copra.main.install:build_minif2f_lean3"
