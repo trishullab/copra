@@ -133,10 +133,6 @@ String:;
         # Remove any newlines at the beginning or end
         message = message.strip('\n')
 
-        # VALIDATION: Reject tactics containing ✝ symbol
-        if '✝' in message:
-            raise Exception(f"Invalid tactic: tactics cannot contain the ✝ symbol. Found in: {message}")
-
         result = CoqGptRequest(action=action, args=[message])
         # result : CoqGptRequest = self.run(message, None)
         message = self.generate_message_from_gpt_request(result)
@@ -245,7 +241,7 @@ String:;
         results : typing.List[str] = []
         for message in messages:
             assert message.endswith(CoqGPTRequestGrammar.end), "Message must end with end token"
-            result : CoqGptRequest = self.run(message, None)
+            result, _ = self.normal_parsing(message)
             results.extend(result.args)
         return results 
 

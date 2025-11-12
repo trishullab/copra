@@ -145,7 +145,7 @@ ErrorString:;
             if coq_gpt_response.training_data_format.goal_description is not None:
                 new_line = f"{SimpleResponseGrammar.Keywords.DESCRIPTION}\n{coq_gpt_response.training_data_format.goal_description}\n"
                 lines_map[SimpleResponseGrammar.Keywords.GOALS_TO_PROVE].append(new_line)
-            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals[:1]):
+            for i, goal in enumerate(coq_gpt_response.training_data_format.start_goals):
                 if len(goal.hypotheses) > 0:
                     for hyp in goal.hypotheses:
                         lines_map[SimpleResponseGrammar.Keywords.GOALS_TO_PROVE].append(hyp)

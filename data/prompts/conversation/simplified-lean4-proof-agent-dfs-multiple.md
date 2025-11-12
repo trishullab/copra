@@ -51,7 +51,26 @@ h1 : n * 7 % 398 = 1
 
 `example_assistant`
 [RUN TACTIC]
+-- We can create an intermediate lemma to help prove the goal
+-- First actually prove that (57 * 7) % 398 = 1, then use that to show n = 57
+-- let's start by adding the new lemma
 have h2 : 1 % 398 = (57 * 7) % 398 := by
+[END]
+
+`example_user`
+Goals to prove:
+a b : Nat
+h0 : a < 3
+h1 : b < a
+h3 : 1 < b
+⊢ b = 2
+
+[END]
+
+`example_assistant`
+[RUN TACTIC]
+-- Since there are finite many cases, we can just use grind
+grind
 [END]
 
 `example_user`
@@ -93,6 +112,28 @@ a✝ : s 5 < 16
 `example_assistant`
 [RUN TACTIC]
 rw [(h 5)]
+[END]
+
+`example_user`
+Goals to prove:
+p q : Prop
+hp : p
+hq : q
+⊢ p ∧ q ∧ p
+
+[END]
+
+`example_assistant`
+[RUN TACTIC]
+-- We can start by defining a simple lemma
+-- proving p ∧ q and then simplify the existing goal
+-- to prove the whole thing in one go.
+have hpq : p ∧ q := by
+  apply And.intro
+  exact hp
+  assumption
+-- finally, we can use simp to finish the proof
+simp [hpq]
 [END]
 
 `example_user`
@@ -140,20 +181,5 @@ rw h₀ at h₁
 norm_num at h1
 [END]
 
-`example_user`
-Goals to prove:
-a b : Nat
-h0 : a < 3
-h1 : b < a
-h3 : 1 < b
-⊢ b = 2
-
-[END]
-
-`example_assistant`
-[RUN TACTIC]
--- Since there are finite many cases, we can just use grind
-grind
-[END]
 
 `conv end`
