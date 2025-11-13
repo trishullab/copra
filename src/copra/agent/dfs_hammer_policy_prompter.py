@@ -25,7 +25,8 @@ class HammerDfsIsabelleGptPolicyPrompter(DfsCoqGptPolicyPrompter):
             language: ProofAction.Language = ProofAction.Language.COQ,
             logger = None,
             informal_proof_repo: typing.Optional[InformalProofRepo] = None,
-            lemma_name: typing.Optional[str] = None):
+            lemma_name: typing.Optional[str] = None,
+            uses_simplified_prompt: bool = False):
         super().__init__(
             main_sys_prompt_path, 
             example_conv_prompt_path, 

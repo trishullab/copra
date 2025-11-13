@@ -60,75 +60,119 @@ class ProofAgent(Agent):
             stop_policy: typing.Callable[[int, typing.Dict[str, typing.Any]], bool],
             policy_info_message: typing.Callable[[int, typing.Dict[str, typing.Any]], str],
             render: bool):
-        env.reset()
-        lean_hack = HandleHaveTactic()
-        done = False
-        steps = 0
-        total_reward = 0
-        next_state = env.state
-        additional_info = self._policy.get_efficiency_info()
-        action_fixed = True
-        while not done and not stop_policy(steps, additional_info):
-            self.logger.info(policy_info_message(steps, additional_info))
-            self.logger.info("Asking policy for next action")
-            action = self._policy(next_state)
-            assert isinstance(action, ProofAction)
-            self.logger.info(f"Got Action: {action}")
-            action = lean_hack.parse_have_tactic_action(action)
-            self.logger.info(f"Parsed Action: {action}")
-            if action.action_type != ProofAction.ActionType.EXIT:
-                action_fixed, indented_action = lean_hack.fix_action(action, self.logger)
-                assert action_fixed, f"Action {action} is not fixed"
-                modified_action = copy.deepcopy(action)
-                has_more_than_one_tactic = len(action.kwargs.get('tactics', [])) > 1
-                is_have_tactic = lean_hack.is_single_line_have_tactic(action)
-                if modified_action.action_type == ProofAction.ActionType.RUN_TACTIC:
-                    modified_action.kwargs['tactics'] = [indented_action.kwargs['tactics'][0]]
-                    if len(action.kwargs.get('tactics', [])) > 1:
-                        self._policy.reset_last_action(modified_action)
-                self.logger.info(f"Action to run: {modified_action}")
-                state, modified_action, next_state, reward, done, info = env.step(modified_action)
-                # **IMPORTANT NOTE**: Here we update the action because sometimes the proof env can optimize the action
-                # and return a different action which kind of aligns with the action taken by the
-                # policy but only more efficient. This is slightly different traditional RL setting
-                ignore_single_line_have = (not has_more_than_one_tactic) and is_have_tactic
-                lean_hack.scope_state(state, modified_action, next_state, info, self.logger, ignore_single_line_have)
-                if lean_hack.is_within_have_tactic():
-                    assert isinstance(next_state, ProofState)
-                    if next_state.training_data_format.goal_description is None:
-                        next_state.training_data_format.goal_description = ""
-                    last_have_tactic = lean_hack.get_last_have_tactic()
-                    assert last_have_tactic is not None, f"Last have tactic is None, {lean_hack._have_tactics}"
-                    next_state.training_data_format.goal_description += \
-                    f"IMPORTANT NOTE: Working on the sub-goal with have tactic: \n{last_have_tactic}."
-                if render:
-                    self.logger.info("**"*20)
-                    env.render()
-                    self.logger.info("**"*20)
-                if action.action_type != ProofAction.ActionType.BACKTRACK:
-                    # Don't update policy for backtracking actions, this will create a 
-                    # a very nasty loop in the policy.
-                    self.logger.info("Updating policy")
-                    self._policy.update(state, action, next_state, reward, done, info)
-                    self.logger.info("Policy updated")
-                if action.action_type == ProofAction.ActionType.RUN_TACTIC and \
-                    info.progress != ProgressState.FAILED and \
-                    len(action.kwargs.get('tactics', [])) > 1:
-                    remaining_tactics = action.kwargs.get('tactics', [])[1:]
-                    remaining_tactics.reverse()
-                    for tactic in remaining_tactics:
-                        modified_action : ProofAction = copy.deepcopy(action)
-                        modified_action.kwargs['tactics'] = [tactic]
-                        modified_action.original_message["content"] = f"[RUN TACTIC]\n{tactic}\n[END]"
-                        self.logger.info(f"Adding delayed action: {modified_action}")
-                        self._policy.add_delayed(modified_action)
-                steps += 1
-                total_reward += reward
-                additional_info = self._policy.get_efficiency_info()
+        max_retry_count = 1
+        validation_failed = True
+        while max_retry_count > 0 and validation_failed:
+            env.reset()
+            if env.language == ProofAction.Language.LEAN4:
+                env.set_max_proof_step_length(3000)
+            done = False
+            steps = 0
+            total_reward = 0
+            next_state = env.state
+            additional_info = self._policy.get_efficiency_info()
+            while not done and not stop_policy(steps, additional_info):
+                _, _, next_state, opt_done, steps, additional_info = self._run_single_proof_step(
+                    policy_info_message,
+                    env, 
+                    next_state, 
+                    steps, 
+                    total_reward, 
+                    additional_info, 
+                    render)
+                done = opt_done
+                if opt_done is None:
+                    break
+            proof_search_result = env.collect_proof_search_result(additional_info)
+            if proof_search_result.proof_found:
+                # Validate the proof
+                self.logger.info("Validating the proof found")
+                val_result = env.validate_proof_completion()
+                is_valid_proof = val_result.get("compilation_ok", False)
+                is_valid_proof = is_valid_proof and val_result.get("success", False)
+                has_sorries = val_result.get("has_sorries", True)
+                std_err = val_result.get("std_err", "")
+                if has_sorries or not is_valid_proof:
+                    proof_search_result.proof_found = False
+                    if isinstance(proof_search_result.additional_info, dict):
+                        proof_search_result.additional_info["validation_error"] = val_result.get("error_message", "Unknown validation error")
+                        proof_search_result.additional_info["std_err"] = std_err
+                        proof_search_result.additional_info["has_sorries"] = has_sorries
+                        proof_search_result.additional_info["compilation_ok"] = is_valid_proof
+                    self.logger.warning(
+                        f"Proof found but validation failed for lemma: {env.lemma_name}. "
+                        f"Compilation OK: {is_valid_proof}, Has Sorries: {has_sorries}. StdErr: {std_err}")
+                    self.logger.info("Retrying proof search...")
+                    validation_failed = True
             else:
-                self.logger.warning("Got EXIT action, exiting")
-                break
+                validation_failed = False
+            max_retry_count -= 1
         env.dump_proof(self._proof_dump_file_name, additional_info)
         if self._should_checkpoint:
             self.logger.info("Checkpointing policy")
             self._policy.checkpoint()
+
+    def _run_single_proof_step(self, 
+        policy_info_message: typing.Callable[[int, typing.Dict[str, typing.Any]], str],
+        env: ProofEnv,
+        next_state: ProofState,
+        steps: int,
+        total_reward: float,
+        additional_info: typing.Dict[str, typing.Any],
+        render: bool
+        ) -> tuple[ProofState| None, ProofAction | None, ProofState | None, bool|None, int, typing.Dict[str, typing.Any]]:
+        self.logger.info(policy_info_message(steps, additional_info))
+        self.logger.info("Asking policy for next action")
+        action = self._policy(next_state)
+        assert isinstance(action, ProofAction)
+        self.logger.info(f"Got Action:\n{action}")
+        if action.action_type != ProofAction.ActionType.EXIT:
+            state, modified_action, next_state, reward, done, info = env.step(action)
+            if render:
+                self.logger.info("**"*20)
+                env.render()
+                self.logger.info("**"*20)
+            if action.action_type != ProofAction.ActionType.BACKTRACK:
+                # Don't update policy for backtracking actions, this will create a 
+                # a very nasty loop in the policy.
+                action_was_modified = False
+                if env.language == ProofAction.Language.LEAN4 and \
+                action.action_type == ProofAction.ActionType.RUN_TACTIC:
+                    if isinstance(modified_action, ProofAction) and \
+                    modified_action.kwargs.get("modified", False):
+                        # Specially change the last action with modified action
+                        self.logger.info("Resetting last action in policy with modified action")
+                        actions_joined = "\n".join(modified_action.kwargs['tactics'])
+                        modified_action.original_message = f"[RUN TACTIC]{actions_joined}[END]"
+                        self.logger.info("Modified Action:\n" + f"{modified_action}")
+                        self._policy.reset_last_action(modified_action)
+                        action_was_modified = True
+                    reduction_percentage = 0.05
+                    # If the last action failed then reduce the proof step length limit
+                    if info.progress == ProgressState.FAILED:
+                        max_proof_len = env.max_proof_step_length()
+                        if max_proof_len is not None:
+                            max_proof_len = int(max_proof_len*(1 - reduction_percentage))
+                            env.set_max_proof_step_length(max(775, max_proof_len))
+                    else:
+                        # If the last action succeeded then increase the proof step length limit
+                        max_proof_len = env.max_proof_step_length()
+                        if max_proof_len is not None:
+                            max_proof_len = int(max_proof_len*(1 + reduction_percentage))
+                            env.set_max_proof_step_length(min(3000, max_proof_len))
+                    self.logger.info(f"New proof step length limit: {env.max_proof_step_length()}")
+                    
+                self.logger.info("Updating policy")
+                if action_was_modified:
+                    self._policy.update(state, modified_action, next_state, reward, done, info)
+                    self.logger.info("Policy updated with modified action")
+                else:
+                    self._policy.update(state, action, next_state, reward, done, info)
+                self.logger.info("Policy updated")
+            steps += 1
+            total_reward += reward
+            additional_info = self._policy.get_efficiency_info()
+            return state, modified_action, next_state, done, steps, additional_info
+        else:
+            self.logger.warning("Got EXIT action, exiting")
+            return None, None, None, None, steps, additional_info

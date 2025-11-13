@@ -88,8 +88,9 @@ jobs:
           export PATH="$HOME/miniconda/bin:$PATH"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
-          export LEAN_VERSION="4.17.0"
+          export LEAN_VERSION="4.21.0"
           install-lean-repl
+          export LEAN_VERSION="4.21.0"
           install-itp-interface
 
       - name: Build the lean project
@@ -106,6 +107,7 @@ jobs:
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.21.0"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
           python src/tests/simple_copra_run.py
@@ -119,11 +121,21 @@ jobs:
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.21.0"
           source $HOME/miniconda/bin/activate py314-ft
           source $HOME/.elan/env
           export ENABLE_PARALLEL_THEOREMS=True
           export MAX_PARALLEL_WORKERS=2
           python src/tests/simple_copra_run.py
+
+      - name: Run CLI tests
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.21.0"
+          source $HOME/miniconda/bin/activate py314-ft
+          source $HOME/.elan/env
+          python src/tests/test_simple_cli.py
 
       - name: Verify threading was used
         shell: bash

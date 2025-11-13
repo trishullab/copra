@@ -1,4 +1,4 @@
 name: lean4_dfs
 main_prompt: data/prompts/system/lean4-proof-agent-with-dfs-informal.md
-conv_prompt: data/prompts/conversation/lean4-proof-agent-dfs-informal-multiple.md
+conv_prompt: data/prompts/conversation/simplified-lean4-proof-agent-dfs-multiple.md
 informal_proof_repo:

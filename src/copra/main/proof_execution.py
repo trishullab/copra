@@ -174,6 +174,7 @@ def _run_prover_wrapper(
                     policy_info_message=query_limit_info_message(eval_settings.max_steps_per_episode)
                 )
             proof_res = env.proof_search_res
+            subprocess_logger.info(f"Proof search result after validation:\n{proof_res}")
             ret_dict["proof_res"] = proof_res
             ret_dict["attempted_success"] = True
             ret_dict["service_down"] = False

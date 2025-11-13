@@ -4,18 +4,18 @@ import copy
 import typing
 import os
 import time
-import logging
+import random
 from itp_interface.rl.proof_action import ProofAction
 from itp_interface.rl.simple_proof_env import ProgressState
 from copra.agent.rate_limiter import InvalidActionException
 from copra.agent.simple_policy_prompter import SimplePolicyPrompter
 from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
-from copra.gpts.gpt_access import GptAccess
 from copra.gpts.llama_access import ServiceDownError
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
-from copra.prompt_generator.dfs_gpt_response_grammar import CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
+from copra.prompt_generator.dfs_gpt_response_grammar import ResponseDfsGrammar, CoqGPTResponseDfsGrammar, CoqGptResponse, CoqGptResponseActions
+from copra.prompt_generator.simple_response_grammar import SimpleResponseGrammar
 from copra.tools.informal_proof_repo import InformalProofRepo
 from copra.tools.misc import model_supports_openai_api
 
@@ -39,7 +39,8 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
             logger = None,
             informal_proof_repo: typing.Optional[InformalProofRepo] = None,
             lemma_name: typing.Optional[str] = None,
-            model_params: typing.Optional[typing.Dict[str, typing.Any]] = None):
+            model_params: typing.Optional[typing.Dict[str, typing.Any]] = None,
+            uses_simplified_prompt: bool = False):
         assert os.path.exists(main_sys_prompt_path), f"{main_sys_prompt_path} doesn't exists"
         assert os.path.exists(example_conv_prompt_path), f"{example_conv_prompt_path} doesn't exists"
 
@@ -59,7 +60,7 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
         self.agent_grammar = DfsAgentGrammar(user_name="example_user", agent_name="example_assistant")
         use_defensive_parsing = not model_supports_openai_api(gpt_model_name)
         self.coq_gpt_request_grammar = CoqGPTRequestGrammar(enable_defensive_parsing=use_defensive_parsing)
-        self.coq_gpt_response_grammar = CoqGPTResponseDfsGrammar()
+        self.coq_gpt_response_grammar : ResponseDfsGrammar = CoqGPTResponseDfsGrammar() if not uses_simplified_prompt else SimpleResponseGrammar()
 
         # Setup system messages
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
@@ -249,10 +250,11 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
         prompt_message, prompt_token_count, custom_system_msg, custom_system_msg_cnt = self._get_prompt_message(request, max_tokens_in_prompt)
         messages, total_token_count = self._constrain_tokens_in_history(prompt_message, custom_system_msg, custom_system_msg_cnt, prompt_token_count, self._max_tokens_per_action)
         success = False
-        retries = 6
+        retries = 25
         time_to_sleep = 60
         exp_factor = 1.06
         tokens_factor = 1.75
+        is_multiplication_factor = True
         temp_factor = 0.025
         max_temp = 0.4
         temperature = self.temperature
@@ -295,19 +297,27 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                     if tokens_to_generate >= upper_bound:
                         self.logger.warning(f"Retried {retries} times but still got an incomplete response. Reason: {reason}.")
                         self.logger.info(f"Maxed out response: \n{responses}")
-                    else:
-                        if len(responses) == 1 and isinstance(responses[0], dict):
-                            # [{'role': 'assistant', 'content': None, 'finish_reason': 'stop'}]
-                            if 'content' in responses[0] and (responses[0]['content'] is None or len(responses[0]['content'].strip()) == 0):
-                                self.logger.warning(f"Got invalid None or empty response. Retrying.")
-                                responses = None
-                                success = False
+                    if len(responses) == 1 and isinstance(responses[0], dict):
+                        # [{'role': 'assistant', 'content': None, 'finish_reason': 'stop'}]
+                        if 'content' in responses[0] and (responses[0]['content'] is None or len(responses[0]['content'].strip()) == 0):
+                            self.logger.warning(f"Got invalid None or empty response. Retrying.")
+                            responses = None
+                            success = False
+                            retries += 1 # Don't count this towards retries
+                            is_multiplication_factor = False
                 if success:
                     self.logger.info(f"Got a valid response. Reason: \n{reason}")
                     self.logger.info(f"Response messages: \n{responses}")
+                    is_multiplication_factor = True
 
                 if not success:
-                    tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
+                    if is_multiplication_factor:
+                        tokens_to_generate = min(int(tokens_to_generate * tokens_factor), upper_bound)
+                    else:
+                        self.logger.info("Using addition factor to increase tokens to generate.")
+                        addition_factor = max(0, int(random.uniform(-100, 100)))
+                        tokens_to_generate = max(tokens_to_generate, min(tokens_to_generate + addition_factor, 0))
+                        tokens_to_generate = min(tokens_to_generate, upper_bound)
                     self.logger.info(f"Retrying with {tokens_to_generate} tokens. Earlier response was not complete for reason: {reason}.  Used {usage['completion_tokens']} completion tokens.")
                     self.logger.info(f"Incomplete Response messages: \n{responses}")
                     max_token_per_prompt = self._max_token_per_prompt - self.system_token_count - tokens_to_generate
@@ -359,6 +369,8 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
     
     def reset_last_action(self, last_action: ProofAction):
         # Reset the messages in the history
+        if isinstance(last_action.original_message, str):
+            last_action.original_message = self.agent_grammar.get_openai_main_message_from_string(last_action.original_message, "assistant")
         original_message = last_action.original_message
         if original_message is not None:
             self.reset_last_message(original_message)

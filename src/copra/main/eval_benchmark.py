@@ -35,6 +35,7 @@ from itp_interface.rl.proof_action import ProofAction
 from itp_interface.tools.isabelle_executor import IsabelleExecutor
 from itp_interface.tools.proof_exec_callback import ProofExecutorCallback
 
+
 # Global variable to track vLLM server process
 _vllm_server_process = None
 
@@ -64,12 +65,24 @@ def _initialize_services(
 
         # Extract actual model name without vllm: prefix
         actual_model_name = eval_settings.gpt_model_name.replace("vllm:", "", 1)
+        extra_args = []
+        if "gpt-oss" in actual_model_name:
+            # Bug in vLLM's GPT-OSS integration requires disabling FlashInfer sampler
+            # See: https://github.com/vllm-project/vllm/issues/26480
+            os.environ["VLLM_USE_FLASHINFER_SAMPLER"]="0"
+            # extra_args.extend(["--tool-call-parser", "openai"])
+            extra_args.extend(["--reasoning-parser", "openai_gptoss"])
+            # extra_args.extend(["--reasoning-parser", "GptOss"])
+            # extra_args.extend(["--enable-auto-tool-choice"])
 
         # Get vLLM configuration from environment variables or use defaults
         vllm_port = int(os.environ.get("VLLM_PORT", "48000"))
         vllm_host = os.environ.get("VLLM_HOST", "127.0.0.1")
         vllm_api_key = os.environ.get("VLLM_API_KEY", "EMPTY")
-        vllm_max_model_len = eval_settings.model_params.get("max_model_len", None)
+        if eval_settings.model_params is not None:
+            vllm_max_model_len = eval_settings.model_params.get("max_model_len", None)
+        else:
+            vllm_max_model_len = None
         if vllm_max_model_len is None and "VLLM_MAX_MODEL_LEN" in os.environ:
             vllm_max_model_len = int(os.environ.get("VLLM_MAX_MODEL_LEN"))
 
@@ -93,6 +106,7 @@ def _initialize_services(
                 max_model_len=vllm_max_model_len,
                 gpu_mem_util=vllm_gpu_mem_util,
                 max_num_seqs=vllm_max_num_seqs,
+                extra_args=extra_args,
                 wait_seconds=600,  # Give it 10 minutes to start
                 logger=logger,  # Pass logger for detailed progress tracking
                 log_file=vllm_log_file  # Save vLLM server logs to file
