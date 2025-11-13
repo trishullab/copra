@@ -91,7 +91,16 @@ jobs:
           export LEAN_VERSION="4.21.0"
           export MAX_PARALLEL_WORKERS=2
           python src/tests/simple_copra_run.py
-    
+
+      - name: Run CLI tests
+        shell: bash
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          export LEAN_VERSION="4.21.0"
+          source $HOME/miniconda/bin/activate py314-ft
+          source $HOME/.elan/env
+          python src/tests/test_simple_cli.py
+
       - name: Remove secrets
         run: |
           rm -rf .secrets
