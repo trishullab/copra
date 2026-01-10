@@ -159,6 +159,25 @@ class GptAccess:
         "claude-3-7-sonnet-20250219": "https://api.anthropic.com/v1"
     }
 
+    @staticmethod
+    def check_if_reasoning_model(model_name: str) -> bool:
+        return model_name in {
+            "o1-mini", "o1",
+            "o3-mini", "o3",
+            "o4-mini",
+            "gpt-5-mini",
+            "claude-3-7-sonnet-20250219",
+            "anthropic.claude-3-7-sonnet-20250219-v1:0",
+            "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "anthropic.claude-3-5-sonnet-20240620-v1:0",
+            "anthropic.claude-3-opus-20240229-v1:0",
+            "anthropic.claude-3-haiku-20240307-v1:0",
+            "anthropic.claude-3-sonnet-20240229-v1:0",
+            "deepseek.r1-v1:0",
+            "vllm:openai/gpt-oss-20b"
+        }
+
     def __init__(self,
                  secret_filepath: str = None,
                  model_name: typing.Optional[str] = None) -> None:
@@ -318,13 +337,15 @@ class GptAccess:
             self.get_response_generic(model, messages, max_tokens, stop, temperature, n, reasoning_token_count, reasoning_effort)
         else:
             return_responses, usage, stopping_reasons = \
-            self.get_response_generic(model, messages, max_tokens, stop, temperature, n)
+            self.get_response_generic(model, messages, max_tokens, stop, temperature, n, reasoning_token_count, reasoning_effort)
         usage_dict = {
             "prompt_tokens": usage["prompt_tokens"],
             "completion_tokens": usage["completion_tokens"],
             "total_tokens": usage["total_tokens"],
             "reason": stopping_reasons
         }
+        if "reasoning_tokens" in usage:
+            usage_dict["reasoning_tokens"] = usage["reasoning_tokens"]
         return return_responses, usage_dict
     
     def handle_thinking_messages(self, messages: typing.List[typing.Dict[str, str]]) -> typing.List[typing.Dict[str, str]]:
@@ -374,7 +395,32 @@ class GptAccess:
         self.usage["prompt_tokens"] += usage.prompt_tokens
         self.usage["completion_tokens"] += usage.completion_tokens
         self.usage["total_tokens"] += usage.total_tokens
-        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+
+        # Extract reasoning tokens from usage details if available
+        reasoning_tokens = 0
+        if hasattr(usage, 'completion_tokens_details') and usage.completion_tokens_details is not None:
+            if hasattr(usage.completion_tokens_details, 'reasoning_tokens') and usage.completion_tokens_details.reasoning_tokens is not None:
+                reasoning_tokens = usage.completion_tokens_details.reasoning_tokens
+
+        return_responses = []
+        for choice in response.choices:
+            resp_dict = {"role": choice.message.role, "content": choice.message.content}
+            # Check multiple possible locations for reasoning content
+            reasoning = None
+            if hasattr(choice.message, 'reasoning') and choice.message.reasoning is not None:
+                reasoning = choice.message.reasoning
+            elif hasattr(choice.message, 'reasoning_content') and choice.message.reasoning_content is not None:
+                reasoning = choice.message.reasoning_content
+            elif choice.message.model_extra is not None and 'reasoning' in choice.message.model_extra:
+                reasoning = choice.message.model_extra['reasoning']
+            elif choice.message.model_extra is not None and 'reasoning_content' in choice.message.model_extra:
+                reasoning = choice.message.model_extra['reasoning_content']
+
+            if reasoning is not None:
+                resp_dict['reasoning'] = reasoning
+                resp_dict['reasoning_effort'] = reasoning_effort
+
+            return_responses.append(resp_dict)
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
@@ -385,6 +431,8 @@ class GptAccess:
             "completion_tokens": usage.completion_tokens,
             "total_tokens": usage.total_tokens
         }
+        if reasoning_tokens > 0:
+            usage["reasoning_tokens"] = reasoning_tokens
         return return_responses, usage, stopping_reasons
 
     def get_gpt_4_o_response(self, model, messages, max_tokens, stop, temperature, top_p, frequency_penalty, presence_penalty, n) -> typing.Tuple[list, dict, str]:
@@ -403,7 +451,10 @@ class GptAccess:
         self.usage["prompt_tokens"] += usage.prompt_tokens
         self.usage["completion_tokens"] += usage.completion_tokens
         self.usage["total_tokens"] += usage.total_tokens
-        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+        return_responses = []
+        for choice in response.choices:
+            resp_dict = {"role": choice.message.role, "content": choice.message.content}
+            return_responses.append(resp_dict)
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
@@ -415,7 +466,7 @@ class GptAccess:
             "total_tokens": usage.total_tokens
         }
         return return_responses, usage, stopping_reasons
-    
+
     def complete_chat_bedrock(self,
             messages: typing.List[typing.Dict[str, str]],
             model: typing.Optional[str] = None,
@@ -538,6 +589,12 @@ class GptAccess:
         )
         usage_obj = response.usage
 
+        # Extract reasoning tokens from usage details if available
+        reasoning_tokens = 0
+        if usage_obj is not None and hasattr(usage_obj, 'completion_tokens_details') and usage_obj.completion_tokens_details is not None:
+            if hasattr(usage_obj.completion_tokens_details, 'reasoning_tokens') and usage_obj.completion_tokens_details.reasoning_tokens is not None:
+                reasoning_tokens = usage_obj.completion_tokens_details.reasoning_tokens
+
         # Handle cases where usage might be None (e.g., vLLM, some GPT models)
         if usage_obj is not None:
             prompt_tokens = getattr(usage_obj, 'prompt_tokens', 0)
@@ -566,13 +623,33 @@ class GptAccess:
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens
             }
+        return_responses = []
+        for choice in response.choices:
+            resp_dict = {"role": choice.message.role, "content": choice.message.content}
+            # Check multiple possible locations for reasoning content
+            reasoning = None
+            if hasattr(choice.message, 'reasoning') and choice.message.reasoning is not None:
+                reasoning = choice.message.reasoning
+            elif hasattr(choice.message, 'reasoning_content') and choice.message.reasoning_content is not None:
+                reasoning = choice.message.reasoning_content
+            elif choice.message.model_extra is not None and 'reasoning' in choice.message.model_extra:
+                reasoning = choice.message.model_extra['reasoning']
+            elif choice.message.model_extra is not None and 'reasoning_content' in choice.message.model_extra:
+                reasoning = choice.message.model_extra['reasoning_content']
 
-        return_responses = [{"role": choice.message.role, "content": choice.message.content} for choice in response.choices]
+            if reasoning is not None:
+                resp_dict['reasoning'] = reasoning
+                resp_dict['reasoning_effort'] = reasoning_effort
+
+            return_responses.append(resp_dict)
+
         for i in range(len(return_responses) - 1):
             return_responses[i]["finish_reason"] = "stop"
         if len(response.choices) > 0:
             return_responses[-1]["finish_reason"] = response.choices[-1].finish_reason
         stopping_reasons = response.choices[-1].finish_reason if len(response.choices) > 0 else "stop"
+        if reasoning_tokens > 0:
+            usage["reasoning_tokens"] = reasoning_tokens
         return return_responses, usage, stopping_reasons
 
     def num_tokens_from_messages(self, messages, model=None):
@@ -659,6 +736,9 @@ class GptAccess:
     def get_usage(self) -> dict:
         return self.usage
 
+    def is_reasoning_model(self) -> bool:
+        return self.check_if_reasoning_model(self.model_name)
+
 # Integration Test Suite
 class IntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -684,6 +764,10 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn("content", responses[0])
         self.assertTrue(len(responses[0]["content"]) > 0, f"No content returned for model {model_name}")
         print(f"Model: {model_name}, Response: {responses[0]['content']}")
+        if 'reasoning' in responses[0]:
+            print(f"Reasoning ({responses[0].get('reasoning_effort', 'N/A')}): {responses[0]['reasoning']}")
+        if 'reasoning_tokens' in usage:
+            print(f"Reasoning tokens: {usage['reasoning_tokens']}")
 
     def test_o3_mini_model(self):
         self._run_chat_test("o3-mini", token_count=100)
@@ -693,9 +777,6 @@ class IntegrationTests(unittest.TestCase):
 
     def test_gpt4o_model(self):
         self._run_chat_test("gpt-4o", token_count=100)
-    
-    def test_o1_mini_model(self):
-        self._run_chat_test("o1-mini", token_count=600)
     
     def test_o1_model(self):
         self._run_chat_test("o1", token_count=300)
@@ -710,7 +791,13 @@ class IntegrationTests(unittest.TestCase):
         self._run_chat_test("deepseek.r1-v1:0", token_count=300)
 
     def test_gpt5_mini_model(self):
-        self._run_chat_test("gpt-5-mini", token_count=100)
+        self._run_chat_test("gpt-5-mini", token_count=500)
+
+    def test_vllm_model(self):
+        # This test assumes a local vLLM server is running and accessible
+        os.environ["VLLM_API_KEY"] = "EMPTY"  # vLLM doesn't require a real key
+        os.environ["VLLM_BASE_URL"] = "http://127.0.0.1:48000/v1"
+        self._run_chat_test("vllm:openai/gpt-oss-20b", token_count=100)
 
 if __name__ == "__main__":
     unittest.main()

@@ -277,7 +277,7 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                         n=self.num_sequences,
                         temperature=temperature,
                         max_tokens=tokens_to_generate,
-                        stop=["[END]"],
+                        stop=["[END]"] if not self._gpt_access.is_reasoning_model() else [],
                         **self._model_params)
                 else:
                     responses, usage = self._gpt_access.complete_chat(
@@ -285,7 +285,7 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                         n=self.num_sequences,
                         temperature=temperature,
                         max_tokens=tokens_to_generate,
-                        stop=["[END]"])
+                        stop=["[END]"] if not self._gpt_access.is_reasoning_model() else [])
                 request_end_time = time.time()
                 time_taken = request_end_time - request_start_time
                 apporx_output_tokens = usage["total_tokens"] - total_token_count
