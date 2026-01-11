@@ -17,8 +17,8 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
   - [Setting up OpenAI API](#setting-up-openai-api-and-running-experiments)
   - [Starting Required Services](#starting-required-services)
   - [Parallel Theorem Execution](#parallel-theorem-execution-new)
-- [Latest Evaluation Results](#latest-evaluation-results)
-- [Citation](#paper)
+- [Latest Evaluation Results](#latest-evaluation-results-new)
+- [Citation](#citation)
 
 ---
 
