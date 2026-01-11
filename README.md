@@ -17,6 +17,7 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
   - [Setting up OpenAI API](#setting-up-openai-api-and-running-experiments)
   - [Starting Required Services](#starting-required-services)
   - [Parallel Theorem Execution](#parallel-theorem-execution-new)
+- [Latest Evaluation Results](#latest-evaluation-results)
 - [Citation](#paper)
 
 ---
@@ -519,6 +520,17 @@ python -m copra.main.run --config-name lean4_simple_experiment
 - **Solution:** Disable parallel execution or reduce worker count
 
 ---
+
+## Latest Evaluation Results (NEW!)
+
+You can find selected recent evaluation results here:
+- MiniF2F Test Lean 4 (v4.21.0) - GPT-OSS-20b (low reasoning tokens) (no retrieval):
+  - About 42.798% overall success rate on pass@5
+  - Solves 1 IMO problem (`imo_1959_p1`)
+  - Decent performance for low compute budget
+  - See logs: [execution_logs](docs/static/selected_results/gpt_oss_20b_evals_pass_at_5.log)
+
+
 
 ## Important Notes
 
