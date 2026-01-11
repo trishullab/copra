@@ -9,215 +9,116 @@ COPRA: An in-COntext PRoof Agent which uses LLMs like GPTs to prove theorems in 
 - [What's New](#whats-new)
 - [Setup](#setup)
   - [Quick Setup for Lean 4](#quick-setup-for-lean-4)
-  - [Python 3.14t Setup (Free-threaded Python)](#python-314t-setup-free-threaded-python---optional)
+  - [Python 3.14t Setup](#python-314t-setup-optional)
   - [Full Setup for Coq and Lean](#full-setup-for-coq-and-lean)
   - [vLLM Setup for Open Source Models](#vllm-setup-for-open-source-models)
 - [Simple CLI for Lean 4](#simple-cli-for-lean-4)
 - [Running Experiments](#running-experiments)
-  - [Setting up OpenAI API](#setting-up-openai-api-and-running-experiments)
+  - [API Setup](#api-setup)
+  - [Running the miniF2F Benchmark](#running-the-minif2f-benchmark)
   - [Starting Required Services](#starting-required-services)
   - [Parallel Theorem Execution](#parallel-theorem-execution-new)
-- [Citation](#paper)
+- [Latest Evaluation Results](#latest-evaluation-results-new)
+- [Citation](#citation)
 
 ---
 
 ## What's New
 
 ### 🎯 Simple CLI for Lean 4 (NEW!)
-COPRA now has a **streamlined command-line interface** for quick theorem proving without complex YAML configuration!
-
-**Features:**
-- ✅ **Simple Commands**: Prove theorems with a single command
-- ✅ **Environment Variables**: Use standard env vars for API keys (12-factor pattern)
-- ✅ **No Configuration Files**: Override only the settings you need via command-line
-- ✅ **Real-Time Progress**: See proof steps as they execute
-- ✅ **Modular Design**: Clean architecture ready for REST API integration
+Streamlined command-line interface for quick theorem proving - no complex YAML configuration needed! Prove theorems with a single command, use environment variables for API keys, and get real-time progress output.
 
 [Jump to Simple CLI Guide →](#simple-cli-for-lean-4)
 
 ### 🤖 vLLM Support for Open Source Models (NEW!)
-COPRA now supports **vLLM** for running open-source LLMs locally! This enables you to use models like Llama, Mistral, DeepSeek, and more for theorem proving.
-
-**Features:**
-- ✅ **OpenAI-Compatible API**: Works with existing COPRA code via OpenAI-compatible interface
-- ✅ **GPU Acceleration**: Full CUDA support with multi-GPU tensor parallelism
-- ✅ **Automatic Server Management**: Start/stop vLLM servers programmatically
-- ✅ **Model Flexibility**: Support for any Hugging Face model compatible with vLLM
-- ⚠️ **Python Requirement**: vLLM requires Python ≤ 3.12 (not compatible with 3.14t)
+Run open-source LLMs locally (Llama, Mistral, DeepSeek, etc.) with GPU acceleration. OpenAI-compatible API, automatic server management, and support for any Hugging Face model compatible with vLLM.
 
 [Jump to vLLM Setup →](#vllm-setup-for-open-source-models)
 
-### 🚀 Parallel Theorem Execution
-COPRA now supports executing proof search for **multiple theorems in parallel**! This significantly speeds up evaluation on multi-core systems.
-
-**Features:**
-- ✅ **Automatic Python Version Detection**: Uses threading for Python 3.14t+ and multiprocessing for older versions
-- ✅ **Configurable Worker Count**: Control parallelism with environment variables
-- ✅ **Backward Compatible**: Disabled by default - opt-in via environment variable
-- ✅ **Better Resource Utilization**: Leverage all CPU cores for faster evaluations
+### 🚀 Parallel Theorem Execution (NEW!)
+Execute proof search for multiple theorems in parallel to speed up evaluations on multi-core systems. Automatically uses threading for Python 3.14t+ and multiprocessing for older versions.
 
 [Jump to Parallel Execution Setup →](#parallel-theorem-execution-new)
 
-### 🐍 Python 3.14t Free-Threading Support
-COPRA now fully supports Python 3.14+ with free-threaded (GIL-free) execution for improved performance!
+### 🐍 Python 3.14t Free-Threading Support (NEW!)
+Full support for Python 3.14+ with free-threaded (GIL-free) execution. Automatically selects best parallel execution strategy based on Python version and GIL status.
 
-**Automatic Execution Mode Selection:**
-- **Python 3.14t+ with GIL disabled:** Native free-threading for true parallel execution
-- **Python 3.14t+ with GIL enabled:** Threading (still benefits from improved performance)
-- **Python < 3.14:** Multiprocessing (traditional approach)
+### 📊 Latest Evaluation Results (NEW!)
+Recent MiniF2F Test Lean 4 results with GPT-OSS-20b achieved **42.8% pass@5** success rate, including solving 1 IMO problem (`imo_1959_p1`) with low compute budget. [View logs →](docs/static/selected_results/gpt_oss_20b_evals_pass_at_5.log)
+
+[Jump to Full Results →](#latest-evaluation-results-new)
 
 ---
 
 ## Setup
 
 ### Quick Setup for Lean 4
-1. Install itp-interface using the following command: (Our package is available on PyPI: https://pypi.org/project/copra-theorem-prover/)
 ```bash
+# 1. Install COPRA
 pip install copra-theorem-prover
-```
 
-2. Run the following command to prepare the REPL for Lean 4. (The default version is 4.24.0. You can change the version by setting the `LEAN_VERSION` environment variable. If no version is set, then 4.24.0 is used.)
->NOTE: The Lean 4 version must match the version of the Lean 4 project you are working with.
-```bash
-export LEAN_VERSION="4.21.0"
+# 2. Set Lean version (default: 4.24.0) and install REPL
+export LEAN_VERSION="4.21.0"  # Must match your project version
 install-lean-repl
-```
 
-3. Run the following command to build the REPL for Lean 4. Make sure that `lean --version` returns the correct version before running the command below. If not then check if `$HOME/.elan/bin` is in your path. Recommended to run `source $HOME/.elan/env` before running the command below.
-```bash
+# 3. Build the interface (ensure $HOME/.elan/bin is in PATH)
+source $HOME/.elan/env  # Optional: if lean --version fails
 install-itp-interface
 ```
 
->NOTE: These steps are only tested on Linux. For Windows, you can use WSL. These steps will not setup the Coq interface.
+> **Note:** Tested on Linux. Windows users should use WSL.
 
-### Python 3.14t Setup (Free-threaded Python - Optional)
-🆕 **NEW:** COPRA now supports Python 3.14+ with free-threaded (GIL-free) support for improved performance!
-
-1. **Create a Conda environment with Python 3.14t (free-threaded):**
+### Python 3.14t Setup (Optional)
 ```bash
-# Create environment with free-threaded Python 3.14
+# Create and activate environment
 conda create -n py314-ft python=3.14 python-freethreading -c conda-forge
-
-# Activate the environment
 conda activate py314-ft
 
-# Verify Python version and free-threading support
-python --version  # Should show Python 3.14.x
-```
+# Install COPRA
+pip install copra-theorem-prover  # or: pip install -e . (for development)
 
-2. **Install COPRA theorem prover:**
-```bash
-# Install from PyPI
-pip install copra-theorem-prover
-
-# OR for development, install from source
-pip install -e .
-```
-
-3. **Run experiments with Python 3.14t:**
-```bash
-# Use run.py which automatically detects Python 3.14+ and uses Hydra-free mode
+# Run experiments (automatically detects Python version)
 python -m copra.main.run --config-name lean4_simple_experiment
-
-# Or if installed from source
-python src/copra/main/run.py --config-name lean4_simple_experiment
 ```
 
-> **Note:** Python 3.14t is experimental. Some packages may show compatibility warnings (especially Pydantic and OpenAI), but COPRA has been refactored to work with Python 3.14t.
-
-**🚀 Automatic Parallel Execution Selection:**
-COPRA automatically detects your Python version and chooses the best parallel execution strategy:
-- **Python 3.14t+ with GIL disabled:** Uses native free-threading for true parallel execution
-- **Python 3.14t+ with GIL enabled:** Uses threading (still benefits from improved performance)
-- **Python < 3.14:** Uses multiprocessing (traditional approach)
-
-Check your execution mode:
-```bash
-python demo_parallel_execution.py
-```
+> **Note:** Python 3.14t is experimental. COPRA automatically selects the best parallel execution strategy: free-threading (GIL disabled), threading (GIL enabled), or multiprocessing (Python < 3.14).
 
 ### Full Setup for Coq and Lean
-1. Install OCaml first. Use the instructions here: https://opam.ocaml.org/doc/Install.html. Note that OCaml officially only supports Linux installations. One can use WSL on Windows machines.
-
-2. Run the following to install Coq on Linux.
-```
+```bash
+# 1. Install Coq dependencies and opam (Linux only, use WSL on Windows)
 sudo apt install build-essential unzip bubblewrap
 sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)
-```
 
-3. Add the following to your `.bashrc` file: (sometimes the path `~/.opam/default` might not exist, so use the directory with version number present in the `~/.opam` directory)
-```
+# 2. Add to ~/.bashrc (adjust path if ~/.opam/default doesn't exist)
 export PATH="/home/$USER/.opam/default/bin:$PATH"
-```
-
-4. Create a `Miniconda` environment and activate it.
-
-5. Run the commands for installing the Lean 4 interface as mentioned in [Quick Setup for Lean 4](#quick-setup-for-lean-4).
-
-6. Add the following to your `.bashrc` file for Lean:
-```
 export PATH="/home/$USER/.elan/bin:$PATH"
+
+# 3. Setup Python environment and install Lean 4
+# (Follow Quick Setup for Lean 4 steps above)
 ```
+
+> **Note:** See [OCaml installation guide](https://opam.ocaml.org/doc/Install.html) for details.
 
 ### vLLM Setup for Open Source Models
-
-🆕 **NEW:** Run open-source LLMs locally with GPU acceleration via vLLM!
-
-**Quick Setup:**
 ```bash
-# Install with vLLM support
+# Standard vLLM models (Llama, Mistral, DeepSeek, etc.)
 pip install copra-theorem-prover[os_models]
 
-# Or for development
-pip install -e .[os_models]
-```
-
-**GPT OSS Models Setup:**
-
-To use the GPT OSS 20b model with the custom vLLM wheel:
-```bash
-# Install from pypi
+# GPT-OSS-20b (custom vLLM build with reasoning token support)
 pip install copra-theorem-prover[gpt_oss]
-
-# On local development setup
-pip install -e .[gpt_oss]
-
 pip install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cu128
-#Change the version of CUDA (cu118, cu121, cu128) based on your GPU setup.
+# Adjust CUDA version (cu118, cu121, cu128) based on your GPU
 ```
-
-> **Note:** The `gpt_oss` optional dependency installs a custom vLLM build (`vllm==0.10.2`) from the GPT OSS wheel repository.
-
-> **Note:** There are known issues with GPT OSS reasoning tokens being not processed correctly in vLLMs. (See: [vLLM GitHub Issue](https://github.com/vllm-project/vllm/issues/26480))
-
 
 **Usage:**
-
-Create a config file (see `src/copra/main/config/miniF2F_lean4_easy_to_hard.yaml` for a complete example):
-```yaml
-# config/eval_settings/my_gpt_oss_config.yaml
-gpt_model_name: gpt-oss-20b
-temperature: 0.75
-max_tokens_per_action: 100
-# ... other settings
-```
-
-Run your experiment:
 ```bash
+# vLLM server starts automatically on port 48000 (override with VLLM_PORT)
 python -m copra.main.eval_benchmark eval_settings=my_vllm_config benchmark=miniF2F
 ```
 
-The vLLM server starts automatically on port 48000. Override with `VLLM_PORT` environment variable if needed.
+**Supported Models:** `vllm:openai/gpt-oss-20b`, `vllm:codellama/CodeLlama-7b-Instruct-hf`, `vllm:meta-llama/Llama-2-7b-chat-hf`, `vllm:EleutherAI/llemma_7b`, `vllm:deepseek-ai/deepseek-math-7b-instruct`, or any HuggingFace model compatible with vLLM.
 
-**Supported Models:**
-- `vllm:openai/gpt-oss-20b` (GPT OSS 20b - open-source model)
-- `vllm:codellama/CodeLlama-7b-Instruct-hf` (open-source code model)
-- `vllm:meta-llama/Llama-2-7b-chat-hf` (general LLM)
-- `vllm:EleutherAI/llemma_7b` (math-focused LLM)
-- `vllm:deepseek-ai/deepseek-math-7b-instruct` (math reasoning)
-- Any HuggingFace model compatible with vLLM
-
-> **Note:** vLLM requires Python ≤ 3.12 and CUDA-capable GPU
+> **Requirements:** Python ≤ 3.12 and CUDA-capable GPU. See [vLLM issue #26480](https://github.com/vllm-project/vllm/issues/26480) for known reasoning token limitations.
 
 ---
 
@@ -284,241 +185,95 @@ copra-lean-prover \
 
 ## Running Experiments
 
-### Setting up OpenAI API and Running Experiments
-1. You need to create a file `.secrets/openai_key.json` in the root directory of the project with the OpenAI API key. The file should contain the following:
-```
-{
-    "organization": "<your-organization-id>",
-    "api_key": "<your-api-key>"
-}
-```
-
-2. The experiments are not necessarily thread safe. So, it is recommended to run them sequentially. The commands to run the desired experiments can be found in the file `./src/copra/main/config/experiments.yaml`.
-
-3. Run the following command to run the experiments:
-
-**For Python 3.14+ (with free-threaded support):**
+### API Setup
+**Option 1: Environment Variables (Recommended)**
 ```bash
+# OpenAI
+export OPENAI_API_KEY="sk-..."
+
+# Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# AWS Bedrock
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION="us-east-1"
+```
+
+**Option 2: Secrets File**
+Create `.secrets/openai_key.json`:
+```json
+{"organization": "<your-org-id>", "api_key": "<your-api-key>"}
+```
+
+### Running Experiments
+```bash
+# Auto-detects Python version (recommended)
 python src/copra/main/run.py --config-name lean4_simple_experiment
-# This uses a Hydra-free implementation compatible with Python 3.14+
-# You can change the config name to run different experiments
 ```
 
-**For Python < 3.14:**
+> **Note:** See `./src/copra/main/config/experiments.yaml` for available configurations.
+
+### Running the miniF2F Benchmark
 ```bash
-python src/copra/main/eval_benchmark.py
-# This will run the experiments mentioned in the file `./src/copra/main/config/experiments.yaml`.
-# Change the file path in the command above to run other experiments.
-```
+# Setup Lean 4.21.0 (required for miniF2F)
+export LEAN_VERSION="4.21.0"
+install-lean-repl && install-itp-interface
 
-**Universal command (auto-detects Python version):**
-```bash
-python src/copra/main/run.py --config-name lean4_simple_experiment
-# This automatically uses Hydra-free mode for Python 3.14+ and Hydra mode for older versions
-```
-
-> **Note:** `run.py` is the recommended entry point for all Python versions. It automatically detects your Python version and uses the appropriate implementation (Hydra-free for 3.14+, standard Hydra for older versions).
-
-### Running the miniF2F_lean4 Benchmark
-
-The miniF2F benchmark is a suite of formal math problems from various math competitions (AMC, AIME, IMO) and educational resources (MATH dataset) formalized in Lean 4.
-
-**Prerequisites:**
-1. Install and setup Lean 4 (see [Quick Setup for Lean 4](#quick-setup-for-lean-4))
-2. Set the correct Lean version to match the benchmark (e.g., 4.21.0):
-   ```bash
-   export LEAN_VERSION="4.21.0"
-   install-lean-repl
-   install-itp-interface
-   ```
-
-**Running with GPT OSS 20b:**
-```bash
-# Using the pre-configured setup
+# Run with GPT-OSS-20b
 python -m copra.main.run --config-name miniF2F_lean4_easy_to_hard
 
-# Or using the benchmark directly
-python -m copra.main.eval_benchmark \
-  benchmark=miniF2F_lean4_test_easy_to_hard \
-  eval_settings=n_60_dfs_gpt_oss_20b_no_retrieve_no_ex
-```
-
-**Running with OpenAI models:**
-```bash
-# Make sure .secrets/openai_key.json is set up first
+# Run with OpenAI models (requires API key)
 python -m copra.main.eval_benchmark \
   benchmark=miniF2F_lean4_test_easy_to_hard \
   eval_settings=n_60_dfs_gpt4_o_no_retrieve_no_ex
 ```
 
-**Configuration options:**
-- `benchmark=miniF2F_lean4_test_easy_to_hard`: Uses theorems ordered from easy to hard
-- `eval_settings`: Controls model, temperature, search strategy (see `src/copra/main/config/eval_settings/`)
-- `timeout_per_theorem_in_secs`: Time limit per theorem (default: 600 seconds)
-- `max_steps_per_episode`: Maximum proof search steps (default: 100)
-
-**Results and Logs:**
-- Proof results: `.log/proofs/eval_driver/dfs/miniF2F_lean4_test_easy_to_hard/<timestamp>/proof_results.json`
-- Evaluation logs (with prompts and LLM interactions): `.log/evals/benchmark/miniF2F_lean4_test_easy_to_hard/<timestamp>/eval.log`
+**Results:** `.log/proofs/eval_driver/dfs/miniF2F_lean4_test_easy_to_hard/<timestamp>/`
 
 ### Starting Required Services
 
-Before running COPRA, you need to ensure the required services are running based on your proof language:
+- **Lean 4:** No setup needed (COPRA manages REPL automatically)
+- **Isabelle:** COPRA auto-manages PISA service (default port: 17000, override with `PISA_PORT`)
+- **Coq:** Ensure correct version is active (`coqc --version`) and project is built (`make`)
+- **vLLM/Llama:** COPRA auto-starts services (logs in `.log/evals/benchmark/<name>/<timestamp>/`)
 
-#### For Lean 4 Projects:
-No additional services are required. Lean 4 uses a built-in REPL that COPRA manages automatically.
-
-#### For Isabelle Projects:
-You need to start the PISA (Portal for Isabelle) service:
-
-1. **Set the PISA port** (optional, defaults to 17000):
-```bash
-export PISA_PORT=17000
-```
-
-2. **Start the PISA service:**
-```bash
-# COPRA will automatically start the PISA service when needed
-# You can also manually start it if required by your setup
-```
-
-3. **Check if PISA is running:**
-```bash
-# COPRA will log whether PISA service is up or needs to be restarted
-```
-
-> **Note:** COPRA automatically manages the PISA service lifecycle, including health checks and restarts. You'll see log messages about PISA service status during execution.
-
-#### For Coq Projects:
-Ensure the correct Coq version is active:
-
-1. **Check your Coq version:**
-```bash
-coqc --version
-```
-
-2. **Switch Coq version if needed** (using opam):
-```bash
-opam switch <your-coq-version>
-eval $(opam env)
-```
-
-3. **Build your Coq project** before running COPRA:
-```bash
-cd /path/to/your/coq/project
-make  # or your project's build command
-```
-
-#### For LLM Services (Llama models):
-If using non-OpenAI models (like Llama):
-
-1. COPRA will automatically initialize the Llama service when needed
-2. Check the logs in `.log/evals/benchmark/<benchmark-name>/<timestamp>/llama.log`
-3. If the service goes down, COPRA will automatically restart it
-
-> **Important:** The ITP projects must be built before running COPRA. Make sure the correct version/switch is active for Coq projects, as different projects may use different Coq versions.
+> **Important:** ITP projects must be built before running COPRA. For Coq, ensure the correct opam switch is active.
 
 ### Parallel Theorem Execution (NEW!)
 
-COPRA now supports executing proof search for **multiple theorems in parallel**, significantly speeding up evaluations on multi-core systems.
-
-#### Quick Start
-
-**Enable parallel execution:**
+**Quick Start:**
 ```bash
+# Enable with auto-detected workers (CPU cores / 2)
 export ENABLE_PARALLEL_THEOREMS=True
 python src/copra/main/run.py --config-name lean4_simple_experiment
+
+# Custom worker count
+export MAX_PARALLEL_WORKERS=4
 ```
 
-**Control number of workers:**
-```bash
-export ENABLE_PARALLEL_THEOREMS=True
-export MAX_PARALLEL_WORKERS=4  # Use 4 parallel workers
-python src/copra/main/run.py --config-name lean4_simple_experiment
-```
+**How it works:** Automatically uses threading (Python 3.14t+) or multiprocessing (Python < 3.14). Disabled by default.
 
-#### Configuration Options
+**Configuration:**
+- `ENABLE_PARALLEL_THEOREMS`: Enable/disable (default: `False`)
+- `MAX_PARALLEL_WORKERS`: Worker count (default: auto-detected)
 
-| Environment Variable | Description | Default | Example |
-|---------------------|-------------|---------|---------|
-| `ENABLE_PARALLEL_THEOREMS` | Enable/disable parallel theorem execution | `False` | `True` or `False` |
-| `MAX_PARALLEL_WORKERS` | Maximum number of parallel workers | Auto (CPU cores / 2) | `4`, `8`, `16` |
+**Tips:** Match workers to CPU cores, ensure services handle concurrent requests, use sequential mode for <4 theorems.
 
-#### How It Works
-
-**Sequential Execution (Default):**
-- Theorems are processed one at a time
-- Each theorem proof runs in isolation with timeout
-- Original behavior is preserved
-
-**Parallel Execution (Enabled):**
-- Multiple theorems are processed concurrently
-- Each theorem proof still runs in its own process/thread with timeout
-- Results are collected as they complete
-- **Automatic Python version detection:**
-  - **Python < 3.14:** Uses `ProcessPoolExecutor` (multiprocessing)
-  - **Python 3.14t+:** Uses `ThreadPoolExecutor` (threading with free-threading support)
-
-#### Examples
-
-**Example 1: Basic parallel execution**
-```bash
-# Enable parallel execution with auto-detected worker count
-export ENABLE_PARALLEL_THEOREMS=True
-python -m copra.main.run --config-name lean4_simple_experiment
-```
-
-**Example 2: Custom worker count**
-```bash
-# Use 8 parallel workers for large theorem sets
-export ENABLE_PARALLEL_THEOREMS=True
-export MAX_PARALLEL_WORKERS=8
-python -m copra.main.run --config-name lean4_simple_experiment
-```
-
-**Example 3: Python 3.14t with free-threading**
-```bash
-# On Python 3.14t, this will automatically use threading
-conda activate py314-ft
-export ENABLE_PARALLEL_THEOREMS=True
-python -m copra.main.run --config-name lean4_simple_experiment
-```
-
-**Example 4: Conservative parallel execution**
-```bash
-# Use only 2 workers for resource-constrained systems
-export ENABLE_PARALLEL_THEOREMS=True
-export MAX_PARALLEL_WORKERS=2
-python -m copra.main.run --config-name lean4_simple_experiment
-```
-
-#### Performance Tips
-
-1. **Match workers to CPU cores:** Set `MAX_PARALLEL_WORKERS` to your number of physical CPU cores
-2. **Consider theorem complexity:** Complex theorems benefit more from parallelism
-3. **Monitor resources:** Watch CPU, memory, and I/O usage during execution
-4. **Service capacity:** Ensure LLM services can handle concurrent requests
-5. **Sequential for small sets:** Use sequential execution for fewer than 4 theorems (less overhead)
-
-#### Limitations
-
-- **Memory usage:** Parallel execution uses more memory (multiple processes/threads running simultaneously)
-- **Shared resources:** Services (Llama, Isabelle) must handle concurrent requests
-- **Time budget tracking:** Time budgets are tracked per-theorem, not globally across parallel executions
-
-#### Troubleshooting
-
-**Issue: Out of memory errors**
-- **Solution:** Reduce `MAX_PARALLEL_WORKERS` to `2` or `4`
-
-**Issue: Service connection errors**
-- **Solution:** Reduce parallel workers or use sequential execution for service-heavy workloads
-
-**Issue: Slower than sequential execution**
-- **Cause:** Small theorem sets, I/O-bound workloads, or limited CPU cores
-- **Solution:** Disable parallel execution or reduce worker count
+**Troubleshooting:** Reduce workers if you encounter memory/service errors.
 
 ---
+
+## Latest Evaluation Results (NEW!)
+
+You can find selected recent evaluation results here:
+- MiniF2F Test Lean 4 (v4.21.0) - GPT-OSS-20b (low reasoning tokens) (no retrieval):
+  - About 42.798% overall success rate on pass@5
+  - Solves 1 IMO problem (`imo_1959_p1`)
+  - Decent performance for low compute budget
+  - See logs: [execution_logs](docs/static/selected_results/gpt_oss_20b_evals_pass_at_5.log)
+
+
 
 ## Important Notes
 
