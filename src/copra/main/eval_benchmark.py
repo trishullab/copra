@@ -17,7 +17,6 @@ import time
 import math
 import typing
 
-from copra.gpts.llama_access import LlamaAccess, ServiceDownError
 from copra.main.config import (
     EnvSettings, EvalBenchmark, EvalDataset, EvalProofResults, EvalSettings,
     Experiments, EvalRunCheckpointInfo, PromptSettings, parse_config
@@ -118,19 +117,6 @@ def _initialize_services(
             logger.error(f"Failed to start vLLM server: {e}")
             raise
 
-    # Initialize Llama service if using non-OpenAI model (deprecated, prefer vLLM)
-    elif eval_settings.gpt_model_name is not None and \
-       len(eval_settings.gpt_model_name) != 0 and \
-       not model_supports_openai_api(eval_settings.gpt_model_name):
-        llama_logger = setup_logger(
-            __name__ + "_llama",
-            os.path.join(eval_checkpoint_info.logging_dirs[-1], "llama.log"),
-            logging.INFO,
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        LlamaAccess.class_init(eval_settings.gpt_model_name, eval_settings.temperature,
-                              debug=False, logger=llama_logger)
-
     # Initialize Isabelle service if needed
     if eval_benchmark.language == ProofAction.Language.ISABELLE:
         isabelle_logger = setup_logger(
@@ -173,12 +159,6 @@ def _shutdown_services(
             stop_server(_vllm_server_process)
             _vllm_server_process = None
             logging.getLogger(__name__).info("vLLM server stopped")
-
-    # Shutdown Llama service if it was initialized
-    elif eval_settings.gpt_model_name is not None and \
-       len(eval_settings.gpt_model_name) != 0 and \
-       not model_supports_openai_api(eval_settings.gpt_model_name):
-        LlamaAccess.class_kill()
 
     # Shutdown Isabelle service if it was initialized
     if eval_benchmark.language == ProofAction.Language.ISABELLE:
@@ -511,18 +491,6 @@ def _process_lemma(
                 _handle_proof_timeout(lemma_name, path, elapsed_time, no_proof_res, checkpoint_manager, attempt_idx)
                 logger.info(f"Dumping proof search result:\nProof FAILED for lemma: {lemma_name}\n")
                 should_retry = False
-            elif return_dict.get("service_down", False):
-                # Retry for service down
-                should_retry = True
-                logger.info("Killing the llama process")
-                LlamaAccess.class_kill()
-                logger.info("Killed the llama process")
-                logger.info("Restarting the llama process")
-                # Get llama logger from logs
-                llama_logger = logging.getLogger(__name__ + "_llama")
-                LlamaAccess.class_init(eval_settings.gpt_model_name,
-                                      eval_settings.temperature, debug=False, logger=llama_logger)
-                logger.info("Restarted the llama process")
 
         else:
             # Success case

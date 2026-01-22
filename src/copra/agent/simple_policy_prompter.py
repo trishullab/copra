@@ -12,7 +12,6 @@ import typing
 import logging
 from copra.agent.rate_limiter import RateLimiter
 from copra.gpts.gpt_access import GptAccess
-from copra.gpts.llama_access import LlamaAccess, ServiceDownError
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.tools.misc import model_supports_openai_api, is_vllm_model
 
@@ -74,10 +73,7 @@ class SimplePolicyPrompter(PolicyPrompter):
 
         # Initialize LLM access (GptAccess or LlamaAccess)
         # Note: vLLM models (with "vllm:" prefix) are handled by GptAccess
-        if not model_supports_openai_api(gpt_model_name):
-            self._gpt_access = LlamaAccess(gpt_model_name)
-        else:
-            self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
+        self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
 
         # Get model configuration
         # For vLLM models, use the generic "vllm" key in model_info
@@ -104,14 +100,11 @@ class SimplePolicyPrompter(PolicyPrompter):
 
     def __enter__(self):
         """Context manager entry - initialize LLM service if needed."""
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Context manager exit - cleanup LLM service if needed."""
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__exit__(exc_type, exc_value, traceback)
+        pass
 
     def add_to_history(self, message: typing.Dict[str, str]):
         """
