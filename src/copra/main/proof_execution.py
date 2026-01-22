@@ -13,7 +13,6 @@ import typing
 from typing import Dict, Any
 
 from copra.main.parallel_execution import get_executor
-from copra.gpts.llama_access import ServiceDownError
 from copra.agent.dfs_tree_search_with_stack import DFSTreeSearch
 from copra.agent.gpt_guided_tree_search_policy import GptGuidedTreeSearchPolicy
 from copra.agent.simple_proof_agent import ProofAgent
@@ -178,10 +177,6 @@ def _run_prover_wrapper(
             ret_dict["proof_res"] = proof_res
             ret_dict["attempted_success"] = True
             ret_dict["service_down"] = False
-    except ServiceDownError:
-        subprocess_logger.exception(f"ServiceDownError occurred while proving lemma: {lemma_name} in file {path}")
-        ret_dict["attempted_success"] = False
-        ret_dict["service_down"] = True
     except Exception:
         subprocess_logger.exception(f"Exception occurred while proving lemma: {lemma_name} in file {path}")
         ret_dict["attempted_success"] = False

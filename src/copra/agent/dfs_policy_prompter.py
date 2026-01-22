@@ -10,7 +10,6 @@ from itp_interface.rl.simple_proof_env import ProgressState
 from copra.agent.rate_limiter import InvalidActionException
 from copra.agent.simple_policy_prompter import SimplePolicyPrompter
 from copra.agent.gpt_guided_tree_search_policy import PromptSummary, ProofQInfo, TreeSearchAction, TreeSearchActionType
-from copra.gpts.llama_access import ServiceDownError
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequest, CoqGptRequestActions
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
@@ -327,10 +326,6 @@ class DfsCoqGptPolicyPrompter(SimplePolicyPrompter):
                     # don't change temperature for now
 
                 self._num_api_calls += 1
-            except ServiceDownError as e:
-                self.logger.info("Got a service down error. Will giveup until the docker container is restarted.")
-                self.logger.exception(e)
-                raise
             except Exception as e:
                 self.logger.info("Got an unknown exception. Retrying.")
                 self.logger.exception(e)
