@@ -8,12 +8,10 @@ from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.agent.rate_limiter import RateLimiter, InvalidActionException
 from copra.agent.gpt_guided_tree_search_policy import TreeSearchAction
 from copra.gpts.gpt_access import GptAccess
-from copra.gpts.llama_access import LlamaAccess
 from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
 from copra.baselines.gpt4.few_shot_grammar import FewShotGptRequest, FewShotGptRequestGrammar, FewShotGptResponse, FewShotGptResponseGrammar
-from copra.tools.misc import model_supports_openai_api
 
 class FewShotGptPolicyPrompter(PolicyPrompter):
     _cache: typing.Dict[str, typing.Any] = {}
@@ -43,10 +41,7 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         conv_messages = self.agent_grammar.get_openai_conv_messages(example_conv_prompt_path, "system")
         main_message = self.agent_grammar.get_openai_main_message(main_sys_prompt_path, "system")
         self.system_messages = [main_message] + conv_messages
-        if not model_supports_openai_api(gpt_model_name):
-            self._gpt_access = LlamaAccess(gpt_model_name)
-        else:
-            self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
+        self._gpt_access = GptAccess(secret_filepath=secret_filepath, model_name=gpt_model_name)
 
         # For vLLM models, use the generic "vllm" key for model info
         model_info_key = "vllm" if gpt_model_name.startswith("vllm:") else gpt_model_name
@@ -83,12 +78,10 @@ class FewShotGptPolicyPrompter(PolicyPrompter):
         pass
 
     def __enter__(self):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__enter__()
+        pass
     
     def __exit__(self, exc_type, exc_value, traceback):
-        if isinstance(self._gpt_access, LlamaAccess):
-            self._gpt_access.__exit__(exc_type, exc_value, traceback)
+        pass
 
     def _init_retriever(self):
         if FewShotGptPolicyPrompter._cache.get(self._training_data_path, None) is not None:

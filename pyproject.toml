@@ -10,7 +10,7 @@ packages = ["src/copra"]
 
 [project]
 name = "copra-theorem-prover"
-version = "1.5.0"
+version = "1.6.0"
 authors = [
   { name="Amitayush Thakur", email="amitayush@utexas.edu" },
 ]

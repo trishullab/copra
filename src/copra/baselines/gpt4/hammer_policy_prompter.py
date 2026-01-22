@@ -6,10 +6,7 @@ import logging
 from copra.retrieval.coq_bm25_reranker import CoqBM25TrainingDataRetriever
 from copra.prompt_generator.agent_grammar import CoqGPTResponseGrammar
 from copra.prompt_generator.gpt_request_grammar import CoqGPTRequestGrammar, CoqGptRequestActions
-from copra.agent.rate_limiter import RateLimiter
 from copra.agent.gpt_guided_tree_search_policy import TreeSearchAction, TreeSearchActionType
-from copra.gpts.gpt_access import GptAccess
-from copra.gpts.llama_access import LlamaAccess
 from itp_interface.rl.proof_action import ProofAction
 from copra.prompt_generator.prompter import PolicyPrompter
 from copra.prompt_generator.dfs_agent_grammar import DfsAgentGrammar
