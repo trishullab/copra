@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
-          conda create -n py314-ft python=3.14 python-freethreading -c conda-forge -y
+          conda create -n py314-ft python=3.14 python-freethreading pip -c conda-forge -y
 
       - name: Check Python version and GIL status
         shell: bash
