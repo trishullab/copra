@@ -14,6 +14,7 @@ class TestSimpleCopraRun(TestCase):
         # Parse hydra configs from src/copra/main/config
         # Initialize Hydra and compose the config
         os.environ["LEAN_VERSION"] = "4.21.0"
+        os.environ["ITP_DEP_PARSER_MEM_LIMIT"] = "0.9"  # CI runners have limited RAM; allow up to 90%
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         root_dir = os.path.dirname(parent_dir)
         full_path = os.path.join(root_dir, "src/copra/main/config")
