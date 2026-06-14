@@ -9,6 +9,8 @@ on:
 jobs:
   build-test-python314t:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -98,11 +100,6 @@ jobs:
             source $HOME/.elan/env
             pushd data/test/lean4_proj && lake build && popd
 
-      - name: Create secrets
-        run: |
-          mkdir -p .secrets
-          echo ${{ secrets.OPENAI }} | base64 -d > .secrets/openai_key.json
-
       - name: Run CI setup tests (sequential)
         shell: bash
         run: |
@@ -144,8 +141,3 @@ jobs:
           source $HOME/miniconda/bin/activate py314-ft
           echo "Python 3.14t parallel execution uses threading (not multiprocessing)"
           python -c "import sys; print(f'Python: {sys.version_info.major}.{sys.version_info.minor}'); print(f'GIL enabled: {sys._is_gil_enabled()}'); print(f'Free-threading: {not sys._is_gil_enabled()}')"
-
-      - name: Remove secrets
-        run: |
-          rm -rf .secrets
-          ls -la
