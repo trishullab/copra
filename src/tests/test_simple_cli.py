@@ -14,6 +14,7 @@ class TestSimpleCLI(TestCase):
         # Set Lean version to match test project (optional, defaults to 4.24.0)
         # The test project uses 4.21.0 (see data/test/lean4_proj/lean-toolchain)
         os.environ["LEAN_VERSION"] = "4.21.0"
+        os.environ["ITP_DEP_PARSER_MEM_LIMIT"] = "0.9"  # CI runners have limited RAM; allow up to 90%
 
         # Define test project paths
         cls.test_project = "data/test/lean4_proj"
