@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -66,13 +68,8 @@ jobs:
       - name: Build the lean project
         run: |
             source $HOME/.elan/env
-            pushd data/test/lean4_proj && lake build && popd
+            pushd data/test/lean4_proj && lake exe cache get && lake build && popd
 
-      - name: Create secrets
-        run: |
-          mkdir -p .secrets
-          echo ${{ secrets.OPENAI }} | base64 -d > .secrets/openai_key.json
- 
       - name: Run CI setup tests (sequential)
         run: |
           source $HOME/.elan/env
@@ -98,8 +95,3 @@ jobs:
           source $HOME/.elan/env
           export LEAN_VERSION="4.21.0"
           python src/tests/test_simple_cli.py
-
-      - name: Remove secrets
-        run: |
-          rm -rf .secrets
-          ls -la
