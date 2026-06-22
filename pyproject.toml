@@ -10,7 +10,7 @@ packages = ["src/copra"]
 
 [project]
 name = "copra-theorem-prover"
-version = "1.9.0"
+version = "1.10.0"
 authors = [
   { name="Amitayush Thakur", email="amitayush@utexas.edu" },
 ]
@@ -24,18 +24,18 @@ classifiers = [
 ]
 
 dependencies = [
-    "itp-interface>=1.9.0",
+    "itp-interface>=1.10.0",
     "openai>=1.99.1",
     "tiktoken>=0.12.0",  # Updated: 0.4.0 incompatible with Python 3.14t, needs PyO3 0.23+ for free-threading
     "sentencepiece>=0.2.0",  # Updated: 0.1.99 lacks Python 3.14t wheels, 0.2.1 has cp314t support
     "boto3==1.38.14",
     "numpy>=2.1.0",  # Added: Required for Python 3.14t free-threading support (PEP 703)
     "pydantic>=2.12.0",  # Added: Constrain to version with Python 3.14t support
-    "transformers>=4.48,<4.54; python_version >= '3.14'",  # stays compatible with older hub
-    "huggingface-hub>=0.30,<0.32; python_version >= '3.14'",  # stays compatible with older transformers
+    "transformers>=4.48; python_version >= '3.14'",  # stays compatible with older hub
+    "huggingface-hub>=0.30; python_version >= '3.14'",  # stays compatible with older transformers
     # on <=3.12 (or <3.13), allow new stack
     "transformers>=4.56; python_version < '3.13'",
-    "huggingface-hub>=0.34,<1.0; python_version < '3.13'",
+    "huggingface-hub>=0.34; python_version < '3.13'",
     "requests>=2.32.0",
 ]
 
