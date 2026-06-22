@@ -104,8 +104,6 @@ export PATH="/home/$USER/.elan/bin:$PATH"
 # Standard vLLM models (Llama, Mistral, DeepSeek, etc.)
 pip install copra-theorem-prover[os_models]
 
-# GPT-OSS-20b (custom vLLM build with reasoning token support)
-pip install copra-theorem-prover[gpt_oss]
 pip install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cu128
 # Adjust CUDA version (cu118, cu121, cu128) based on your GPU
 ```
